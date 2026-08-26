@@ -101,7 +101,7 @@ pub fn is_taskbar_window(hwnd: HWND, current_pid: u32) -> bool {
     }
 }
 
-pub(crate) fn hicon_to_base64_bmp(hicon: HICON) -> Option<String> {
+pub(crate) fn hicon_to_base64_png(hicon: HICON) -> Option<String> {
     if hicon.0.is_null() {
         return None;
     }
@@ -117,14 +117,14 @@ pub(crate) fn hicon_to_base64_bmp(hicon: HICON) -> Option<String> {
             return None;
         }
 
-        let width = 32i32;
-        let height = 32i32;
+        let width = 48i32;
+        let height = 48i32;
 
         let bmi = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {
                 biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
                 biWidth: width,
-                biHeight: -height,
+                biHeight: -height, // top-down
                 biPlanes: 1,
                 biBitCount: 32,
                 biCompression: BI_RGB.0,
@@ -138,7 +138,7 @@ pub(crate) fn hicon_to_base64_bmp(hicon: HICON) -> Option<String> {
         };
 
         let mut bits: *mut std::ffi::c_void = std::ptr::null_mut();
-        let hbitmap = CreateDIBSection(
+        let hbitmap_res = CreateDIBSection(
             Some(mem_dc),
             &bmi,
             DIB_RGB_COLORS,
@@ -147,10 +147,12 @@ pub(crate) fn hicon_to_base64_bmp(hicon: HICON) -> Option<String> {
             0,
         );
 
-        if let Ok(hbitmap) = hbitmap {
+        let result = if let Ok(hbitmap) = hbitmap_res {
             if !hbitmap.0.is_null() && !bits.is_null() {
                 let old_bm = SelectObject(mem_dc, hbitmap.into());
-                std::ptr::write_bytes(bits as *mut u8, 0, (width * height * 4) as usize);
+
+                // Clear to transparent black
+                std::ptr::write_bytes(bits as *mut u8, 0u8, (width * height * 4) as usize);
 
                 let _ = DrawIconEx(
                     mem_dc,
@@ -164,48 +166,56 @@ pub(crate) fn hicon_to_base64_bmp(hicon: HICON) -> Option<String> {
                     DI_NORMAL,
                 );
 
-                let pixel_data =
-                    std::slice::from_raw_parts(bits as *const u8, (width * height * 4) as usize);
+                // GDI DIB stores pixels as BGRA — convert to RGBA for PNG
+                let pixel_slice =
+                    std::slice::from_raw_parts_mut(bits as *mut u8, (width * height * 4) as usize);
 
-                let file_header_size = 14u32;
-                let info_header_size = 40u32;
-                let image_size = (width * height * 4) as u32;
-                let file_size = file_header_size + info_header_size + image_size;
+                // Swap B and R channels: [B, G, R, A] -> [R, G, B, A]
+                for px in pixel_slice.chunks_exact_mut(4) {
+                    px.swap(0, 2); // B <-> R
+                }
 
-                let mut bmp_bytes = Vec::with_capacity(file_size as usize);
-                bmp_bytes.extend_from_slice(b"BM");
-                bmp_bytes.extend_from_slice(&file_size.to_le_bytes());
-                bmp_bytes.extend_from_slice(&0u32.to_le_bytes());
-                bmp_bytes.extend_from_slice(&(file_header_size + info_header_size).to_le_bytes());
+                // Encode as PNG using image crate
+                let img_buf = image::RgbaImage::from_raw(
+                    width as u32,
+                    height as u32,
+                    pixel_slice.to_vec(),
+                );
 
-                bmp_bytes.extend_from_slice(&info_header_size.to_le_bytes());
-                bmp_bytes.extend_from_slice(&width.to_le_bytes());
-                bmp_bytes.extend_from_slice(&(-height).to_le_bytes());
-                bmp_bytes.extend_from_slice(&1u16.to_le_bytes());
-                bmp_bytes.extend_from_slice(&32u16.to_le_bytes());
-                bmp_bytes.extend_from_slice(&0u32.to_le_bytes());
-                bmp_bytes.extend_from_slice(&image_size.to_le_bytes());
-                bmp_bytes.extend_from_slice(&0u32.to_le_bytes());
-                bmp_bytes.extend_from_slice(&0u32.to_le_bytes());
-                bmp_bytes.extend_from_slice(&0u32.to_le_bytes());
-                bmp_bytes.extend_from_slice(&0u32.to_le_bytes());
-
-                bmp_bytes.extend_from_slice(pixel_data);
+                let png_result = img_buf.and_then(|img| {
+                    let mut png_bytes: Vec<u8> = Vec::new();
+                    let encoder = image::codecs::png::PngEncoder::new(&mut png_bytes);
+                    img.write_with_encoder(encoder).ok()?;
+                    Some(png_bytes)
+                });
 
                 let _ = SelectObject(mem_dc, old_bm);
                 let _ = DeleteObject(hbitmap.into());
-                let _ = DeleteDC(mem_dc);
 
-                use base64::Engine;
-                let b64 = base64::engine::general_purpose::STANDARD.encode(&bmp_bytes);
-                return Some(format!("data:image/bmp;base64,{}", b64));
+                if let Some(png_bytes) = png_result {
+                    use base64::Engine;
+                    let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
+                    Some(format!("data:image/png;base64,{}", b64))
+                } else {
+                    None
+                }
+            } else {
+                None
             }
-        }
+        } else {
+            None
+        };
 
         let _ = DeleteDC(mem_dc);
-        None
+        result
     }
 }
+
+// Keep old name as alias for compatibility
+pub(crate) fn hicon_to_base64_bmp(hicon: HICON) -> Option<String> {
+    hicon_to_base64_png(hicon)
+}
+
 
 fn get_window_icon(hwnd: HWND, exe_path: &str) -> String {
     unsafe {

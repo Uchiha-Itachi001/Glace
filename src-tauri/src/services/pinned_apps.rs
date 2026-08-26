@@ -130,23 +130,48 @@ pub fn scan_windows_taskbar_pins() -> Vec<PinnedApp> {
     pinned
 }
 
-/// Returns the currently active list of pinned apps (saved or auto-scanned)
+/// Returns the currently active list of pinned apps.
+/// Always re-scans Windows TaskBar pins so newly pinned apps appear automatically.
 pub fn get_pinned_apps() -> Vec<PinnedApp> {
     let mut cfg = settings::load();
-    if !cfg.pinned_apps.is_empty() {
-        return cfg.pinned_apps;
+
+    // Always re-scan native Windows TaskBar pins
+    let mut scanned = scan_windows_taskbar_pins();
+
+    // Merge: for each Windows pin, check if we have a saved user customization
+    // (user may have re-ordered or added extra icon_b64 override)
+    for scanned_app in &mut scanned {
+        if let Some(saved) = cfg
+            .pinned_apps
+            .iter()
+            .find(|p| p.id == scanned_app.id || p.exe.eq_ignore_ascii_case(&scanned_app.exe))
+        {
+            // Preserve custom icon override if any
+            if !saved.icon_b64.is_empty() && !saved.icon_b64.starts_with("data:image/png") {
+                // saved icon was old BMP, prefer freshly scanned PNG
+            } else if !saved.icon_b64.is_empty() {
+                scanned_app.icon_b64 = saved.icon_b64.clone();
+            }
+        }
     }
 
-    // Auto-discover from Windows Taskbar on first run
-    let scanned = scan_windows_taskbar_pins();
-    if !scanned.is_empty() {
-        cfg.pinned_apps = scanned.clone();
-        settings::save(&cfg);
-        return scanned;
+    // Append any extra user-added pins that aren't Windows shortcuts
+    for saved in &cfg.pinned_apps {
+        let already_present = scanned.iter().any(|s| {
+            s.id == saved.id || s.exe.eq_ignore_ascii_case(&saved.exe)
+        });
+        if !already_present {
+            scanned.push(saved.clone());
+        }
     }
 
-    Vec::new()
+    // Persist the merged list
+    cfg.pinned_apps = scanned.clone();
+    settings::save(&cfg);
+
+    scanned
 }
+
 
 /// Pins an application to Glace taskbar
 pub fn pin_app(app: PinnedApp) -> Result<(), String> {
