@@ -65,6 +65,7 @@ export interface DockAppItem {
   is_minimized: boolean;
   hwnd?: number;
   lnk_path?: string;
+  windows?: WindowInfo[];
 }
 
 export interface Settings {

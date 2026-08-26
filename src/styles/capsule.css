@@ -388,21 +388,34 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 38px;
-  width: 44px;
+  height: 36px;
+  width: 40px;
   cursor: pointer;
-  border-radius: var(--glace-radius-sm);
-  transition: background var(--glace-duration-fast) var(--glace-ease-smooth),
-              transform var(--glace-duration-fast) var(--glace-ease-spring);
+  border-radius: 6px;
+  position: relative;
+  transition: background 0.12s ease;
 }
 
 .app-icon-container:hover {
-  background: var(--glace-bg-hover);
-  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .app-icon-container:active {
-  transform: translateY(0) scale(0.92);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Stacked double card plate for multiple instances */
+.app-icon-stack-plate {
+  position: absolute;
+  top: 3px;
+  right: 1px;
+  bottom: 3px;
+  left: 5px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 0;
+  pointer-events: none;
 }
 
 .app-icon-body {
@@ -411,14 +424,15 @@ html, body {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: var(--glace-radius-icon);
+  position: relative;
+  z-index: 1;
 }
 
 .app-icon-img {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
 }
 
 .app-icon-fallback {
@@ -437,83 +451,162 @@ html, body {
 
 /* Focus & State Indicators */
 .app-icon--focused {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.app-icon--focused .app-icon-body {
-  filter: drop-shadow(0 0 10px var(--glace-accent-glow));
+.app-icon--focused:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .open-indicator {
   position: absolute;
-  bottom: 1px;
-  width: 5px;
-  height: 2.5px;
+  bottom: 2px;
+  width: 6px;
+  height: 3px;
   border-radius: 2px;
-  background: var(--glace-text-secondary);
-  opacity: 0.7;
+  background: rgba(255, 255, 255, 0.55);
+  z-index: 2;
 }
 
 .active-indicator {
   position: absolute;
-  bottom: 1px;
+  bottom: 2px;
   width: 16px;
-  height: 2.5px;
+  height: 3px;
   border-radius: 2px;
   background: var(--glace-accent);
   box-shadow: 0 0 8px var(--glace-accent-glow);
+  z-index: 2;
 }
 
-/* ─── Tooltip ───────────────────────────────────────────────────────── */
-.app-icon-tooltip {
+/* ─── Fluent Hover Flyout & Tooltips ────────────────────────────────── */
+.fluent-dock-preview-container {
   position: absolute;
-  bottom: 54px;
+  bottom: 46px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(8, 14, 26, 0.95);
-  backdrop-filter: var(--glace-blur);
-  -webkit-backdrop-filter: var(--glace-blur);
-  border: 1px solid var(--glace-border);
-  padding: 6px 12px;
-  border-radius: 10px;
-  box-shadow: var(--glace-shadow);
+  z-index: 1000;
+  pointer-events: auto;
+  animation: fluentFlyoutFade 0.12s ease-out;
+}
+
+@keyframes fluentFlyoutFade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.fluent-simple-tooltip {
+  background: rgba(28, 28, 28, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 5px 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   white-space: nowrap;
-  pointer-events: none;
-  z-index: 100;
+}
+
+.fluent-simple-tooltip-text {
+  font-size: 12px;
+  font-weight: 400;
+  color: #ffffff;
+  letter-spacing: 0.1px;
+}
+
+.fluent-window-cards-row {
+  display: flex;
+  gap: 6px;
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+.fluent-window-card {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  width: 170px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 7px 9px;
+  cursor: pointer;
+  transition: all 0.12s ease;
 }
 
-.tooltip-title {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--glace-text-primary);
-  max-width: 240px;
+.fluent-window-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.fluent-window-card--focused {
+  border-color: var(--glace-accent);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fluent-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fluent-card-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.fluent-card-icon-fallback {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.fluent-card-title {
+  flex: 1;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: #ffffff;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
 }
 
-.tooltip-exe {
-  font-size: 10px;
-  color: var(--glace-text-secondary);
-}
-
-.tooltip-badge {
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--glace-accent);
-  background: var(--glace-accent-dim);
-  padding: 1px 5px;
+.fluent-card-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   border-radius: 4px;
-  align-self: flex-start;
-  margin-top: 2px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  flex-shrink: 0;
+}
+
+.fluent-card-close-btn:hover {
+  background: rgba(239, 68, 68, 0.85);
+  color: #ffffff;
 }
 
 .app-icon--idle {
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .app-icon--idle:hover {

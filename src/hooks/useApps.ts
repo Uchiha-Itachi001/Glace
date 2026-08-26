@@ -82,31 +82,34 @@ export function useApps() {
     };
   }, []);
 
-  // Construct unified dock items
+  // Construct unified dock items with multi-window grouping
   const dockApps = useMemo<DockAppItem[]>(() => {
     const items: DockAppItem[] = [];
     const matchedHwnds = new Set<number>();
 
     // 1. Process all pinned apps in order
     for (const pinned of pinnedApps) {
-      // Find matching running window
-      const matchedWin = windows.find(
+      // Find ALL matching running windows for this pinned app
+      const matchedWins = windows.filter(
         (w) => !matchedHwnds.has(w.hwnd) && doesWindowMatchPinned(w, pinned)
       );
 
-      if (matchedWin) {
-        matchedHwnds.add(matchedWin.hwnd);
+      if (matchedWins.length > 0) {
+        matchedWins.forEach((w) => matchedHwnds.add(w.hwnd));
+        const activeWin = matchedWins.find((w) => w.is_focused) || matchedWins[0];
+
         items.push({
           id: pinned.id,
-          title: matchedWin.title || pinned.title,
-          exe: matchedWin.exe || pinned.exe,
-          icon_b64: matchedWin.icon_b64 || pinned.icon_b64,
+          title: activeWin.title || pinned.title,
+          exe: activeWin.exe || pinned.exe,
+          icon_b64: activeWin.icon_b64 || pinned.icon_b64,
           is_pinned: true,
           is_running: true,
-          is_focused: matchedWin.is_focused,
-          is_minimized: matchedWin.is_minimized,
-          hwnd: matchedWin.hwnd,
+          is_focused: matchedWins.some((w) => w.is_focused),
+          is_minimized: matchedWins.every((w) => w.is_minimized),
+          hwnd: activeWin.hwnd,
           lnk_path: pinned.lnk_path,
+          windows: matchedWins,
         });
       } else {
         items.push({
@@ -119,26 +122,38 @@ export function useApps() {
           is_focused: false,
           is_minimized: false,
           lnk_path: pinned.lnk_path,
+          windows: [],
         });
       }
     }
 
-    // 2. Process remaining running windows (new/unpinned open apps)
-    for (const win of windows) {
-      if (!matchedHwnds.has(win.hwnd)) {
-        const id = `running-${win.hwnd}`;
-        items.push({
-          id,
-          title: win.title,
-          exe: win.exe,
-          icon_b64: win.icon_b64,
-          is_pinned: false,
-          is_running: true,
-          is_focused: win.is_focused,
-          is_minimized: win.is_minimized,
-          hwnd: win.hwnd,
-        });
-      }
+    // 2. Process remaining running windows (group by exe/title)
+    const remainingWins = windows.filter((w) => !matchedHwnds.has(w.hwnd));
+    const groupedByExe = new Map<string, WindowInfo[]>();
+
+    for (const win of remainingWins) {
+      const key = (win.exe || win.title || `hwnd-${win.hwnd}`).toLowerCase();
+      const list = groupedByExe.get(key) || [];
+      list.push(win);
+      groupedByExe.set(key, list);
+    }
+
+    for (const wins of groupedByExe.values()) {
+      const activeWin = wins.find((w) => w.is_focused) || wins[0];
+      const id = `running-${activeWin.hwnd}`;
+
+      items.push({
+        id,
+        title: activeWin.title,
+        exe: activeWin.exe,
+        icon_b64: activeWin.icon_b64,
+        is_pinned: false,
+        is_running: true,
+        is_focused: wins.some((w) => w.is_focused),
+        is_minimized: wins.every((w) => w.is_minimized),
+        hwnd: activeWin.hwnd,
+        windows: wins,
+      });
     }
 
     return items;

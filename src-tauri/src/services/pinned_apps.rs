@@ -1,17 +1,53 @@
 use std::fs;
 use std::path::PathBuf;
-use windows::core::PCWSTR;
-use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
+use windows::core::{Interface, PCWSTR};
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
+    IPersistFile, STGM_READ,
+};
+use windows::Win32::UI::Shell::{IShellLinkW, ShellLink, SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
 use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
 
 use crate::config::settings;
 use crate::models::types::PinnedApp;
-use crate::services::window_watcher::hicon_to_base64_bmp;
+use crate::services::window_watcher::hicon_to_base64_png;
 
-/// Extract high-res icon from a .lnk or .exe file path and encode as base64 BMP data URL
-pub fn extract_icon_from_path(path: &str) -> String {
+/// Resolves a .lnk shortcut file to its real target path (e.g. C:\...\brave.exe)
+pub fn resolve_shortcut_target(lnk_path: &str) -> Option<String> {
     unsafe {
-        let path_w: Vec<u16> = path.encode_utf16().chain(std::iter::once(0)).collect();
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        let shell_link: Result<IShellLinkW, _> = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER);
+        if let Ok(link) = shell_link {
+            if let Ok(persist_file) = link.cast::<IPersistFile>() {
+                let lnk_path_w: Vec<u16> = lnk_path.encode_utf16().chain(std::iter::once(0)).collect();
+                if persist_file.Load(PCWSTR(lnk_path_w.as_ptr()), STGM_READ).is_ok() {
+                    let mut path_buf = [0u16; 1024];
+                    let mut find_data = windows::Win32::Storage::FileSystem::WIN32_FIND_DATAW::default();
+                    if link.GetPath(&mut path_buf, &mut find_data, 0).is_ok() {
+                        let len = path_buf.iter().position(|&c| c == 0).unwrap_or(path_buf.len());
+                        let target = String::from_utf16_lossy(&path_buf[..len]);
+                        if !target.is_empty() && PathBuf::from(&target).exists() {
+                            return Some(target);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Extract high-res icon from a .lnk or .exe file path and encode as transparent base64 PNG
+pub fn extract_icon_from_path(path: &str) -> String {
+    // If it's a .lnk file, try to resolve the actual executable target to avoid the shortcut arrow badge
+    let target_path = if path.to_lowercase().ends_with(".lnk") {
+        resolve_shortcut_target(path).unwrap_or_else(|| path.to_string())
+    } else {
+        path.to_string()
+    };
+
+    unsafe {
+        let path_w: Vec<u16> = target_path.encode_utf16().chain(std::iter::once(0)).collect();
         let mut shfi = SHFILEINFOW::default();
         let res = SHGetFileInfoW(
             PCWSTR(path_w.as_ptr()),
@@ -21,7 +57,7 @@ pub fn extract_icon_from_path(path: &str) -> String {
             SHGFI_ICON | SHGFI_LARGEICON,
         );
         if res != 0 && !shfi.hIcon.0.is_null() {
-            let b64 = hicon_to_base64_bmp(shfi.hIcon);
+            let b64 = hicon_to_base64_png(shfi.hIcon);
             let _ = DestroyIcon(shfi.hIcon);
             if let Some(b64) = b64 {
                 return b64;
