@@ -73,6 +73,30 @@ export const tauriBridge = {
     }
   },
 
+  openQuickSettings: async (): Promise<void> => {
+    try {
+      await invoke("open_quick_settings");
+    } catch (e) {
+      console.error("openQuickSettings error:", e);
+    }
+  },
+
+  openCalendarNotifications: async (): Promise<void> => {
+    try {
+      await invoke("open_calendar_notifications");
+    } catch (e) {
+      console.error("openCalendarNotifications error:", e);
+    }
+  },
+
+  openWindowsSettings: async (): Promise<void> => {
+    try {
+      await invoke("open_windows_settings");
+    } catch (e) {
+      console.error("openWindowsSettings error:", e);
+    }
+  },
+
   launchApp: async (cmd: string): Promise<void> => {
     try {
       await invoke("launch_app", { cmd });

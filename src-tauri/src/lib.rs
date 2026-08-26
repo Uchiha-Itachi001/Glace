@@ -22,8 +22,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::taskbar::hide_native_taskbar,
-            commands::taskbar::restore_native_taskbar,
             commands::taskbar::open_start_menu,
+            commands::taskbar::open_quick_settings,
+            commands::taskbar::open_calendar_notifications,
+            commands::taskbar::open_windows_settings,
             commands::taskbar::launch_app,
             commands::taskbar::power_action,
             commands::windows::get_open_windows,

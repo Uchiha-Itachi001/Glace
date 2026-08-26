@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { useFlyout } from "../../stores/flyoutStore";
+import { tauriBridge } from "../../services/tauriBridge";
 
 export const ClockCapsule: React.FC = () => {
   const [time, setTime] = useState<string>("");
   const [date, setDate] = useState<string>("");
-  const { activeFlyout, toggleFlyout } = useFlyout();
-  const isCalendarOpen = activeFlyout === "calendar";
 
   useEffect(() => {
     const update = () => {
@@ -31,16 +29,17 @@ export const ClockCapsule: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Directly opens the native Windows Notification Center & Calendar Flyout (Win + N)
+    tauriBridge.openCalendarNotifications().catch(console.error);
+  };
+
   return (
     <div
-      className={`capsule capsule--compact clock-capsule icon-hover ${
-        isCalendarOpen ? "clock-capsule--active" : ""
-      }`}
-      onClick={(e) => {
-        e.stopPropagation();
-        toggleFlyout("calendar", 450);
-      }}
-      title="Click to view Calendar"
+      className="capsule capsule--compact clock-capsule icon-hover"
+      onClick={handleClick}
+      title="Notification Center & Calendar (Win + N)"
     >
       <div className="clock-content">
         <span className="clock-time">{time}</span>
