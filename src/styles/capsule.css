@@ -116,9 +116,17 @@ html, body {
 /* ─── Start Capsule ─────────────────────────────────────────────────── */
 .start-capsule {
   cursor: pointer;
-  padding: 0 16px;
+  width: var(--glace-bar-height);
+  height: var(--glace-bar-height);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
   background: rgba(16, 185, 129, 0.12);
   border-color: rgba(16, 185, 129, 0.35);
+  border-radius: var(--glace-radius-capsule);
 }
 
 .start-capsule:hover,
@@ -712,11 +720,39 @@ html, body {
 }
 
 /* ─── Fluent Windows 11 Taskbar JumpList Context Menu ───────────────── */
+.jumplist-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  z-index: 9990;
+  pointer-events: auto;
+}
+
+.apps-capsule {
+  position: relative;
+  z-index: 10001;
+}
+
+@keyframes jumplist-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.94) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) translateY(0);
+  }
+}
+
 .fluent-jumplist {
   position: absolute;
-  bottom: 50px;
+  bottom: 48px;
   left: 50%;
   transform: translateX(-50%);
+  transform-origin: bottom center;
+  animation: jumplist-in 0.14s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   background: rgba(26, 28, 34, 0.96);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
@@ -724,13 +760,14 @@ html, body {
   border-radius: 10px;
   padding: 6px;
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.75), 0 0 1px rgba(255, 255, 255, 0.2);
-  z-index: 9999;
+  z-index: 10005;
   min-width: 210px;
   max-width: 280px;
   display: flex;
   flex-direction: column;
   gap: 2px;
   box-sizing: border-box;
+  pointer-events: auto;
 }
 
 .jumplist-header-label {

@@ -60,6 +60,7 @@ pub fn run() {
             commands::windows::focus_window,
             commands::windows::minimize_window,
             commands::windows::close_window,
+            commands::windows::terminate_window_process,
             commands::windows::snap_window,
             commands::windows::set_window_height,
             commands::windows::get_window_thumbnail,

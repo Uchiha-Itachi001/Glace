@@ -15,7 +15,7 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::System::ProcessStatus::K32GetModuleFileNameExW;
 use windows::Win32::System::Threading::{
     AttachThreadInput, GetCurrentProcessId, GetCurrentThreadId, OpenProcess,
-    PROCESS_QUERY_LIMITED_INFORMATION,
+    PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, TerminateProcess,
 };
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::UI::Shell::{
@@ -219,26 +219,70 @@ pub(crate) fn hicon_to_base64_png(hicon: HICON) -> Option<String> {
 
 
 fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
-    let cache_key = if !exe_path.is_empty() {
-        exe_path
-    } else {
-        exe_name
-    };
+    unsafe {
+        let mut found_b64: Option<String> = None;
 
-    if !cache_key.is_empty() {
-        if let Ok(guard) = ICON_CACHE.lock() {
-            if let Some(cache) = guard.as_ref() {
-                if let Some(cached) = cache.get(cache_key) {
-                    return cached.clone();
+        // 1. First query live HWND for its specific icon (crucial for PWAs like YouTube Music, Notion, Discord)
+        if !hwnd.0.is_null() {
+            for icon_type in [1usize, 2, 0] {
+                let mut result: usize = 0;
+                let res = SendMessageTimeoutW(
+                    hwnd,
+                    WM_GETICON,
+                    WPARAM(icon_type),
+                    LPARAM(0),
+                    SMTO_ABORTIFHUNG,
+                    8,
+                    Some(&mut result),
+                );
+                if res.0 != 0 && result != 0 {
+                    let hicon = HICON(result as *mut _);
+                    found_b64 = hicon_to_base64_png(hicon);
+                    if found_b64.is_some() {
+                        break;
+                    }
+                }
+            }
+
+            if found_b64.is_none() {
+                let icon_lg = GetClassLongPtrW(hwnd, GCLP_HICON);
+                if icon_lg != 0 {
+                    let hicon = HICON(icon_lg as *mut _);
+                    found_b64 = hicon_to_base64_png(hicon);
+                }
+            }
+
+            if found_b64.is_none() {
+                let icon_sm = GetClassLongPtrW(hwnd, GCLP_HICONSM);
+                if icon_sm != 0 {
+                    let hicon = HICON(icon_sm as *mut _);
+                    found_b64 = hicon_to_base64_png(hicon);
                 }
             }
         }
-    }
 
-    let b64 = unsafe {
-        let mut found_b64: Option<String> = None;
+        if let Some(b64) = found_b64 {
+            return b64;
+        }
 
-        // 1. Extract from executable file path (very fast, doesn't touch window thread)
+        // 2. Check in-memory icon cache for standard executable path
+        let cache_key = if !exe_path.is_empty() {
+            exe_path
+        } else {
+            exe_name
+        };
+
+        if !cache_key.is_empty() {
+            if let Ok(guard) = ICON_CACHE.lock() {
+                if let Some(cache) = guard.as_ref() {
+                    if let Some(cached) = cache.get(cache_key) {
+                        return cached.clone();
+                    }
+                }
+            }
+        }
+
+        // 3. Fallback: Extract from executable file path
         if !exe_path.is_empty() {
             let exe_w: Vec<u16> = exe_path.encode_utf16().chain(std::iter::once(0)).collect();
             let mut large_icon = HICON::default();
@@ -281,57 +325,17 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
             }
         }
 
-        // 2. Class icons (GCLP_HICONSM & GCLP_HICON)
-        if found_b64.is_none() {
-            let icon_sm = GetClassLongPtrW(hwnd, GCLP_HICONSM);
-            if icon_sm != 0 {
-                let hicon = HICON(icon_sm as *mut _);
-                found_b64 = hicon_to_base64_png(hicon);
+        let b64_final = found_b64.unwrap_or_default();
+
+        if !b64_final.is_empty() && !cache_key.is_empty() {
+            if let Ok(mut guard) = ICON_CACHE.lock() {
+                let cache = guard.get_or_insert_with(HashMap::new);
+                cache.insert(cache_key.to_string(), b64_final.clone());
             }
         }
 
-        if found_b64.is_none() {
-            let icon_lg = GetClassLongPtrW(hwnd, GCLP_HICON);
-            if icon_lg != 0 {
-                let hicon = HICON(icon_lg as *mut _);
-                found_b64 = hicon_to_base64_png(hicon);
-            }
-        }
-
-        // 3. Fallback: WM_GETICON with strict 5ms timeout to never stall target app
-        if found_b64.is_none() {
-            for icon_type in [0usize, 2, 1] {
-                let mut result: usize = 0;
-                let res = SendMessageTimeoutW(
-                    hwnd,
-                    WM_GETICON,
-                    WPARAM(icon_type),
-                    LPARAM(0),
-                    SMTO_ABORTIFHUNG,
-                    5,
-                    Some(&mut result),
-                );
-                if res.0 != 0 && result != 0 {
-                    let hicon = HICON(result as *mut _);
-                    found_b64 = hicon_to_base64_png(hicon);
-                    if found_b64.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
-
-        found_b64.unwrap_or_default()
-    };
-
-    if !b64.is_empty() && !cache_key.is_empty() {
-        if let Ok(mut guard) = ICON_CACHE.lock() {
-            let cache = guard.get_or_insert_with(HashMap::new);
-            cache.insert(cache_key.to_string(), b64.clone());
-        }
+        b64_final
     }
-
-    b64
 }
 
 fn get_window_exe_path(hwnd: HWND) -> (String, String) {
@@ -542,6 +546,24 @@ pub fn close_window(hwnd_val: u64) {
     unsafe {
         if IsWindow(Some(hwnd)).as_bool() {
             let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+        }
+    }
+}
+
+pub fn terminate_window_process(hwnd_val: u64) {
+    let hwnd = HWND(hwnd_val as *mut _);
+    unsafe {
+        if IsWindow(Some(hwnd)).as_bool() {
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(hwnd, Some(&mut pid));
+            if pid != 0 {
+                if let Ok(process) = OpenProcess(PROCESS_TERMINATE, false, pid) {
+                    if !process.0.is_null() {
+                        let _ = TerminateProcess(process, 1);
+                        let _ = windows::Win32::Foundation::CloseHandle(process);
+                    }
+                }
+            }
         }
     }
 }

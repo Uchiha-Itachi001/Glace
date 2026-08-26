@@ -36,6 +36,14 @@ export const tauriBridge = {
     }
   },
 
+  terminateWindowProcess: async (hwnd: number): Promise<void> => {
+    try {
+      await invoke("terminate_window_process", { hwnd });
+    } catch (e) {
+      console.error("terminateWindowProcess error:", e);
+    }
+  },
+
   snapWindow: async (
     hwnd: number,
     position:

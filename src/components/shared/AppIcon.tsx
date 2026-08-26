@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React from "react";
 import { DockAppItem } from "../../types";
 import { WindowContextMenu } from "./WindowContextMenu";
 import { tauriBridge } from "../../services/tauriBridge";
@@ -8,14 +8,29 @@ interface AppIconProps {
   onClick: (app: DockAppItem) => void;
   onPin?: (app: DockAppItem) => void;
   onUnpin?: (id: string) => void;
+  isHovered?: boolean;
+  isContextMenuOpen?: boolean;
+  isAnyContextMenuOpen?: boolean;
+  onHoverStart?: () => void;
+  onHoverEnd?: () => void;
+  onOpenContextMenu?: () => void;
+  onCloseContextMenu?: () => void;
 }
 
 export const AppIcon = React.memo<AppIconProps>(
-  ({ app, onClick, onPin, onUnpin }) => {
-    const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
-    const [isHovered, setIsHovered] = useState(false);
-    const hoverTimeoutRef = useRef<number | null>(null);
-
+  ({
+    app,
+    onClick,
+    onPin,
+    onUnpin,
+    isHovered = false,
+    isContextMenuOpen = false,
+    isAnyContextMenuOpen = false,
+    onHoverStart,
+    onHoverEnd,
+    onOpenContextMenu,
+    onCloseContextMenu,
+  }) => {
     const windowList =
       app.windows && app.windows.length > 0
         ? app.windows
@@ -35,41 +50,34 @@ export const AppIcon = React.memo<AppIconProps>(
     const hasMultipleWindows = windowList.length > 1;
 
     const handleMouseEnter = () => {
-      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-      setIsHovered(true);
-      // Expand region slightly for floating tooltip
-      tauriBridge.setWindowHeight(true, 80).catch(console.error);
+      if (onHoverStart) onHoverStart();
     };
 
     const handleMouseLeave = () => {
-      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = window.setTimeout(() => {
-        setIsHovered(false);
-        if (!contextMenuPos) {
-          tauriBridge.setWindowHeight(false).catch(console.error);
-        }
-      }, 100);
+      if (onHoverEnd) onHoverEnd();
     };
 
     const handleClick = (e: React.MouseEvent) => {
       e.stopPropagation();
-      setContextMenuPos(null);
-      setIsHovered(false);
-      tauriBridge.setWindowHeight(false).catch(console.error);
       onClick(app);
+    };
+
+    const handleWindowCardClick = (e: React.MouseEvent, hwnd: number) => {
+      e.stopPropagation();
+      tauriBridge.focusWindow(hwnd).catch(console.error);
+    };
+
+    const handleCloseWindow = (e: React.MouseEvent, hwnd: number) => {
+      e.stopPropagation();
+      tauriBridge.closeWindow(hwnd).catch(console.error);
     };
 
     const handleContextMenu = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setIsHovered(false);
-      setContextMenuPos({ x: e.clientX, y: e.clientY });
-      tauriBridge.setWindowHeight(true, 360).catch(console.error);
-    };
-
-    const handleCloseContextMenu = () => {
-      setContextMenuPos(null);
-      tauriBridge.setWindowHeight(false).catch(console.error);
+      if (onOpenContextMenu) {
+        onOpenContextMenu();
+      }
     };
 
     return (
@@ -130,24 +138,65 @@ export const AppIcon = React.memo<AppIconProps>(
           <div className="open-indicator" />
         ) : null}
 
-        {/* Clean Floating Tooltip Pill */}
-        {isHovered && !contextMenuPos && (
+        {/* Hover Previews & Tooltips (Suppressed if any context menu is open) */}
+        {isHovered && !isAnyContextMenuOpen && (
           <div
             className="fluent-dock-preview-container"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="fluent-simple-tooltip">
-              <span className="fluent-simple-tooltip-text">{app.title}</span>
-            </div>
+            {hasMultipleWindows ? (
+              <div className="fluent-window-cards-row">
+                {windowList.map((win) => (
+                  <div
+                    key={win.hwnd}
+                    className={`fluent-window-card ${
+                      win.is_focused ? "fluent-window-card--focused" : ""
+                    }`}
+                    onClick={(e) => handleWindowCardClick(e, win.hwnd)}
+                  >
+                    <div className="fluent-card-header">
+                      {win.icon_b64 ? (
+                        <img src={win.icon_b64} alt="" className="fluent-card-icon" />
+                      ) : (
+                        <div className="fluent-card-icon-fallback" />
+                      )}
+                      <span className="fluent-card-title">{win.title}</span>
+                      <button
+                        className="fluent-card-close-btn"
+                        title="Close window"
+                        onClick={(e) => handleCloseWindow(e, win.hwnd)}
+                      >
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="fluent-simple-tooltip">
+                <span className="fluent-simple-tooltip-text">{app.title}</span>
+              </div>
+            )}
           </div>
         )}
 
         {/* Right-click Context Menu */}
-        {contextMenuPos && (
+        {isContextMenuOpen && (
           <WindowContextMenu
             item={app}
-            x={contextMenuPos.x}
-            onClose={handleCloseContextMenu}
+            onClose={onCloseContextMenu || (() => {})}
             onPin={onPin}
             onUnpin={onUnpin}
           />
@@ -158,6 +207,9 @@ export const AppIcon = React.memo<AppIconProps>(
   (prev, next) => {
     return (
       prev.app.id === next.app.id &&
+      prev.isHovered === next.isHovered &&
+      prev.isContextMenuOpen === next.isContextMenuOpen &&
+      prev.isAnyContextMenuOpen === next.isAnyContextMenuOpen &&
       prev.app.is_focused === next.app.is_focused &&
       prev.app.is_minimized === next.app.is_minimized &&
       prev.app.is_running === next.app.is_running &&

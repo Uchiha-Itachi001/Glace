@@ -22,6 +22,11 @@ pub fn close_window(hwnd: u64) {
 }
 
 #[tauri::command]
+pub fn terminate_window_process(hwnd: u64) {
+    window_watcher::terminate_window_process(hwnd);
+}
+
+#[tauri::command]
 pub fn snap_window(hwnd: u64, position: String) {
     window_watcher::snap_window(hwnd, &position);
 }

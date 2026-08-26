@@ -9,6 +9,17 @@ function normalizeName(name: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+function isPwaWindow(win: WindowInfo): boolean {
+  const isBrowser = /chrome\.exe|msedge\.exe|brave\.exe|vivaldi\.exe/i.test(win.exe || "");
+  if (!isBrowser || !win.title) return false;
+  const isGenericTab =
+    / - (Google Chrome|Microsoft Edge|Brave|Vivaldi)$/i.test(win.title) ||
+    win.title === "New Tab" ||
+    win.title === "New tab" ||
+    /^(Edge|Chrome|Brave)$/i.test(win.title);
+  return !isGenericTab;
+}
+
 function doesWindowMatchPinned(win: WindowInfo, pinned: PinnedApp): boolean {
   if (!win.exe && !win.title) return false;
 
@@ -16,6 +27,15 @@ function doesWindowMatchPinned(win: WindowInfo, pinned: PinnedApp): boolean {
   const pinnedExeNorm = normalizeName(pinned.exe || "");
   const pinnedIdNorm = normalizeName(pinned.id || "");
   const pinnedTitleNorm = normalizeName(pinned.title || "");
+  const winTitleNorm = normalizeName(win.title || "");
+
+  // If this is a standalone PWA web app (e.g. YouTube Music), only match if pinned item is specifically this PWA
+  if (isPwaWindow(win)) {
+    return Boolean(
+      (pinnedTitleNorm && winTitleNorm.includes(pinnedTitleNorm)) ||
+      (pinnedIdNorm && winTitleNorm.includes(pinnedIdNorm))
+    );
+  }
 
   // 1. Direct exe name match (e.g. chrome.exe == chrome.exe)
   if (winExeNorm && pinnedExeNorm && winExeNorm === pinnedExeNorm) {
@@ -132,15 +152,17 @@ export function useApps() {
     const groupedByExe = new Map<string, WindowInfo[]>();
 
     for (const win of remainingWins) {
-      const key = (win.exe || win.title || `hwnd-${win.hwnd}`).toLowerCase();
+      const key = isPwaWindow(win)
+        ? `pwa-${win.title.toLowerCase()}`
+        : (win.exe || win.title || `hwnd-${win.hwnd}`).toLowerCase();
       const list = groupedByExe.get(key) || [];
       list.push(win);
       groupedByExe.set(key, list);
     }
 
-    for (const wins of groupedByExe.values()) {
+    for (const [groupKey, wins] of groupedByExe.entries()) {
       const activeWin = wins.find((w) => w.is_focused) || wins[0];
-      const id = `running-${activeWin.hwnd}`;
+      const id = `running-${groupKey}`;
 
       items.push({
         id,

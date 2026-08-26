@@ -4,7 +4,6 @@ import { tauriBridge } from "../../services/tauriBridge";
 
 interface WindowContextMenuProps {
   item: DockAppItem;
-  x?: number;
   onClose: () => void;
   onPin?: (item: DockAppItem) => void;
   onUnpin?: (id: string) => void;
@@ -12,7 +11,6 @@ interface WindowContextMenuProps {
 
 export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
   item,
-  x: _x,
   onClose,
   onPin,
   onUnpin,
@@ -35,13 +33,15 @@ export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
     (item.exe && /chrome|msedge|brave|firefox|opera/i.test(item.exe)) ||
     (item.title && /chrome|edge|brave|browser/i.test(item.title));
 
-  const handleNewWindow = () => {
+  const handleNewWindow = (e: React.MouseEvent) => {
+    e.stopPropagation();
     const cmd = item.lnk_path || item.exe || item.title;
     tauriBridge.launchApp(cmd);
     onClose();
   };
 
-  const handleIncognitoWindow = () => {
+  const handleIncognitoWindow = (e: React.MouseEvent) => {
+    e.stopPropagation();
     let cmd = item.lnk_path || item.exe || item.title;
     if (/chrome|msedge|brave/i.test(cmd)) {
       cmd = `${cmd} --incognito`;
@@ -50,7 +50,8 @@ export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
     onClose();
   };
 
-  const handleFocusOrLaunch = () => {
+  const handleFocusOrLaunch = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (item.is_running && item.hwnd !== undefined) {
       tauriBridge.focusWindow(item.hwnd);
     } else {
@@ -60,7 +61,8 @@ export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
     onClose();
   };
 
-  const handleTogglePin = () => {
+  const handleTogglePin = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (item.is_pinned) {
       if (onUnpin) onUnpin(item.id);
     } else {
@@ -69,16 +71,18 @@ export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
     onClose();
   };
 
-  const handleEndTask = () => {
+  const handleEndTask = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (item.windows && item.windows.length > 0) {
-      item.windows.forEach((w) => tauriBridge.closeWindow(w.hwnd));
+      item.windows.forEach((w) => tauriBridge.terminateWindowProcess(w.hwnd));
     } else if (item.hwnd !== undefined) {
-      tauriBridge.closeWindow(item.hwnd);
+      tauriBridge.terminateWindowProcess(item.hwnd);
     }
     onClose();
   };
 
-  const handleClose = () => {
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (item.windows && item.windows.length > 0) {
       item.windows.forEach((w) => tauriBridge.closeWindow(w.hwnd));
     } else if (item.hwnd !== undefined) {
@@ -90,7 +94,7 @@ export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      className="fluent-jumplist flyout-enter"
+      className="fluent-jumplist"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="jumplist-header-label">Tasks</div>
