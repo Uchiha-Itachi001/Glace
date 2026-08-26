@@ -100,10 +100,30 @@ pub fn open_widgets_panel() {
 
 #[tauri::command]
 pub fn launch_app(cmd: String) -> Result<(), String> {
-    Command::new("cmd")
-        .args(["/C", "start", "", &cmd])
-        .spawn()
-        .map_err(|e| e.to_string())?;
+    use windows::core::PCWSTR;
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    let op: Vec<u16> = "open\0".encode_utf16().collect();
+    let file: Vec<u16> = cmd.encode_utf16().chain(std::iter::once(0)).collect();
+
+    unsafe {
+        let res = ShellExecuteW(
+            None,
+            PCWSTR(op.as_ptr()),
+            PCWSTR(file.as_ptr()),
+            PCWSTR::null(),
+            PCWSTR::null(),
+            SW_SHOWNORMAL,
+        );
+        // ShellExecute returns HINSTANCE > 32 on success
+        if (res.0 as isize) <= 32 {
+            let _ = Command::new("cmd")
+                .args(["/C", "start", "", &cmd])
+                .spawn()
+                .map_err(|e| e.to_string())?;
+        }
+    }
     Ok(())
 }
 

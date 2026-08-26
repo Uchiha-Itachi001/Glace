@@ -39,8 +39,8 @@ pub fn set_window_height(
             let size = monitor.size();
             let scale_factor = monitor.scale_factor();
             let bar_height_physical = (48.0 * scale_factor).round() as i32;
-            let flyout_h_physical = (height_px.unwrap_or(520) as f64 * scale_factor).round() as i32;
-            let flyout_w_physical = (600.0 * scale_factor).round() as i32;
+            let flyout_h_physical = (height_px.unwrap_or(540) as f64 * scale_factor).round() as i32;
+            let flyout_w_physical = (700.0 * scale_factor).round() as i32;
 
             if let Ok(hwnd) = window.hwnd() {
                 let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as _);
@@ -58,3 +58,13 @@ pub fn set_window_height(
     }
     Ok(())
 }
+
+// Thumbnail capture via PrintWindow requires Win32_UI_WindowsAndMessaging feature
+// which conflicts with Gdi in this windows-rs 0.61 build.
+// The preview card shows the app icon fallback instead.
+#[tauri::command]
+pub fn get_window_thumbnail(_hwnd: u64) -> Option<String> {
+    // TODO: implement via Windows.Graphics.Capture WinRT API when available
+    None
+}
+

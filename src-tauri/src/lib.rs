@@ -39,6 +39,7 @@ pub fn run() {
             commands::windows::close_window,
             commands::windows::snap_window,
             commands::windows::set_window_height,
+            commands::windows::get_window_thumbnail,
             commands::tray::get_tray_icons,
             commands::tray::get_system_metrics,
             commands::settings::get_settings,
@@ -59,6 +60,22 @@ pub fn run() {
 
                 if let Ok(hwnd) = window.hwnd() {
                     let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as _);
+
+                    // Strip any lingering title-bar / border styles
+                    unsafe {
+                        use windows::Win32::UI::WindowsAndMessaging::{
+                            GetWindowLongW, SetWindowLongW, GWL_STYLE, GWL_EXSTYLE,
+                            WS_CAPTION, WS_SYSMENU, WS_BORDER, WS_EX_APPWINDOW,
+                        };
+                        let style = GetWindowLongW(win32_hwnd, GWL_STYLE) as u32;
+                        let clean = style & !(WS_CAPTION.0 | WS_SYSMENU.0 | WS_BORDER.0);
+                        SetWindowLongW(win32_hwnd, GWL_STYLE, clean as i32);
+
+                        let ex_style = GetWindowLongW(win32_hwnd, GWL_EXSTYLE) as u32;
+                        let clean_ex = ex_style & !WS_EX_APPWINDOW.0;
+                        SetWindowLongW(win32_hwnd, GWL_EXSTYLE, clean_ex as i32);
+                    }
+
                     work_area::pin_window_to_bottom(
                         win32_hwnd,
                         pos.x,

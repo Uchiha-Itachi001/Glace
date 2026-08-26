@@ -64,6 +64,14 @@ export const tauriBridge = {
     }
   },
 
+  getWindowThumbnail: async (hwnd: number): Promise<string | null> => {
+    try {
+      return await invoke<string | null>("get_window_thumbnail", { hwnd });
+    } catch {
+      return null;
+    }
+  },
+
   // Shell controls
   openStartMenu: async (): Promise<void> => {
     try {

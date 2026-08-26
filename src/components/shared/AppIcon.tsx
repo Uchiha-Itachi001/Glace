@@ -18,6 +18,7 @@ export const AppIcon: React.FC<AppIconProps> = ({
 }) => {
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
   const hoverTimeoutRef = useRef<number | null>(null);
 
   const windowList =
@@ -41,22 +42,38 @@ export const AppIcon: React.FC<AppIconProps> = ({
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setIsHovered(true);
+    // Expand region for all apps — needed for both preview cards AND tooltip popup
+    tauriBridge.setWindowHeight(true, 240).catch(console.error);
+
+    if (app.is_running && windowList.length > 0) {
+      // Fetch live window thumbnail screenshot
+      windowList.forEach((win) => {
+        if (win.hwnd && !thumbnails[win.hwnd]) {
+          tauriBridge.getWindowThumbnail(win.hwnd).then((thumb) => {
+            if (thumb) {
+              setThumbnails((prev) => ({ ...prev, [win.hwnd]: thumb }));
+            }
+          }).catch(console.error);
+        }
+      });
+    }
   };
 
   const handleMouseLeave = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = window.setTimeout(() => {
       setIsHovered(false);
+      if (!contextMenuPos) {
+        tauriBridge.setWindowHeight(false).catch(console.error);
+      }
     }, 120);
   };
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (contextMenuPos) {
-      setContextMenuPos(null);
-      return;
-    }
+    setContextMenuPos(null);
     setIsHovered(false);
+    tauriBridge.setWindowHeight(false).catch(console.error);
     onClick(app);
   };
 
@@ -65,11 +82,18 @@ export const AppIcon: React.FC<AppIconProps> = ({
     e.stopPropagation();
     setIsHovered(false);
     setContextMenuPos({ x: e.clientX, y: e.clientY });
+    tauriBridge.setWindowHeight(true, 360).catch(console.error);
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenuPos(null);
+    tauriBridge.setWindowHeight(false).catch(console.error);
   };
 
   const handleWindowCardClick = (e: React.MouseEvent, hwnd: number) => {
     e.stopPropagation();
     setIsHovered(false);
+    tauriBridge.setWindowHeight(false).catch(console.error);
     tauriBridge.focusWindow(hwnd);
   };
 
@@ -185,6 +209,43 @@ export const AppIcon: React.FC<AppIconProps> = ({
                       </svg>
                     </button>
                   </div>
+
+                  {/* Window Thumbnail Preview Body */}
+                  <div className="fluent-card-thumbnail-container">
+                    {thumbnails[win.hwnd] ? (
+                      <img
+                        src={thumbnails[win.hwnd]}
+                        alt=""
+                        className="fluent-card-thumbnail-img"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="fluent-card-thumbnail-fallback">
+                        {win.icon_b64 ? (
+                          <img
+                            src={win.icon_b64}
+                            alt=""
+                            className="fluent-card-thumbnail-fallback-icon"
+                            draggable={false}
+                          />
+                        ) : (
+                          <svg
+                            width="28"
+                            height="28"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            className="fluent-card-thumbnail-fallback-svg"
+                          >
+                            <rect width="18" height="18" x="3" y="3" rx="2" />
+                            <path d="M3 9h18" />
+                            <path d="M9 21V9" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -201,7 +262,7 @@ export const AppIcon: React.FC<AppIconProps> = ({
         <WindowContextMenu
           item={app}
           x={contextMenuPos.x}
-          onClose={() => setContextMenuPos(null)}
+          onClose={handleCloseContextMenu}
           onPin={onPin}
           onUnpin={onUnpin}
         />

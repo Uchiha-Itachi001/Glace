@@ -190,10 +190,14 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                           style={{ background: preset.accent }}
                         />
                       </div>
-                      <div className="theme-pill-text">
-                        <span className="theme-pill-name">{preset.name}</span>
-                        <span className="theme-pill-desc">{preset.description}</span>
-                      </div>
+                      <span className="theme-pill-name">{preset.name}</span>
+                      {isActive && (
+                        <div className="theme-pill-check">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

@@ -52,41 +52,20 @@ pub fn update_window_region(
     monitor_h: i32,
     bar_height: i32,
     flyout_expanded: bool,
-    flyout_w: i32,
-    flyout_h: i32,
+    _flyout_w: i32,
+    _flyout_h: i32,
 ) {
-    use windows::Win32::Graphics::Gdi::{
-        CombineRgn, CreateRectRgn, DeleteObject, SetWindowRgn, RGN_OR,
-    };
+    use windows::Win32::Graphics::Gdi::{CreateRectRgn, SetWindowRgn};
 
     unsafe {
-        // Base dock region accommodates hover preview cards, flyouts, and tooltips
-        let dock_region_height = std::cmp::max(bar_height, 180);
-        let bar_top = monitor_h - dock_region_height;
-        let rgn_bar = CreateRectRgn(0, bar_top, monitor_w, monitor_h);
-
         if flyout_expanded {
-            let fw = if flyout_w > 0 { flyout_w } else { 620 };
-            let fh = if flyout_h > 0 { flyout_h } else { 540 };
-
-            let flyout_left = monitor_w - fw - 24;
-            let flyout_top = monitor_h - fh - 10;
-            let flyout_right = monitor_w - 20;
-            let flyout_bottom = monitor_h - 4;
-
-            let rgn_flyout = CreateRectRgn(flyout_left, flyout_top, flyout_right, flyout_bottom);
-            let rgn_combined = CreateRectRgn(0, 0, 0, 0);
-            let _ = CombineRgn(
-                Some(rgn_combined),
-                Some(rgn_bar),
-                Some(rgn_flyout),
-                RGN_OR,
-            );
-
-            let _ = SetWindowRgn(hwnd, Some(rgn_combined), false);
-            let _ = DeleteObject(rgn_bar.into());
-            let _ = DeleteObject(rgn_flyout.into());
+            // Expand to full monitor so flyouts, context menus and backdrop clicks work
+            let rgn_full = CreateRectRgn(0, 0, monitor_w, monitor_h);
+            let _ = SetWindowRgn(hwnd, Some(rgn_full), false);
         } else {
+            // Strictly clip to bottom taskbar bar height so area above is 100% clickable
+            let bar_top = monitor_h - bar_height;
+            let rgn_bar = CreateRectRgn(0, bar_top, monitor_w, monitor_h);
             let _ = SetWindowRgn(hwnd, Some(rgn_bar), false);
         }
     }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::Mutex;
 use std::thread;
@@ -13,28 +14,31 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::System::ProcessStatus::K32GetModuleFileNameExW;
 use windows::Win32::System::Threading::{
-    GetCurrentProcessId, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    AttachThreadInput, GetCurrentProcessId, GetCurrentThreadId, OpenProcess,
+    PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::UI::Shell::{
-    ExtractIconExW, SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON, SHGFI_SMALLICON,
+    ExtractIconExW, SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    DestroyIcon, DrawIconEx, EnumChildWindows, EnumWindows, GetClassLongPtrW, GetClassNameW,
-    GetForegroundWindow, GetWindow, GetWindowLongW, GetWindowTextLengthW, GetWindowTextW,
-    GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible, PostMessageW,
-    SendMessageTimeoutW, SetForegroundWindow, SetWindowPos, ShowWindow, DI_NORMAL,
-    EVENT_OBJECT_CLOAKED, EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY, EVENT_OBJECT_NAMECHANGE,
-    EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND,
-    EVENT_SYSTEM_MINIMIZESTART, GCLP_HICON, GCLP_HICONSM, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HICON,
-    MSG, SMTO_ABORTIFHUNG, SWP_FRAMECHANGED, SWP_NOZORDER, SWP_SHOWWINDOW, SW_MAXIMIZE,
-    SW_MINIMIZE, SW_RESTORE, SW_SHOW, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_CLOSE,
-    WM_GETICON, WS_CHILD, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+    BringWindowToTop, DestroyIcon, DrawIconEx, EnumChildWindows, EnumWindows,
+    GetClassLongPtrW, GetClassNameW, GetForegroundWindow, GetWindow, GetWindowLongW,
+    GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow,
+    IsWindowVisible, PostMessageW, SendMessageTimeoutW, SetForegroundWindow, SetWindowPos,
+    ShowWindow, DI_NORMAL, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY,
+    EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND,
+    EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, GCLP_HICON, GCLP_HICONSM, GWL_EXSTYLE,
+    GWL_STYLE, GW_OWNER, HICON, MSG, SMTO_ABORTIFHUNG, SWP_FRAMECHANGED, SWP_NOZORDER,
+    SWP_SHOWWINDOW, SW_MAXIMIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOW, WINEVENT_OUTOFCONTEXT,
+    WINEVENT_SKIPOWNPROCESS, WM_CLOSE, WM_GETICON, WS_CHILD, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
 };
 
 use crate::models::types::WindowInfo;
 
 static EVENT_SENDER: Mutex<Option<Sender<()>>> = Mutex::new(None);
+static ICON_CACHE: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+static PID_CACHE: Mutex<Option<HashMap<u32, (String, String)>>> = Mutex::new(None);
 
 pub fn is_taskbar_window(hwnd: HWND, current_pid: u32) -> bool {
     unsafe {
@@ -211,52 +215,28 @@ pub(crate) fn hicon_to_base64_png(hicon: HICON) -> Option<String> {
     }
 }
 
-// Keep old name as alias for compatibility
-pub(crate) fn hicon_to_base64_bmp(hicon: HICON) -> Option<String> {
-    hicon_to_base64_png(hicon)
-}
 
+fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
+    let cache_key = if !exe_path.is_empty() {
+        exe_path
+    } else {
+        exe_name
+    };
 
-fn get_window_icon(hwnd: HWND, exe_path: &str) -> String {
-    unsafe {
-        // 1. WM_GETICON messages
-        for icon_type in [2usize, 0, 1] {
-            let mut result: usize = 0;
-            let res = SendMessageTimeoutW(
-                hwnd,
-                WM_GETICON,
-                WPARAM(icon_type),
-                LPARAM(0),
-                SMTO_ABORTIFHUNG,
-                30,
-                Some(&mut result),
-            );
-            if res.0 != 0 && result != 0 {
-                let hicon = HICON(result as *mut _);
-                if let Some(b64) = hicon_to_base64_bmp(hicon) {
-                    return b64;
+    if !cache_key.is_empty() {
+        if let Ok(guard) = ICON_CACHE.lock() {
+            if let Some(cache) = guard.as_ref() {
+                if let Some(cached) = cache.get(cache_key) {
+                    return cached.clone();
                 }
             }
         }
+    }
 
-        // 2. Class icons (GCLP_HICONSM & GCLP_HICON)
-        let icon_sm = GetClassLongPtrW(hwnd, GCLP_HICONSM);
-        if icon_sm != 0 {
-            let hicon = HICON(icon_sm as *mut _);
-            if let Some(b64) = hicon_to_base64_bmp(hicon) {
-                return b64;
-            }
-        }
+    let b64 = unsafe {
+        let mut found_b64: Option<String> = None;
 
-        let icon_lg = GetClassLongPtrW(hwnd, GCLP_HICON);
-        if icon_lg != 0 {
-            let hicon = HICON(icon_lg as *mut _);
-            if let Some(b64) = hicon_to_base64_bmp(hicon) {
-                return b64;
-            }
-        }
-
-        // 3. Extract from executable file path
+        // 1. Extract from executable file path (very fast, doesn't touch window thread)
         if !exe_path.is_empty() {
             let exe_w: Vec<u16> = exe_path.encode_utf16().chain(std::iter::once(0)).collect();
             let mut large_icon = HICON::default();
@@ -274,62 +254,102 @@ fn get_window_icon(hwnd: HWND, exe_path: &str) -> String {
                 } else {
                     large_icon
                 };
-                let b64 = hicon_to_base64_bmp(icon_to_use);
+                found_b64 = hicon_to_base64_png(icon_to_use);
                 if !small_icon.0.is_null() {
                     let _ = DestroyIcon(small_icon);
                 }
                 if !large_icon.0.is_null() {
                     let _ = DestroyIcon(large_icon);
                 }
-                if let Some(b64) = b64 {
-                    return b64;
-                }
             }
 
-            // 4. SHGetFileInfoW (Official Windows Default Taskbar Shell Icon API)
-            let mut shfi = SHFILEINFOW::default();
-            let res = SHGetFileInfoW(
-                PCWSTR(exe_w.as_ptr()),
-                Default::default(),
-                Some(&mut shfi),
-                std::mem::size_of::<SHFILEINFOW>() as u32,
-                SHGFI_ICON | SHGFI_LARGEICON,
-            );
-            if res != 0 && !shfi.hIcon.0.is_null() {
-                let b64 = hicon_to_base64_bmp(shfi.hIcon);
-                let _ = DestroyIcon(shfi.hIcon);
-                if let Some(b64) = b64 {
-                    return b64;
-                }
-            }
-
-            let res_sm = SHGetFileInfoW(
-                PCWSTR(exe_w.as_ptr()),
-                Default::default(),
-                Some(&mut shfi),
-                std::mem::size_of::<SHFILEINFOW>() as u32,
-                SHGFI_ICON | SHGFI_SMALLICON,
-            );
-            if res_sm != 0 && !shfi.hIcon.0.is_null() {
-                let b64 = hicon_to_base64_bmp(shfi.hIcon);
-                let _ = DestroyIcon(shfi.hIcon);
-                if let Some(b64) = b64 {
-                    return b64;
+            if found_b64.is_none() {
+                let mut shfi = SHFILEINFOW::default();
+                let res = SHGetFileInfoW(
+                    PCWSTR(exe_w.as_ptr()),
+                    Default::default(),
+                    Some(&mut shfi),
+                    std::mem::size_of::<SHFILEINFOW>() as u32,
+                    SHGFI_ICON | SHGFI_LARGEICON,
+                );
+                if res != 0 && !shfi.hIcon.0.is_null() {
+                    found_b64 = hicon_to_base64_png(shfi.hIcon);
+                    let _ = DestroyIcon(shfi.hIcon);
                 }
             }
         }
+
+        // 2. Class icons (GCLP_HICONSM & GCLP_HICON)
+        if found_b64.is_none() {
+            let icon_sm = GetClassLongPtrW(hwnd, GCLP_HICONSM);
+            if icon_sm != 0 {
+                let hicon = HICON(icon_sm as *mut _);
+                found_b64 = hicon_to_base64_png(hicon);
+            }
+        }
+
+        if found_b64.is_none() {
+            let icon_lg = GetClassLongPtrW(hwnd, GCLP_HICON);
+            if icon_lg != 0 {
+                let hicon = HICON(icon_lg as *mut _);
+                found_b64 = hicon_to_base64_png(hicon);
+            }
+        }
+
+        // 3. Fallback: WM_GETICON with strict 5ms timeout to never stall target app
+        if found_b64.is_none() {
+            for icon_type in [0usize, 2, 1] {
+                let mut result: usize = 0;
+                let res = SendMessageTimeoutW(
+                    hwnd,
+                    WM_GETICON,
+                    WPARAM(icon_type),
+                    LPARAM(0),
+                    SMTO_ABORTIFHUNG,
+                    5,
+                    Some(&mut result),
+                );
+                if res.0 != 0 && result != 0 {
+                    let hicon = HICON(result as *mut _);
+                    found_b64 = hicon_to_base64_png(hicon);
+                    if found_b64.is_some() {
+                        break;
+                    }
+                }
+            }
+        }
+
+        found_b64.unwrap_or_default()
+    };
+
+    if !b64.is_empty() && !cache_key.is_empty() {
+        if let Ok(mut guard) = ICON_CACHE.lock() {
+            let cache = guard.get_or_insert_with(HashMap::new);
+            cache.insert(cache_key.to_string(), b64.clone());
+        }
     }
-    String::new()
+
+    b64
 }
 
 fn get_window_exe_path(hwnd: HWND) -> (String, String) {
+    let mut pid: u32 = 0;
     unsafe {
-        let mut pid: u32 = 0;
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
-        if pid == 0 {
-            return (String::new(), String::new());
-        }
+    }
+    if pid == 0 {
+        return (String::new(), String::new());
+    }
 
+    if let Ok(guard) = PID_CACHE.lock() {
+        if let Some(cache) = guard.as_ref() {
+            if let Some(cached) = cache.get(&pid) {
+                return cached.clone();
+            }
+        }
+    }
+
+    let result = unsafe {
         let mut real_pid = pid;
 
         // Check if top-level process is ApplicationFrameHost (UWP host)
@@ -402,12 +422,26 @@ fn get_window_exe_path(hwnd: HWND) -> (String, String) {
                         .and_then(|n| n.to_str())
                         .unwrap_or("")
                         .to_string();
-                    return (exe_name, full_path);
+                    (exe_name, full_path)
+                } else {
+                    (String::new(), String::new())
                 }
+            } else {
+                (String::new(), String::new())
             }
+        } else {
+            (String::new(), String::new())
+        }
+    };
+
+    if !result.0.is_empty() {
+        if let Ok(mut guard) = PID_CACHE.lock() {
+            let cache = guard.get_or_insert_with(HashMap::new);
+            cache.insert(pid, result.clone());
         }
     }
-    (String::new(), String::new())
+
+    result
 }
 
 pub fn get_window_info(hwnd: HWND, fg_hwnd: HWND, current_pid: u32) -> Option<WindowInfo> {
@@ -425,7 +459,7 @@ pub fn get_window_info(hwnd: HWND, fg_hwnd: HWND, current_pid: u32) -> Option<Wi
         };
 
         let (exe_name, exe_path) = get_window_exe_path(hwnd);
-        let icon_b64 = get_window_icon(hwnd, &exe_path);
+        let icon_b64 = get_window_icon(hwnd, &exe_path, &exe_name);
         let is_focused = hwnd == fg_hwnd;
         let is_minimized = IsIconic(hwnd).as_bool();
 
@@ -463,13 +497,31 @@ pub fn enumerate_windows() -> Vec<WindowInfo> {
 pub fn focus_window(hwnd_val: u64) {
     let hwnd = HWND(hwnd_val as *mut _);
     unsafe {
-        if IsWindow(Some(hwnd)).as_bool() {
-            if IsIconic(hwnd).as_bool() {
-                let _ = ShowWindow(hwnd, SW_RESTORE);
-            } else {
-                let _ = ShowWindow(hwnd, SW_SHOW);
-            }
-            let _ = SetForegroundWindow(hwnd);
+        if !IsWindow(Some(hwnd)).as_bool() {
+            return;
+        }
+
+        let fg_hwnd = GetForegroundWindow();
+        let fg_thread = GetWindowThreadProcessId(fg_hwnd, None);
+        let cur_thread = GetCurrentThreadId();
+
+        let attached = if fg_thread != 0 && fg_thread != cur_thread {
+            AttachThreadInput(cur_thread, fg_thread, true).as_bool()
+        } else {
+            false
+        };
+
+        if IsIconic(hwnd).as_bool() {
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+        } else {
+            let _ = ShowWindow(hwnd, SW_SHOW);
+        }
+
+        let _ = SetForegroundWindow(hwnd);
+        let _ = BringWindowToTop(hwnd);
+
+        if attached {
+            let _ = AttachThreadInput(cur_thread, fg_thread, false);
         }
     }
 }
@@ -620,12 +672,24 @@ pub fn snap_window(hwnd_val: u64, position: &str) {
 unsafe extern "system" fn win_event_proc(
     _h_win_event_hook: HWINEVENTHOOK,
     _event: u32,
-    _hwnd: HWND,
-    _id_object: i32,
-    _id_child: i32,
+    hwnd: HWND,
+    id_object: i32,
+    id_child: i32,
     _id_event_thread: u32,
     _dwms_event_time: u32,
 ) {
+    // Filter out internal UI controls (buttons, tooltips, carets, list items)
+    // OBJID_WINDOW is 0, OBJID_CLIENT is -4. Only trigger for top-level window events
+    if id_object != 0 && id_object != -4 {
+        return;
+    }
+    if id_child != 0 {
+        return;
+    }
+    if hwnd.0.is_null() {
+        return;
+    }
+
     if let Ok(guard) = EVENT_SENDER.lock() {
         if let Some(tx) = guard.as_ref() {
             let _ = tx.send(());
@@ -641,21 +705,19 @@ pub fn start(app_handle: AppHandle) {
 
     let app_handle_broadcaster = app_handle.clone();
     thread::spawn(move || {
-        crate::services::work_area::hide_native_taskbar();
         let _ = app_handle_broadcaster.emit("windows-updated", enumerate_windows());
 
         loop {
-            // Purely event-driven wakeup with debounce
+            // Event-driven wakeup with debounce
             match rx.recv() {
                 Ok(_) => {
                     while rx.try_recv().is_ok() {}
-                    thread::sleep(Duration::from_millis(60));
+                    thread::sleep(Duration::from_millis(150));
                     while rx.try_recv().is_ok() {}
                 }
                 Err(_) => break,
             }
 
-            crate::services::work_area::hide_native_taskbar();
             let list = enumerate_windows();
             let _ = app_handle_broadcaster.emit("windows-updated", list);
         }
@@ -727,3 +789,4 @@ pub fn start(app_handle: AppHandle) {
         let _ = UnhookWinEvent(hook_cloak);
     });
 }
+
