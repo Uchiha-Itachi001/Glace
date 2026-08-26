@@ -27,11 +27,11 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow,
     IsWindowVisible, PostMessageW, SendMessageTimeoutW, SetForegroundWindow, SetWindowPos,
     ShowWindow, DI_NORMAL, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY,
-    EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND,
-    EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, GCLP_HICON, GCLP_HICONSM, GWL_EXSTYLE,
-    GWL_STYLE, GW_OWNER, HICON, MSG, SMTO_ABORTIFHUNG, SWP_FRAMECHANGED, SWP_NOZORDER,
-    SWP_SHOWWINDOW, SW_MAXIMIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOW, WINEVENT_OUTOFCONTEXT,
-    WINEVENT_SKIPOWNPROCESS, WM_CLOSE, WM_GETICON, WS_CHILD, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+    EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND,
+    EVENT_SYSTEM_MINIMIZESTART, GCLP_HICON, GCLP_HICONSM, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HICON,
+    MSG, SMTO_ABORTIFHUNG, SWP_FRAMECHANGED, SWP_NOZORDER, SWP_SHOWWINDOW, SW_MAXIMIZE,
+    SW_MINIMIZE, SW_RESTORE, SW_SHOW, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_CLOSE,
+    WM_GETICON, WS_CHILD, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
 };
 
 use crate::models::types::WindowInfo;
@@ -43,6 +43,18 @@ static PID_CACHE: Mutex<Option<HashMap<u32, (String, String)>>> = Mutex::new(Non
 pub fn is_taskbar_window(hwnd: HWND, current_pid: u32) -> bool {
     unsafe {
         if !IsWindow(Some(hwnd)).as_bool() || !IsWindowVisible(hwnd).as_bool() {
+            return false;
+        }
+
+        // Fast rejection: child windows are never taskbar windows
+        let style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
+        if (style & WS_CHILD.0) != 0 {
+            return false;
+        }
+
+        // Fast rejection: windows without title text
+        let length = GetWindowTextLengthW(hwnd);
+        if length == 0 {
             return false;
         }
 
@@ -66,11 +78,6 @@ pub fn is_taskbar_window(hwnd: HWND, current_pid: u32) -> bool {
             }
         }
 
-        let style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
-        if (style & WS_CHILD.0) != 0 {
-            return false;
-        }
-
         let mut cloaked: u32 = 0;
         let _ = DwmGetWindowAttribute(
             hwnd,
@@ -79,11 +86,6 @@ pub fn is_taskbar_window(hwnd: HWND, current_pid: u32) -> bool {
             std::mem::size_of::<u32>() as u32,
         );
         if cloaked != 0 {
-            return false;
-        }
-
-        let length = GetWindowTextLengthW(hwnd);
-        if length == 0 {
             return false;
         }
 
@@ -705,21 +707,26 @@ pub fn start(app_handle: AppHandle) {
 
     let app_handle_broadcaster = app_handle.clone();
     thread::spawn(move || {
-        let _ = app_handle_broadcaster.emit("windows-updated", enumerate_windows());
+        let mut last_list: Vec<WindowInfo> = enumerate_windows();
+        let _ = app_handle_broadcaster.emit("windows-updated", &last_list);
 
         loop {
             // Event-driven wakeup with debounce
             match rx.recv() {
                 Ok(_) => {
                     while rx.try_recv().is_ok() {}
-                    thread::sleep(Duration::from_millis(150));
+                    thread::sleep(Duration::from_millis(200));
                     while rx.try_recv().is_ok() {}
                 }
                 Err(_) => break,
             }
 
-            let list = enumerate_windows();
-            let _ = app_handle_broadcaster.emit("windows-updated", list);
+            let new_list = enumerate_windows();
+            // Only emit to frontend if window state actually changed!
+            if new_list != last_list {
+                let _ = app_handle_broadcaster.emit("windows-updated", &new_list);
+                last_list = new_list;
+            }
         }
     });
 
@@ -754,16 +761,6 @@ pub fn start(app_handle: AppHandle) {
             WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
         );
 
-        let hook_name = SetWinEventHook(
-            EVENT_OBJECT_NAMECHANGE,
-            EVENT_OBJECT_NAMECHANGE,
-            None,
-            Some(win_event_proc),
-            0,
-            0,
-            WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
-        );
-
         let hook_cloak = SetWinEventHook(
             EVENT_OBJECT_CLOAKED,
             EVENT_OBJECT_UNCLOAKED,
@@ -785,7 +782,6 @@ pub fn start(app_handle: AppHandle) {
         let _ = UnhookWinEvent(hook_fg);
         let _ = UnhookWinEvent(hook_min);
         let _ = UnhookWinEvent(hook_create);
-        let _ = UnhookWinEvent(hook_name);
         let _ = UnhookWinEvent(hook_cloak);
     });
 }

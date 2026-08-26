@@ -19,7 +19,7 @@ export const SysMonCapsule: React.FC = () => {
     };
 
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 3000);
+    const interval = setInterval(fetchMetrics, 5000);
     return () => clearInterval(interval);
   }, []);
 

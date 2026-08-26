@@ -61,19 +61,31 @@ pub fn run() {
                 if let Ok(hwnd) = window.hwnd() {
                     let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as _);
 
-                    // Strip any lingering title-bar / border styles
+                    // Strip all title-bar / caption / border styles and set WS_POPUP
                     unsafe {
                         use windows::Win32::UI::WindowsAndMessaging::{
-                            GetWindowLongW, SetWindowLongW, GWL_STYLE, GWL_EXSTYLE,
-                            WS_CAPTION, WS_SYSMENU, WS_BORDER, WS_EX_APPWINDOW,
+                            GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_STYLE, GWL_EXSTYLE,
+                            WS_CAPTION, WS_SYSMENU, WS_BORDER, WS_THICKFRAME, WS_MINIMIZEBOX,
+                            WS_MAXIMIZEBOX, WS_POPUP, WS_VISIBLE, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+                            SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE,
                         };
                         let style = GetWindowLongW(win32_hwnd, GWL_STYLE) as u32;
-                        let clean = style & !(WS_CAPTION.0 | WS_SYSMENU.0 | WS_BORDER.0);
+                        let clean = (style & !(WS_CAPTION.0 | WS_SYSMENU.0 | WS_BORDER.0 | WS_THICKFRAME.0 | WS_MINIMIZEBOX.0 | WS_MAXIMIZEBOX.0)) | WS_POPUP.0 | WS_VISIBLE.0;
                         SetWindowLongW(win32_hwnd, GWL_STYLE, clean as i32);
 
                         let ex_style = GetWindowLongW(win32_hwnd, GWL_EXSTYLE) as u32;
-                        let clean_ex = ex_style & !WS_EX_APPWINDOW.0;
+                        let clean_ex = (ex_style & !WS_EX_APPWINDOW.0) | WS_EX_TOOLWINDOW.0;
                         SetWindowLongW(win32_hwnd, GWL_EXSTYLE, clean_ex as i32);
+
+                        let _ = SetWindowPos(
+                            win32_hwnd,
+                            None,
+                            0,
+                            0,
+                            0,
+                            0,
+                            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+                        );
                     }
 
                     work_area::pin_window_to_bottom(

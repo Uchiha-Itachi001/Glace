@@ -4,7 +4,7 @@ import { tauriBridge } from "../../services/tauriBridge";
 
 interface WindowContextMenuProps {
   item: DockAppItem;
-  x: number;
+  x?: number;
   onClose: () => void;
   onPin?: (item: DockAppItem) => void;
   onUnpin?: (id: string) => void;
@@ -12,7 +12,7 @@ interface WindowContextMenuProps {
 
 export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
   item,
-  x,
+  x: _x,
   onClose,
   onPin,
   onUnpin,

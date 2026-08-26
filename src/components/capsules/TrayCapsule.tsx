@@ -12,7 +12,7 @@ export const TrayCapsule: React.FC = () => {
 
     const interval = setInterval(() => {
       tauriBridge.getSystemMetrics().then(setSystemMetrics).catch(console.error);
-    }, 4000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);

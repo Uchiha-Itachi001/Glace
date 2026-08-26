@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WindowInfo {
     pub hwnd: u64,
     pub title: String,
@@ -10,14 +10,14 @@ pub struct WindowInfo {
     pub is_minimized: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TrayIcon {
     pub id: u32,
     pub tooltip: String,
     pub icon_b64: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SystemMetrics {
     pub ram_percent: u8,
     pub total_ram_mb: u64,
