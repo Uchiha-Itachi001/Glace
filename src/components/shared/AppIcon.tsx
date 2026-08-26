@@ -1,18 +1,19 @@
 import React, { useState } from "react";
-import { WindowInfo } from "../../types";
+import { DockAppItem } from "../../types";
 import { WindowContextMenu } from "./WindowContextMenu";
 
 interface AppIconProps {
-  window: WindowInfo;
-  onFocus: (hwnd: number) => void;
-  onMinimize: (hwnd: number) => void;
-  onClose: (hwnd: number) => void;
+  app: DockAppItem;
+  onClick: (app: DockAppItem) => void;
+  onPin?: (app: DockAppItem) => void;
+  onUnpin?: (id: string) => void;
 }
 
 export const AppIcon: React.FC<AppIconProps> = ({
-  window: win,
-  onFocus,
-  onMinimize,
+  app,
+  onClick,
+  onPin,
+  onUnpin,
 }) => {
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -23,11 +24,7 @@ export const AppIcon: React.FC<AppIconProps> = ({
       setContextMenuPos(null);
       return;
     }
-    if (win.is_focused && !win.is_minimized) {
-      onMinimize(win.hwnd);
-    } else {
-      onFocus(win.hwnd);
-    }
+    onClick(app);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -38,20 +35,20 @@ export const AppIcon: React.FC<AppIconProps> = ({
 
   return (
     <div
-      className={`app-icon-container ${win.is_focused ? "app-icon--focused" : ""} ${
-        win.is_minimized ? "app-icon--minimized" : ""
-      }`}
+      className={`app-icon-container ${app.is_focused ? "app-icon--focused" : ""} ${
+        app.is_minimized ? "app-icon--minimized" : ""
+      } ${!app.is_running ? "app-icon--idle" : "app-icon--running"}`}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
-      title={win.title}
+      title={app.title}
     >
       <div className="app-icon-body icon-hover">
-        {win.icon_b64 ? (
+        {app.icon_b64 ? (
           <img
-            src={win.icon_b64}
-            alt={win.title}
+            src={app.icon_b64}
+            alt={app.title}
             className="app-icon-img"
             draggable={false}
           />
@@ -75,25 +72,27 @@ export const AppIcon: React.FC<AppIconProps> = ({
         )}
       </div>
 
-      {/* Focus Indicator Pill */}
-      {win.is_focused && <div className="active-indicator" />}
-      {!win.is_focused && !win.is_minimized && <div className="open-indicator" />}
+      {/* Focus & Running Indicator Pills */}
+      {app.is_focused && <div className="active-indicator" />}
+      {app.is_running && !app.is_focused && <div className="open-indicator" />}
 
       {/* Hover Tooltip with App Info */}
       {showTooltip && !contextMenuPos && (
         <div className="app-icon-tooltip flyout-enter">
-          <span className="tooltip-title">{win.title}</span>
-          {win.exe && <span className="tooltip-exe">{win.exe}</span>}
+          <span className="tooltip-title">{app.title}</span>
+          {app.exe && <span className="tooltip-exe">{app.exe}</span>}
+          {!app.is_running && <span className="tooltip-badge">Pinned</span>}
         </div>
       )}
 
-      {/* Full Window Snapping & Controls Context Menu */}
+      {/* Context Menu for Window Controls & Pin/Unpin */}
       {contextMenuPos && (
         <WindowContextMenu
-          window={win}
+          item={app}
           x={contextMenuPos.x}
-          y={contextMenuPos.y}
           onClose={() => setContextMenuPos(null)}
+          onPin={onPin}
+          onUnpin={onUnpin}
         />
       )}
     </div>

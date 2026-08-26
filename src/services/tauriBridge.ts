@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { WindowInfo, TrayIcon, SystemMetrics, Settings } from "../types";
+import { WindowInfo, TrayIcon, SystemMetrics, Settings, PinnedApp } from "../types";
 
 export const tauriBridge = {
   // Window controls
@@ -97,6 +97,38 @@ export const tauriBridge = {
     }
   },
 
+  openTrayOverflow: async (): Promise<void> => {
+    try {
+      await invoke("open_tray_overflow");
+    } catch (e) {
+      console.error("openTrayOverflow error:", e);
+    }
+  },
+
+  toggleInputLanguage: async (): Promise<void> => {
+    try {
+      await invoke("toggle_input_language");
+    } catch (e) {
+      console.error("toggleInputLanguage error:", e);
+    }
+  },
+
+  openTouchKeyboard: async (): Promise<void> => {
+    try {
+      await invoke("open_touch_keyboard");
+    } catch (e) {
+      console.error("openTouchKeyboard error:", e);
+    }
+  },
+
+  openWidgetsPanel: async (): Promise<void> => {
+    try {
+      await invoke("open_widgets_panel");
+    } catch (e) {
+      console.error("openWidgetsPanel error:", e);
+    }
+  },
+
   launchApp: async (cmd: string): Promise<void> => {
     try {
       await invoke("launch_app", { cmd });
@@ -178,6 +210,31 @@ export const tauriBridge = {
       await invoke("save_settings", { settings });
     } catch (e) {
       console.error("saveSettings error:", e);
+    }
+  },
+
+  // Pinned Apps
+  getPinnedApps: async (): Promise<PinnedApp[]> => {
+    try {
+      return await invoke<PinnedApp[]>("get_pinned_apps");
+    } catch {
+      return [];
+    }
+  },
+
+  pinApp: async (app: PinnedApp): Promise<void> => {
+    try {
+      await invoke("pin_app", { app });
+    } catch (e) {
+      console.error("pinApp error:", e);
+    }
+  },
+
+  unpinApp: async (id: string): Promise<void> => {
+    try {
+      await invoke("unpin_app", { id });
+    } catch (e) {
+      console.error("unpinApp error:", e);
     }
   },
 

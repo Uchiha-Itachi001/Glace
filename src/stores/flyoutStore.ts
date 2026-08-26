@@ -6,10 +6,12 @@ export type FlyoutType = "start" | "settings" | "quick-settings" | "calendar" | 
 let activeFlyoutState: FlyoutType = null;
 const flyoutListeners = new Set<(flyout: FlyoutType) => void>();
 
-function setFlyout(next: FlyoutType, heightPx = 620) {
+function setFlyout(next: FlyoutType, heightPx = 520) {
   activeFlyoutState = next;
+  const isExpanded = next !== null;
+
   flyoutListeners.forEach((fn) => fn(next));
-  tauriBridge.setWindowHeight(next !== null, heightPx).catch(console.error);
+  tauriBridge.setWindowHeight(isExpanded, heightPx).catch(console.error);
 }
 
 export function useFlyout() {
@@ -23,7 +25,7 @@ export function useFlyout() {
     };
   }, []);
 
-  const openFlyout = useCallback((type: FlyoutType, heightPx = 620) => {
+  const openFlyout = useCallback((type: FlyoutType, heightPx = 520) => {
     setFlyout(type, heightPx);
   }, []);
 
@@ -31,7 +33,7 @@ export function useFlyout() {
     setFlyout(null);
   }, []);
 
-  const toggleFlyout = useCallback((type: FlyoutType, heightPx = 620) => {
+  const toggleFlyout = useCallback((type: FlyoutType, heightPx = 520) => {
     if (activeFlyoutState === type) {
       setFlyout(null);
     } else {

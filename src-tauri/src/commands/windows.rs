@@ -33,37 +33,26 @@ pub fn set_window_height(
     height_px: Option<i32>,
 ) -> Result<(), String> {
     use tauri::Manager;
-    use windows::Win32::UI::WindowsAndMessaging::{
-        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_SHOWWINDOW,
-    };
 
     if let Some(window) = app.get_webview_window("main") {
         if let Ok(Some(monitor)) = window.primary_monitor() {
             let size = monitor.size();
-            let pos = monitor.position();
             let scale_factor = monitor.scale_factor();
-
-            let target_h_logical = if expanded {
-                height_px.unwrap_or(600) as f64
-            } else {
-                48.0
-            };
-            let target_h_physical = (target_h_logical * scale_factor).round() as i32;
-            let target_y = pos.y + (size.height as i32) - target_h_physical;
+            let bar_height_physical = (48.0 * scale_factor).round() as i32;
+            let flyout_h_physical = (height_px.unwrap_or(520) as f64 * scale_factor).round() as i32;
+            let flyout_w_physical = (600.0 * scale_factor).round() as i32;
 
             if let Ok(hwnd) = window.hwnd() {
                 let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as _);
-                unsafe {
-                    let _ = SetWindowPos(
-                        win32_hwnd,
-                        Some(HWND_TOPMOST),
-                        pos.x,
-                        target_y,
-                        size.width as i32,
-                        target_h_physical,
-                        SWP_NOACTIVATE | SWP_SHOWWINDOW,
-                    );
-                }
+                crate::services::work_area::update_window_region(
+                    win32_hwnd,
+                    size.width as i32,
+                    size.height as i32,
+                    bar_height_physical,
+                    expanded,
+                    flyout_w_physical,
+                    flyout_h_physical,
+                );
             }
         }
     }

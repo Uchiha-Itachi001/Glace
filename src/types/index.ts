@@ -46,6 +46,27 @@ export interface ThemePreset {
   previewGradient: string;
 }
 
+export interface PinnedApp {
+  id: string;
+  title: string;
+  exe: string;
+  lnk_path: string;
+  icon_b64: string;
+}
+
+export interface DockAppItem {
+  id: string;
+  title: string;
+  exe: string;
+  icon_b64: string;
+  is_pinned: boolean;
+  is_running: boolean;
+  is_focused: boolean;
+  is_minimized: boolean;
+  hwnd?: number;
+  lnk_path?: string;
+}
+
 export interface Settings {
   theme_id: ThemeId;
   accent_color: string;
@@ -56,6 +77,7 @@ export interface Settings {
   enabled_widgets: string[];
   autostart: boolean;
   monitor: string;
+  pinned_apps?: PinnedApp[];
 }
 
 export interface MediaTrack {

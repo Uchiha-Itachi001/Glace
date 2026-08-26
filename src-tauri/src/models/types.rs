@@ -28,6 +28,15 @@ pub struct SystemMetrics {
     pub has_battery: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PinnedApp {
+    pub id: String,
+    pub title: String,
+    pub exe: String,
+    pub lnk_path: String,
+    pub icon_b64: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub theme_id: String,
@@ -39,6 +48,8 @@ pub struct Settings {
     pub enabled_widgets: Vec<String>,
     pub autostart: bool,
     pub monitor: String,
+    #[serde(default)]
+    pub pinned_apps: Vec<PinnedApp>,
 }
 
 impl Default for Settings {
@@ -67,6 +78,7 @@ impl Default for Settings {
             ],
             autostart: false,
             monitor: "primary".into(),
+            pinned_apps: Vec::new(),
         }
     }
 }

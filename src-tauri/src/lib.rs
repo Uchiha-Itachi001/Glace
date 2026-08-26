@@ -18,14 +18,19 @@ pub fn run() {
         work_area::restore(1080, 1920);
     }));
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::taskbar::hide_native_taskbar,
+            commands::taskbar::restore_native_taskbar,
             commands::taskbar::open_start_menu,
             commands::taskbar::open_quick_settings,
             commands::taskbar::open_calendar_notifications,
             commands::taskbar::open_windows_settings,
+            commands::taskbar::open_tray_overflow,
+            commands::taskbar::toggle_input_language,
+            commands::taskbar::open_touch_keyboard,
+            commands::taskbar::open_widgets_panel,
             commands::taskbar::launch_app,
             commands::taskbar::power_action,
             commands::windows::get_open_windows,
@@ -38,6 +43,9 @@ pub fn run() {
             commands::tray::get_system_metrics,
             commands::settings::get_settings,
             commands::settings::save_settings,
+            commands::pinned::get_pinned_apps,
+            commands::pinned::pin_app,
+            commands::pinned::unpin_app,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
@@ -67,7 +75,10 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
+            if matches!(
+                event,
+                tauri::WindowEvent::Destroyed | tauri::WindowEvent::CloseRequested { .. }
+            ) {
                 work_area::restore_native_taskbar();
                 if let Ok(Some(monitor)) = window.primary_monitor() {
                     let size = monitor.size();
@@ -75,6 +86,13 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Glace");
+        .build(tauri::generate_context!())
+        .expect("error while building Glace");
+
+    app.run(|_app_handle, event| {
+        if let tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit = event {
+            work_area::restore_native_taskbar();
+            work_area::restore(1080, 1920);
+        }
+    });
 }

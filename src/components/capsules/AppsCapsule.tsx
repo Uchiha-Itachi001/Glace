@@ -1,25 +1,25 @@
 import React from "react";
-import { useWindows } from "../../hooks/useWindows";
+import { useApps } from "../../hooks/useApps";
 import { AppIcon } from "../shared/AppIcon";
 
 export const AppsCapsule: React.FC = () => {
-  const { windows, loading, focusWindow, minimizeWindow, closeWindow } = useWindows();
+  const { dockApps, loading, launchOrFocus, pinApp, unpinApp } = useApps();
 
   return (
     <div className="capsule apps-capsule">
       <div className="apps-list">
-        {windows.map((win) => (
+        {dockApps.map((app) => (
           <AppIcon
-            key={win.hwnd}
-            window={win}
-            onFocus={focusWindow}
-            onMinimize={minimizeWindow}
-            onClose={closeWindow}
+            key={app.id}
+            app={app}
+            onClick={launchOrFocus}
+            onPin={pinApp}
+            onUnpin={unpinApp}
           />
         ))}
 
-        {!loading && windows.length === 0 && (
-          <div className="apps-empty">No running apps</div>
+        {!loading && dockApps.length === 0 && (
+          <div className="apps-empty">No apps pinned</div>
         )}
       </div>
     </div>

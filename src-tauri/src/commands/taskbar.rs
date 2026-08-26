@@ -55,6 +55,50 @@ pub fn open_windows_settings() {
 }
 
 #[tauri::command]
+pub fn open_tray_overflow() {
+    unsafe {
+        // Trigger native Windows Notification Area overflow via Win + B, Enter
+        keybd_event(0x5B, 0, KEYBD_EVENT_FLAGS(0), 0);
+        keybd_event(0x42 /* 'B' */, 0, KEYBD_EVENT_FLAGS(0), 0);
+        keybd_event(0x42, 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(0x5B, 0, KEYEVENTF_KEYUP, 0);
+
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        keybd_event(0x0D /* VK_RETURN */, 0, KEYBD_EVENT_FLAGS(0), 0);
+        keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0);
+    }
+}
+
+#[tauri::command]
+pub fn toggle_input_language() {
+    unsafe {
+        // Trigger native Windows language switcher via Win + Space
+        keybd_event(0x5B, 0, KEYBD_EVENT_FLAGS(0), 0);
+        keybd_event(0x20 /* Space */, 0, KEYBD_EVENT_FLAGS(0), 0);
+        keybd_event(0x20, 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(0x5B, 0, KEYEVENTF_KEYUP, 0);
+    }
+}
+
+#[tauri::command]
+pub fn open_touch_keyboard() {
+    let _ = Command::new("cmd")
+        .args(["/C", "start", "", "tabtip.exe"])
+        .spawn();
+}
+
+#[tauri::command]
+pub fn open_widgets_panel() {
+    unsafe {
+        // Trigger native Windows Copilot / Widgets via Win + W
+        keybd_event(0x5B, 0, KEYBD_EVENT_FLAGS(0), 0);
+        keybd_event(0x57 /* 'W' */, 0, KEYBD_EVENT_FLAGS(0), 0);
+        keybd_event(0x57, 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(0x5B, 0, KEYEVENTF_KEYUP, 0);
+    }
+}
+
+#[tauri::command]
 pub fn launch_app(cmd: String) -> Result<(), String> {
     Command::new("cmd")
         .args(["/C", "start", "", &cmd])

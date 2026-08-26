@@ -101,7 +101,7 @@ pub fn is_taskbar_window(hwnd: HWND, current_pid: u32) -> bool {
     }
 }
 
-fn hicon_to_base64_bmp(hicon: HICON) -> Option<String> {
+pub(crate) fn hicon_to_base64_bmp(hicon: HICON) -> Option<String> {
     if hicon.0.is_null() {
         return None;
     }
@@ -635,17 +635,16 @@ pub fn start(app_handle: AppHandle) {
         let _ = app_handle_broadcaster.emit("windows-updated", enumerate_windows());
 
         loop {
-            // Wait for event or 1-second periodic watchdog
-            match rx.recv_timeout(Duration::from_millis(1000)) {
+            // Purely event-driven wakeup with debounce
+            match rx.recv() {
                 Ok(_) => {
                     while rx.try_recv().is_ok() {}
-                    thread::sleep(Duration::from_millis(50));
+                    thread::sleep(Duration::from_millis(60));
                     while rx.try_recv().is_ok() {}
                 }
-                Err(_) => {}
+                Err(_) => break,
             }
 
-            // Always enforce taskbar hiding and update window list
             crate::services::work_area::hide_native_taskbar();
             let list = enumerate_windows();
             let _ = app_handle_broadcaster.emit("windows-updated", list);

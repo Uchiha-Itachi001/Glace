@@ -1,42 +1,80 @@
 import React, { useState, useEffect } from "react";
-import { TrayIcon, SystemMetrics } from "../../types";
+import { SystemMetrics } from "../../types";
 import { tauriBridge } from "../../services/tauriBridge";
+import { useFlyout } from "../../stores/flyoutStore";
 
 export const TrayCapsule: React.FC = () => {
-  const [icons, setIcons] = useState<TrayIcon[]>([]);
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
+  const { activeFlyout, toggleFlyout } = useFlyout();
 
   useEffect(() => {
-    tauriBridge.getTrayIcons().then(setIcons).catch(console.error);
     tauriBridge.getSystemMetrics().then(setSystemMetrics).catch(console.error);
 
     const interval = setInterval(() => {
       tauriBridge.getSystemMetrics().then(setSystemMetrics).catch(console.error);
-    }, 5000);
+    }, 4000);
 
     return () => clearInterval(interval);
   }, []);
 
   const handleSettingsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Directly opens native Windows Settings (Win + I)
+    toggleFlyout("settings", 520);
+  };
+
+  const handleSettingsContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     tauriBridge.openWindowsSettings().catch(console.error);
+  };
+
+  const handleChevronClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    tauriBridge.openTrayOverflow().catch(console.error);
+  };
+
+  const handleKeyboardClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    tauriBridge.openTouchKeyboard().catch(console.error);
+  };
+
+  const handleWidgetsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    tauriBridge.openWidgetsPanel().catch(console.error);
+  };
+
+  const handleLanguageClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    tauriBridge.toggleInputLanguage().catch(console.error);
   };
 
   const handleQuickSettingsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Directly opens native Windows Quick Settings (Win + A)
     tauriBridge.openQuickSettings().catch(console.error);
   };
+
+  const batteryPercent = systemMetrics?.battery_percent ?? 100;
+  const isCharging = systemMetrics?.is_charging ?? false;
+  const hasBattery = systemMetrics?.has_battery ?? true;
+
+  const batteryColor =
+    batteryPercent <= 15
+      ? "#ef4444"
+      : batteryPercent <= 25
+      ? "#f59e0b"
+      : "#22c55e";
+
+  const fillWidth = Math.max(2, Math.min(15, (batteryPercent / 100) * 15));
 
   return (
     <div className="capsule capsule--compact tray-capsule">
       <div className="tray-list">
-        {/* Windows Settings Gear Button */}
+        {/* Glace App Settings Gear Button */}
         <div
-          className="tray-settings-btn icon-hover"
+          className={`tray-settings-btn icon-hover ${activeFlyout === "settings" ? "tray-settings-btn--active" : ""}`}
           onClick={handleSettingsClick}
-          title="Windows Settings (Win + I)"
+          onContextMenu={handleSettingsContextMenu}
+          title="Glace Settings (Right-click: Windows Settings)"
         >
           <svg
             width="14"
@@ -44,7 +82,7 @@ export const TrayCapsule: React.FC = () => {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="2.2"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
@@ -53,11 +91,11 @@ export const TrayCapsule: React.FC = () => {
           </svg>
         </div>
 
-        {/* Chevron Button */}
+        {/* Windows 11 Tray Overflow Chevron Button */}
         <div
           className="tray-chevron-btn icon-hover"
-          onClick={handleQuickSettingsClick}
-          title="Show hidden icons"
+          onClick={handleChevronClick}
+          title="Show hidden icons (Win + B)"
         >
           <svg
             width="12"
@@ -73,50 +111,97 @@ export const TrayCapsule: React.FC = () => {
           </svg>
         </div>
 
-        {/* Visible Running Notification Tray Icons */}
-        {icons.slice(0, 3).map((item) => (
-          <div key={item.id} className="tray-item icon-hover" title={item.tooltip}>
-            {item.icon_b64 ? (
-              <img src={item.icon_b64} alt={item.tooltip} className="tray-icon-img" />
-            ) : (
-              <div className="tray-icon-fallback" />
-            )}
-          </div>
-        ))}
+        {/* Windows 11 Touch Keyboard Button */}
+        <div
+          className="tray-tool-btn icon-hover"
+          onClick={handleKeyboardClick}
+          title="Touch Keyboard"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect width="20" height="14" x="2" y="5" rx="2" />
+            <line x1="6" x2="6.01" y1="9" y2="9" strokeWidth="2.5" />
+            <line x1="10" x2="10.01" y1="9" y2="9" strokeWidth="2.5" />
+            <line x1="14" x2="14.01" y1="9" y2="9" strokeWidth="2.5" />
+            <line x1="18" x2="18.01" y1="9" y2="9" strokeWidth="2.5" />
+            <line x1="8" x2="16" y1="15" y2="15" strokeWidth="2" />
+          </svg>
+        </div>
 
-        {/* Official Windows 11 Quick Settings Indicators (WiFi, Audio, Battery) */}
+        {/* Windows 11 Screen / Copilot / Widgets Button */}
+        <div
+          className="tray-tool-btn icon-hover"
+          onClick={handleWidgetsClick}
+          title="Widgets & Copilot (Win + W)"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect width="18" height="14" x="3" y="5" rx="2" />
+            <line x1="3" x2="21" y1="12" y2="12" />
+            <line x1="12" x2="12" y1="12" y2="19" />
+          </svg>
+        </div>
+
+        {/* Windows 11 Input Language Switcher */}
+        <div
+          className="tray-lang-pill icon-hover"
+          onClick={handleLanguageClick}
+          title="Keyboard Language: English (India) - Click or Win+Space to switch"
+        >
+          <span className="tray-lang-top">ENG</span>
+          <span className="tray-lang-bot">IN</span>
+        </div>
+
+        {/* Windows 11 Unified Quick Settings Indicators Pill (WiFi, Volume, Battery) */}
         <div
           className="tray-system-indicators icon-hover"
           onClick={handleQuickSettingsClick}
-          title="Quick Settings / Control Center (Win + A)"
+          title={`Network, Sound, Battery (${batteryPercent}%${isCharging ? ", Charging" : ""}) - Win + A`}
         >
-          {/* Windows Wi-Fi Fluent Icon */}
-          <div className="indicator-icon" title="Network">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {/* Windows 11 Fluent Wi-Fi */}
+          <div className="fluent-indicator-icon" title="Internet Access">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12.55a11 11 0 0 1 14.08 0" />
               <path d="M1.42 9a16 16 0 0 1 21.16 0" />
               <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-              <circle cx="12" cy="20" r="1" fill="currentColor" />
+              <circle cx="12" cy="20" r="1.2" fill="currentColor" />
             </svg>
           </div>
 
-          {/* Windows Audio Fluent Icon */}
-          <div className="indicator-icon" title="Sound Volume">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {/* Windows 11 Fluent Volume */}
+          <div className="fluent-indicator-icon" title="Speakers: 75%">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" />
               <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
               <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
             </svg>
           </div>
 
-          {/* Windows Battery Fluent Icon */}
-          {systemMetrics?.has_battery && (
-            <div className="indicator-icon battery-indicator" title={`Battery: ${systemMetrics.battery_percent}%`}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <rect width="16" height="10" x="2" y="7" rx="2" ry="2" />
-                <line x1="21" x2="21" y1="10" y2="14" strokeWidth="2" />
+          {/* Windows 11 Fluent Battery */}
+          {hasBattery && (
+            <div className="fluent-battery-wrapper" title={`Battery status: ${batteryPercent}% available${isCharging ? " (plugged in)" : ""}`}>
+              <svg width="22" height="12" viewBox="0 0 22 12" className="fluent-battery-svg">
+                {/* Outer Rounded Shell */}
+                <rect x="0.6" y="0.6" width="18" height="10.8" rx="3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                {/* Positive Terminal Nub */}
+                <path d="M 19.4 4 C 20.2 4 20.8 4.6 20.8 5.4 L 20.8 6.6 C 20.8 7.4 20.2 8 19.4 8 Z" fill="currentColor" />
+                {/* Filled Level Bar */}
+                <rect
+                  x="2.2"
+                  y="2.2"
+                  width={fillWidth}
+                  height="7.6"
+                  rx="1.8"
+                  fill={batteryColor}
+                />
+                {/* Centered Charging Lightning Bolt */}
+                {isCharging && (
+                  <path
+                    d="M 10.5 1.5 L 6.8 6.5 L 10 6.5 L 9 10.5 L 13.2 5.5 L 10 5.5 Z"
+                    fill="#ffffff"
+                    stroke="#000000"
+                    strokeWidth="0.4"
+                  />
+                )}
               </svg>
-              {systemMetrics.is_charging && <span className="battery-bolt">⚡</span>}
             </div>
           )}
         </div>
