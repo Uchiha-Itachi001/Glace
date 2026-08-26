@@ -13,9 +13,9 @@
     "windows": [
       {
         "label": "main",
-        "title": "Glace",
+        "title": "",
         "width": 1920,
-        "height": 48,
+        "height": 1080,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,

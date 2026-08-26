@@ -6,6 +6,29 @@ mod services;
 use services::work_area;
 use tauri::Manager;
 
+unsafe extern "system" fn taskbar_subclass_proc(
+    hwnd: windows::Win32::Foundation::HWND,
+    msg: u32,
+    wparam: windows::Win32::Foundation::WPARAM,
+    lparam: windows::Win32::Foundation::LPARAM,
+    _uidsubclass: usize,
+    _refdata: usize,
+) -> windows::Win32::Foundation::LRESULT {
+    match msg {
+        // Prevent Windows DWM from painting non-client caption bar on window focus/activation
+        windows::Win32::UI::WindowsAndMessaging::WM_NCACTIVATE => {
+            windows::Win32::Foundation::LRESULT(1)
+        }
+        windows::Win32::UI::WindowsAndMessaging::WM_NCPAINT => {
+            windows::Win32::Foundation::LRESULT(0)
+        }
+        windows::Win32::UI::WindowsAndMessaging::WM_SETTEXT => {
+            windows::Win32::Foundation::LRESULT(1)
+        }
+        _ => windows::Win32::UI::Shell::DefSubclassProc(hwnd, msg, wparam, lparam),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Install console Ctrl+C / break / exit handler
@@ -64,11 +87,18 @@ pub fn run() {
                     // Strip all title-bar / caption / border styles and set WS_POPUP
                     unsafe {
                         use windows::Win32::UI::WindowsAndMessaging::{
-                            GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_STYLE, GWL_EXSTYLE,
+                            GetWindowLongW, SetWindowLongW, SetWindowPos, SetWindowTextW, GWL_STYLE, GWL_EXSTYLE,
                             WS_CAPTION, WS_SYSMENU, WS_BORDER, WS_THICKFRAME, WS_MINIMIZEBOX,
                             WS_MAXIMIZEBOX, WS_POPUP, WS_VISIBLE, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
                             SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE,
                         };
+                        use windows::Win32::Graphics::Dwm::{
+                            DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DWMWA_NCRENDERING_POLICY, DWMNCRP_DISABLED,
+                            DWMWA_TRANSITIONS_FORCEDISABLED,
+                        };
+                        use windows::Win32::UI::Controls::MARGINS;
+                        use windows::Win32::UI::Shell::SetWindowSubclass;
+
                         let style = GetWindowLongW(win32_hwnd, GWL_STYLE) as u32;
                         let clean = (style & !(WS_CAPTION.0 | WS_SYSMENU.0 | WS_BORDER.0 | WS_THICKFRAME.0 | WS_MINIMIZEBOX.0 | WS_MAXIMIZEBOX.0)) | WS_POPUP.0 | WS_VISIBLE.0;
                         SetWindowLongW(win32_hwnd, GWL_STYLE, clean as i32);
@@ -76,6 +106,44 @@ pub fn run() {
                         let ex_style = GetWindowLongW(win32_hwnd, GWL_EXSTYLE) as u32;
                         let clean_ex = (ex_style & !WS_EX_APPWINDOW.0) | WS_EX_TOOLWINDOW.0;
                         SetWindowLongW(win32_hwnd, GWL_EXSTYLE, clean_ex as i32);
+
+                        // Disable DWM non-client caption bar rendering
+                        let policy = DWMNCRP_DISABLED.0 as u32;
+                        let _ = DwmSetWindowAttribute(
+                            win32_hwnd,
+                            DWMWA_NCRENDERING_POLICY,
+                            &policy as *const _ as *const _,
+                            std::mem::size_of::<u32>() as u32,
+                        );
+
+                        let disable_trans: u32 = 1;
+                        let _ = DwmSetWindowAttribute(
+                            win32_hwnd,
+                            DWMWA_TRANSITIONS_FORCEDISABLED,
+                            &disable_trans as *const _ as *const _,
+                            std::mem::size_of::<u32>() as u32,
+                        );
+
+                        // Extend glass frame across entire window (-1 margins = 100% transparent glass)
+                        let margins = MARGINS {
+                            cxLeftWidth: -1,
+                            cxRightWidth: -1,
+                            cyTopHeight: -1,
+                            cyBottomHeight: -1,
+                        };
+                        let _ = DwmExtendFrameIntoClientArea(win32_hwnd, &margins);
+
+                        // Set empty window title in Win32
+                        let empty_title: Vec<u16> = vec![0];
+                        let _ = SetWindowTextW(win32_hwnd, windows::core::PCWSTR(empty_title.as_ptr()));
+
+                        // Subclass window to intercept and permanently drop WM_NCACTIVATE and WM_NCPAINT
+                        let _ = SetWindowSubclass(
+                            win32_hwnd,
+                            Some(taskbar_subclass_proc),
+                            101,
+                            0,
+                        );
 
                         let _ = SetWindowPos(
                             win32_hwnd,

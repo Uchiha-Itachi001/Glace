@@ -59,14 +59,14 @@ pub fn update_window_region(
 
     unsafe {
         if flyout_expanded {
-            // Expand to full monitor so flyouts, context menus and backdrop clicks work
+            // Expand region to full monitor so flyouts, context menus and backdrop clicks work
             let rgn_full = CreateRectRgn(0, 0, monitor_w, monitor_h);
-            let _ = SetWindowRgn(hwnd, Some(rgn_full), false);
+            let _ = SetWindowRgn(hwnd, Some(rgn_full), true);
         } else {
-            // Strictly clip to bottom taskbar bar height so area above is 100% clickable
+            // Strictly clip region to bottom taskbar bar height so area above is 100% transparent and clickable
             let bar_top = monitor_h - bar_height;
             let rgn_bar = CreateRectRgn(0, bar_top, monitor_w, monitor_h);
-            let _ = SetWindowRgn(hwnd, Some(rgn_bar), false);
+            let _ = SetWindowRgn(hwnd, Some(rgn_bar), true);
         }
     }
 }
@@ -80,7 +80,7 @@ pub fn pin_window_to_bottom(
     bar_height_physical: i32,
 ) {
     unsafe {
-        // Position window across full monitor so swapchain never needs resizing
+        // Position window across full monitor
         let _ = SetWindowPos(
             hwnd,
             Some(HWND_TOPMOST),
