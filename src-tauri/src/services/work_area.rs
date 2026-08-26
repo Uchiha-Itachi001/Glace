@@ -60,17 +60,19 @@ pub fn update_window_region(
     };
 
     unsafe {
-        let bar_top = monitor_h - bar_height;
+        // Base dock region accommodates hover preview cards, flyouts, and tooltips
+        let dock_region_height = std::cmp::max(bar_height, 180);
+        let bar_top = monitor_h - dock_region_height;
         let rgn_bar = CreateRectRgn(0, bar_top, monitor_w, monitor_h);
 
         if flyout_expanded {
             let fw = if flyout_w > 0 { flyout_w } else { 620 };
-            let fh = if flyout_h > 0 { flyout_h } else { 520 };
+            let fh = if flyout_h > 0 { flyout_h } else { 540 };
 
             let flyout_left = monitor_w - fw - 24;
-            let flyout_top = bar_top - fh - 10;
+            let flyout_top = monitor_h - fh - 10;
             let flyout_right = monitor_w - 20;
-            let flyout_bottom = bar_top - 4;
+            let flyout_bottom = monitor_h - 4;
 
             let rgn_flyout = CreateRectRgn(flyout_left, flyout_top, flyout_right, flyout_bottom);
             let rgn_combined = CreateRectRgn(0, 0, 0, 0);

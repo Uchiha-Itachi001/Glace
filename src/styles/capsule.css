@@ -404,18 +404,39 @@ html, body {
   background: rgba(255, 255, 255, 0.14);
 }
 
-/* Stacked double card plate for multiple instances */
-.app-icon-stack-plate {
+/* Multi-Instance Stacked Tile Plates */
+.app-icon--stacked {
+  margin-right: 4px;
+}
+
+.app-icon--stacked::after {
+  content: "";
   position: absolute;
   top: 3px;
-  right: 1px;
+  right: -3px;
   bottom: 3px;
-  left: 5px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  z-index: 0;
+  width: 8px;
+  border-radius: 0 6px 6px 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-left: none;
   pointer-events: none;
+  z-index: 0;
+}
+
+.app-icon--stacked::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: -6px;
+  bottom: 5px;
+  width: 6px;
+  border-radius: 0 5px 5px 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: none;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .app-icon-body {
@@ -477,6 +498,34 @@ html, body {
   background: var(--glace-accent);
   box-shadow: 0 0 8px var(--glace-accent-glow);
   z-index: 2;
+}
+
+/* Multi-instance stacked dots row */
+.stacked-indicators-row {
+  position: absolute;
+  bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  z-index: 2;
+}
+
+.stacked-dot {
+  height: 3px;
+  border-radius: 2px;
+  transition: all 0.15s ease;
+}
+
+.stacked-dot--focused {
+  width: 10px;
+  background: var(--glace-accent);
+  box-shadow: 0 0 6px var(--glace-accent-glow);
+}
+
+.stacked-dot--open {
+  width: 5px;
+  background: rgba(255, 255, 255, 0.55);
 }
 
 /* ─── Fluent Hover Flyout & Tooltips ────────────────────────────────── */

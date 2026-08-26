@@ -20,21 +20,34 @@ export const AppIcon: React.FC<AppIconProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef<number | null>(null);
 
-  const windowList = app.windows && app.windows.length > 0 ? app.windows : (app.hwnd ? [{ hwnd: app.hwnd, title: app.title, exe: app.exe, icon_b64: app.icon_b64, is_focused: app.is_focused, is_minimized: app.is_minimized }] : []);
+  const windowList =
+    app.windows && app.windows.length > 0
+      ? app.windows
+      : app.is_running && app.hwnd
+      ? [
+          {
+            hwnd: app.hwnd,
+            title: app.title,
+            exe: app.exe,
+            icon_b64: app.icon_b64,
+            is_focused: app.is_focused,
+            is_minimized: app.is_minimized,
+          },
+        ]
+      : [];
+
   const hasMultipleWindows = windowList.length > 1;
 
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    hoverTimeoutRef.current = window.setTimeout(() => {
-      setIsHovered(true);
-    }, 120);
+    setIsHovered(true);
   };
 
   const handleMouseLeave = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = window.setTimeout(() => {
       setIsHovered(false);
-    }, 150);
+    }, 120);
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -77,9 +90,6 @@ export const AppIcon: React.FC<AppIconProps> = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Stacked background plate for multiple window instances */}
-      {hasMultipleWindows && <div className="app-icon-stack-plate" />}
-
       <div className="app-icon-body">
         {app.icon_b64 ? (
           <img
@@ -108,8 +118,19 @@ export const AppIcon: React.FC<AppIconProps> = ({
         )}
       </div>
 
-      {/* Focus & Running Indicator Underline/Pill */}
-      {app.is_focused ? (
+      {/* Focus & Running Indicator Pills */}
+      {hasMultipleWindows ? (
+        <div className="stacked-indicators-row">
+          {windowList.map((win, idx) => (
+            <div
+              key={win.hwnd || idx}
+              className={`stacked-dot ${
+                win.is_focused ? "stacked-dot--focused" : "stacked-dot--open"
+              }`}
+            />
+          ))}
+        </div>
+      ) : app.is_focused ? (
         <div className="active-indicator" />
       ) : app.is_running ? (
         <div className="open-indicator" />
@@ -122,17 +143,22 @@ export const AppIcon: React.FC<AppIconProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           {app.is_running && windowList.length > 0 ? (
-            /* Running Windows Thumbnail / Title Strip */
             <div className="fluent-window-cards-row">
               {windowList.map((win) => (
                 <div
                   key={win.hwnd}
-                  className={`fluent-window-card ${win.is_focused ? "fluent-window-card--focused" : ""}`}
+                  className={`fluent-window-card ${
+                    win.is_focused ? "fluent-window-card--focused" : ""
+                  }`}
                   onClick={(e) => handleWindowCardClick(e, win.hwnd)}
                 >
                   <div className="fluent-card-header">
                     {win.icon_b64 ? (
-                      <img src={win.icon_b64} alt="" className="fluent-card-icon" />
+                      <img
+                        src={win.icon_b64}
+                        alt=""
+                        className="fluent-card-icon"
+                      />
                     ) : (
                       <div className="fluent-card-icon-fallback" />
                     )}
@@ -144,7 +170,16 @@ export const AppIcon: React.FC<AppIconProps> = ({
                       onClick={(e) => handleWindowCardClose(e, win.hwnd)}
                       title="Close window"
                     >
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <line x1="18" y1="6" x2="6" y2="18" />
                         <line x1="6" y1="6" x2="18" y2="18" />
                       </svg>
@@ -154,7 +189,6 @@ export const AppIcon: React.FC<AppIconProps> = ({
               ))}
             </div>
           ) : (
-            /* Clean Fluent Tooltip for Closed / Pinned Apps */
             <div className="fluent-simple-tooltip">
               <span className="fluent-simple-tooltip-text">{app.title}</span>
             </div>
