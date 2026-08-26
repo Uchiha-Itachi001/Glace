@@ -1,0 +1,145 @@
+/* ─── Glace Theme Presets (Inspired by Seelen-UI Theming Engine) ────────── */
+
+/* 1. Default: Obsidian Dark */
+[data-theme="obsidian"] {
+  --glace-bg-base: #060a12;
+  --glace-bg-surface: #0b1120;
+  --glace-bg-capsule: rgba(13, 20, 36, 0.78);
+  --glace-bg-capsule-hl: rgba(255, 255, 255, 0.08);
+  --glace-bg-hover: rgba(255, 255, 255, 0.1);
+  --glace-bg-active: rgba(255, 255, 255, 0.16);
+
+  --glace-accent: #10b981;
+  --glace-accent-hover: #34d399;
+  --glace-accent-dim: rgba(16, 185, 129, 0.2);
+  --glace-accent-glow: rgba(16, 185, 129, 0.45);
+  --glace-accent-subtle: rgba(16, 185, 129, 0.1);
+
+  --glace-text-primary: rgba(255, 255, 255, 0.95);
+  --glace-text-secondary: rgba(255, 255, 255, 0.65);
+  --glace-text-muted: rgba(255, 255, 255, 0.35);
+
+  --glace-border: rgba(255, 255, 255, 0.12);
+  --glace-border-focus: rgba(16, 185, 129, 0.6);
+  --glace-shadow-glow: 0 0 20px 2px rgba(16, 185, 129, 0.35);
+}
+
+/* 2. Seelen Cyberpunk */
+[data-theme="cyberpunk"] {
+  --glace-bg-base: #0a0714;
+  --glace-bg-surface: #120d24;
+  --glace-bg-capsule: rgba(22, 13, 43, 0.82);
+  --glace-bg-capsule-hl: rgba(6, 182, 212, 0.15);
+  --glace-bg-hover: rgba(236, 72, 153, 0.18);
+  --glace-bg-active: rgba(6, 182, 212, 0.28);
+
+  --glace-accent: #06b6d4;
+  --glace-accent-hover: #22d3ee;
+  --glace-accent-dim: rgba(6, 182, 212, 0.25);
+  --glace-accent-glow: rgba(6, 182, 212, 0.55);
+  --glace-accent-subtle: rgba(236, 72, 153, 0.18);
+
+  --glace-text-primary: #ffffff;
+  --glace-text-secondary: #e2e8f0;
+  --glace-text-muted: #94a3b8;
+
+  --glace-border: rgba(6, 182, 212, 0.3);
+  --glace-border-focus: #ec4899;
+  --glace-shadow-glow: 0 0 24px 3px rgba(6, 182, 212, 0.45);
+}
+
+/* 3. Catppuccin Mocha */
+[data-theme="catppuccin"] {
+  --glace-bg-base: #181825;
+  --glace-bg-surface: #1e1e2e;
+  --glace-bg-capsule: rgba(30, 30, 46, 0.84);
+  --glace-bg-capsule-hl: rgba(203, 166, 247, 0.12);
+  --glace-bg-hover: rgba(203, 166, 247, 0.14);
+  --glace-bg-active: rgba(203, 166, 247, 0.22);
+
+  --glace-accent: #cba6f7;
+  --glace-accent-hover: #d8bbf9;
+  --glace-accent-dim: rgba(203, 166, 247, 0.25);
+  --glace-accent-glow: rgba(203, 166, 247, 0.45);
+  --glace-accent-subtle: rgba(137, 180, 250, 0.15);
+
+  --glace-text-primary: #cdd6f4;
+  --glace-text-secondary: #bac2de;
+  --glace-text-muted: #6c7086;
+
+  --glace-border: rgba(203, 166, 247, 0.2);
+  --glace-border-focus: #89b4fa;
+  --glace-shadow-glow: 0 0 20px 2px rgba(203, 166, 247, 0.35);
+}
+
+/* 4. Nord Frost */
+[data-theme="nord"] {
+  --glace-bg-base: #242933;
+  --glace-bg-surface: #2e3440;
+  --glace-bg-capsule: rgba(46, 52, 64, 0.82);
+  --glace-bg-capsule-hl: rgba(136, 192, 208, 0.12);
+  --glace-bg-hover: rgba(136, 192, 208, 0.15);
+  --glace-bg-active: rgba(136, 192, 208, 0.24);
+
+  --glace-accent: #88c0d0;
+  --glace-accent-hover: #8fbcbb;
+  --glace-accent-dim: rgba(136, 192, 208, 0.25);
+  --glace-accent-glow: rgba(136, 192, 208, 0.45);
+  --glace-accent-subtle: rgba(129, 161, 193, 0.15);
+
+  --glace-text-primary: #eceff4;
+  --glace-text-secondary: #e5e9f0;
+  --glace-text-muted: #7b88a1;
+
+  --glace-border: rgba(136, 192, 208, 0.22);
+  --glace-border-focus: #81a1c1;
+  --glace-shadow-glow: 0 0 20px 2px rgba(136, 192, 208, 0.35);
+}
+
+/* 5. Liquid Glass (Ultra Refractive Crystal) */
+[data-theme="glass"] {
+  --glace-bg-base: #030712;
+  --glace-bg-surface: #0f172a;
+  --glace-bg-capsule: rgba(255, 255, 255, 0.08);
+  --glace-bg-capsule-hl: rgba(255, 255, 255, 0.25);
+  --glace-bg-hover: rgba(255, 255, 255, 0.16);
+  --glace-bg-active: rgba(255, 255, 255, 0.24);
+
+  --glace-accent: #38bdf8;
+  --glace-accent-hover: #7dd3fc;
+  --glace-accent-dim: rgba(56, 189, 248, 0.22);
+  --glace-accent-glow: rgba(56, 189, 248, 0.5);
+  --glace-accent-subtle: rgba(255, 255, 255, 0.1);
+
+  --glace-text-primary: #ffffff;
+  --glace-text-secondary: rgba(255, 255, 255, 0.75);
+  --glace-text-muted: rgba(255, 255, 255, 0.45);
+
+  --glace-border: rgba(255, 255, 255, 0.25);
+  --glace-border-focus: #38bdf8;
+  --glace-shadow-glow: 0 0 24px 3px rgba(56, 189, 248, 0.4);
+}
+
+/* 6. Sunset Amber */
+[data-theme="sunset"] {
+  --glace-bg-base: #120906;
+  --glace-bg-surface: #1c100b;
+  --glace-bg-capsule: rgba(36, 20, 14, 0.82);
+  --glace-bg-capsule-hl: rgba(245, 158, 11, 0.15);
+  --glace-bg-hover: rgba(245, 158, 11, 0.16);
+  --glace-bg-active: rgba(245, 158, 11, 0.26);
+
+  --glace-accent: #f59e0b;
+  --glace-accent-hover: #fbbf24;
+  --glace-accent-dim: rgba(245, 158, 11, 0.25);
+  --glace-accent-glow: rgba(245, 158, 11, 0.45);
+  --glace-accent-subtle: rgba(251, 146, 60, 0.15);
+
+  --glace-text-primary: #fffbeb;
+  --glace-text-secondary: #fde68a;
+  --glace-text-muted: #92754d;
+
+  --glace-border: rgba(245, 158, 11, 0.24);
+  --glace-border-focus: #fb923c;
+  --glace-shadow-glow: 0 0 22px 2px rgba(245, 158, 11, 0.4);
+}

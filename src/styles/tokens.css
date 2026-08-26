@@ -1,0 +1,67 @@
+/* ─── Glace Design System Tokens ─────────────────────────────────────────── */
+
+:root {
+  /* Color Palette — Deep Obsidian Glass & Emerald Pulse */
+  --glace-bg-base:        #060a12;
+  --glace-bg-surface:     #0b1120;
+  --glace-bg-capsule:     rgba(13, 20, 36, 0.76);
+  --glace-bg-capsule-hl:  rgba(255, 255, 255, 0.06);
+  --glace-bg-hover:       rgba(255, 255, 255, 0.08);
+  --glace-bg-active:      rgba(255, 255, 255, 0.14);
+
+  /* Accent Tones */
+  --glace-accent:         #10b981;
+  --glace-accent-hover:   #34d399;
+  --glace-accent-dim:     rgba(16, 185, 129, 0.2);
+  --glace-accent-glow:    rgba(16, 185, 129, 0.45);
+  --glace-accent-subtle:  rgba(16, 185, 129, 0.1);
+
+  /* Typography Colors */
+  --glace-text-primary:   rgba(255, 255, 255, 0.95);
+  --glace-text-secondary: rgba(255, 255, 255, 0.65);
+  --glace-text-muted:     rgba(255, 255, 255, 0.35);
+
+  /* Borders & Specular Highlights */
+  --glace-border:         rgba(255, 255, 255, 0.1);
+  --glace-border-focus:   rgba(16, 185, 129, 0.55);
+  --glace-border-subtle:  rgba(255, 255, 255, 0.05);
+
+  /* Glassmorphism & Refraction */
+  --glace-blur:           blur(28px) saturate(190%);
+  --glace-glass-gradient: linear-gradient(
+                            145deg,
+                            rgba(255, 255, 255, 0.08) 0%,
+                            rgba(255, 255, 255, 0.02) 100%
+                          );
+
+  /* Geometry & Radii */
+  --glace-radius-capsule: 14px;
+  --glace-radius-flyout:  16px;
+  --glace-radius-icon:    8px;
+  --glace-radius-sm:      6px;
+
+  /* Shadows & Depth — Clean Isolated Floating Glass */
+  --glace-shadow:         0 4px 16px 0 rgba(0, 0, 0, 0.28),
+                          0 1px 3px 0 rgba(0, 0, 0, 0.15),
+                          inset 0 1px 1px 0 rgba(255, 255, 255, 0.12);
+
+  --glace-shadow-hover:   0 6px 20px 0 rgba(0, 0, 0, 0.35),
+                          0 2px 6px 0 rgba(0, 0, 0, 0.2),
+                          inset 0 1px 1px 0 rgba(255, 255, 255, 0.18);
+
+  --glace-shadow-glow:    0 0 16px 2px var(--glace-accent-glow),
+                          0 4px 16px 0 rgba(0, 0, 0, 0.3);
+
+  /* Dimensions & Spacing */
+  --glace-gap:            8px;
+  --glace-pad-capsule:    0 10px;
+  --glace-bar-height:     40px;
+  --glace-bar-margin:     10px;
+
+  /* Spring Physics & Motion Timings */
+  --glace-ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --glace-ease-smooth:    cubic-bezier(0.22, 1, 0.36, 1);
+  --glace-duration-fast:  120ms;
+  --glace-duration-base:  240ms;
+  --glace-duration-slow:  400ms;
+}

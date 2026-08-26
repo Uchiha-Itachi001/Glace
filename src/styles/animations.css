@@ -1,0 +1,32 @@
+/* ─── Animations ─────────────────────────────────────────────────────── */
+
+@keyframes flyout-in {
+  from { opacity: 0; transform: scale(0.92) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.flyout-enter {
+  animation: flyout-in var(--glace-duration-base) var(--glace-ease-spring) forwards;
+  transform-origin: bottom center;
+}
+
+.icon-hover {
+  transition: transform var(--glace-duration-fast) var(--glace-ease-spring),
+              background var(--glace-duration-fast) var(--glace-ease-out);
+}
+.icon-hover:hover  { transform: translateY(-2px) scale(1.08); background: var(--glace-bg-hover); }
+.icon-hover:active { transform: translateY(0) scale(0.94); }
+
+@keyframes indicator-in {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+.active-indicator {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--glace-accent);
+  box-shadow: 0 0 8px var(--glace-accent-glow);
+  animation: indicator-in var(--glace-duration-base) var(--glace-ease-spring) forwards;
+}
