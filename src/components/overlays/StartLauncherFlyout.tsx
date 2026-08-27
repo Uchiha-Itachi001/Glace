@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { tauriBridge } from "../../services/tauriBridge";
+import { useSettings } from "../../stores/settingsStore";
 
 interface PinnedApp {
   id: string;
@@ -132,11 +133,15 @@ const APPS: PinnedApp[] = [
 const CATEGORIES = ["All", "Developer", "Web", "System", "Utilities", "Media"] as const;
 
 export const StartLauncherFlyout: React.FC<StartLauncherFlyoutProps> = ({ onClose }) => {
+  const { settings } = useSettings();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [showPowerMenu, setShowPowerMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const barAlign = settings?.bar_alignment || "center";
+  const barPos = settings?.bar_position || "bottom";
 
   // Evaluate instant math expression
   const mathResult = useMemo(() => {
@@ -219,7 +224,10 @@ export const StartLauncherFlyout: React.FC<StartLauncherFlyoutProps> = ({ onClos
   };
 
   return (
-    <div className="launcher-flyout flyout-enter" onClick={(e) => e.stopPropagation()}>
+    <div
+      className={`launcher-flyout flyout-enter launcher-flyout--align-${barAlign} launcher-flyout--pos-${barPos}`}
+      onClick={(e) => e.stopPropagation()}
+    >
       {/* Search Input Bar */}
       <div className="launcher-search-container">
         <svg

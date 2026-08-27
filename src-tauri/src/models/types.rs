@@ -60,6 +60,14 @@ fn default_true() -> bool {
     true
 }
 
+fn default_media_location() -> String {
+    "notch".into()
+}
+
+fn default_bar_alignment() -> String {
+    "center".into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub theme_id: String,
@@ -67,6 +75,8 @@ pub struct Settings {
     pub blur_intensity: f32,
     pub corner_radius: u32,
     pub bar_position: String,
+    #[serde(default = "default_bar_alignment")]
+    pub bar_alignment: String,
     pub capsule_order: Vec<String>,
     pub enabled_widgets: Vec<String>,
     pub autostart: bool,
@@ -85,6 +95,8 @@ pub struct Settings {
     pub island_show_hardware: bool,
     #[serde(default = "default_true")]
     pub island_show_battery: bool,
+    #[serde(default = "default_media_location")]
+    pub media_location: String,
 }
 
 impl Default for Settings {
@@ -95,6 +107,7 @@ impl Default for Settings {
             blur_intensity: 1.0,
             corner_radius: 20,
             bar_position: "bottom".into(),
+            bar_alignment: "center".into(),
             capsule_order: vec![
                 "start".into(),
                 "apps".into(),
@@ -106,7 +119,6 @@ impl Default for Settings {
             enabled_widgets: vec![
                 "start".into(),
                 "apps".into(),
-                "media".into(),
                 "sysmon".into(),
                 "tray".into(),
                 "clock".into(),
@@ -120,6 +132,7 @@ impl Default for Settings {
             island_show_media: true,
             island_show_hardware: true,
             island_show_battery: true,
+            media_location: "notch".into(),
         }
     }
 }

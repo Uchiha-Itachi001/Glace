@@ -86,8 +86,9 @@ const DEFAULT_SETTINGS: Settings = {
   blur_intensity: 1.0,
   corner_radius: 20,
   bar_position: "bottom",
+  bar_alignment: "center",
   capsule_order: ["start", "apps", "media", "sysmon", "tray", "clock"],
-  enabled_widgets: ["start", "apps", "media", "sysmon", "tray", "clock"],
+  enabled_widgets: ["start", "apps", "sysmon", "tray", "clock"],
   autostart: false,
   monitor: "primary",
   sysmon_mode: "cpu_ram",
@@ -96,6 +97,7 @@ const DEFAULT_SETTINGS: Settings = {
   island_show_media: true,
   island_show_hardware: true,
   island_show_battery: true,
+  media_location: "notch",
 };
 
 let globalSettings: Settings = DEFAULT_SETTINGS;
@@ -176,8 +178,46 @@ export function useSettings() {
     }));
   }, [updateSettings]);
 
+  const setMediaLocation = useCallback((location: "notch" | "taskbar" | "none") => {
+    updateSettings((prev) => {
+      const currentList = prev.enabled_widgets || DEFAULT_SETTINGS.enabled_widgets;
+      let enabled_widgets = currentList;
+
+      if (location === "taskbar") {
+        if (!enabled_widgets.includes("media")) {
+          enabled_widgets = [...enabled_widgets, "media"];
+        }
+      } else {
+        enabled_widgets = enabled_widgets.filter((w) => w !== "media");
+      }
+
+      return {
+        ...prev,
+        media_location: location,
+        island_show_media: location === "notch",
+        enabled_widgets,
+      };
+    });
+  }, [updateSettings]);
+
   const toggleWidget = useCallback((widgetId: string) => {
     updateSettings((prev) => {
+      if (widgetId === "media") {
+        const isTaskbar = prev.media_location === "taskbar";
+        const nextLocation = isTaskbar ? "notch" : "taskbar";
+        const currentList = prev.enabled_widgets || DEFAULT_SETTINGS.enabled_widgets;
+        const enabled_widgets = nextLocation === "taskbar"
+          ? [...currentList.filter((w) => w !== "media"), "media"]
+          : currentList.filter((w) => w !== "media");
+
+        return {
+          ...prev,
+          media_location: nextLocation,
+          island_show_media: nextLocation === "notch",
+          enabled_widgets,
+        };
+      }
+
       const currentList = prev.enabled_widgets || DEFAULT_SETTINGS.enabled_widgets;
       const exists = currentList.includes(widgetId);
       const enabled_widgets = exists
@@ -209,6 +249,7 @@ export function useSettings() {
     toggleWidget,
     toggleTrayItem,
     setSysMonMode,
+    setMediaLocation,
     presets: THEME_PRESETS,
   };
 }

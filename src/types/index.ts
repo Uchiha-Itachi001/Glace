@@ -74,12 +74,16 @@ export interface DockAppItem {
   windows?: WindowInfo[];
 }
 
+export type MediaLocation = "notch" | "taskbar" | "none";
+export type BarAlignment = "center" | "left" | "right";
+
 export interface Settings {
   theme_id: ThemeId;
   accent_color: string;
   blur_intensity: number;
   corner_radius: number;
   bar_position: "bottom" | "top" | "floating";
+  bar_alignment?: BarAlignment;
   capsule_order: string[];
   enabled_widgets: string[];
   autostart: boolean;
@@ -91,6 +95,7 @@ export interface Settings {
   island_show_media?: boolean;
   island_show_hardware?: boolean;
   island_show_battery?: boolean;
+  media_location?: MediaLocation;
 }
 
 export interface MediaTrack {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSettings, THEME_PRESETS } from "../../stores/settingsStore";
-import { ThemeId, PinnedApp } from "../../types";
+import { ThemeId, PinnedApp, BarAlignment } from "../../types";
 import { tauriBridge } from "../../services/tauriBridge";
 
 interface SettingsFlyoutProps {
@@ -20,12 +20,12 @@ const ACCENT_PRESETS = [
 ];
 
 const WIDGET_OPTIONS = [
-  { id: "start", name: "Start Launcher", desc: "Keyboard launcher & quick apps search" },
-  { id: "apps", name: "Taskbar Dock Apps", desc: "Pinned & active applications with live snap controls" },
-  { id: "media", name: "Media Player", desc: "Soundwave visualizer & playback controls" },
-  { id: "sysmon", name: "System Monitor", desc: "Live CPU, RAM & Internet Speed monitor" },
-  { id: "tray", name: "System Tray", desc: "Settings toggle and notification icons" },
-  { id: "clock", name: "Clock & Calendar", desc: "Digital clock with interactive calendar" },
+  { id: "start", name: "Start Launcher Button", desc: "Windows Start menu & launcher button" },
+  { id: "apps", name: "Taskbar Dock Apps", desc: "Pinned & active running applications" },
+  { id: "media", name: "Media Player Capsule", desc: "Soundwave visualizer & track controls" },
+  { id: "sysmon", name: "System Monitor", desc: "Live CPU, RAM & Internet Speed telemetry" },
+  { id: "tray", name: "System Tray & Indicators", desc: "Settings shortcut and notification area" },
+  { id: "clock", name: "Clock & Calendar", desc: "Digital clock with interactive calendar flyout" },
 ];
 
 const SYSMON_MODES: {
@@ -87,9 +87,30 @@ const TRAY_ITEM_OPTIONS = [
   },
 ];
 
+const MEDIA_LOCATIONS: { id: "notch" | "taskbar" | "none"; name: string; badge: string; desc: string }[] = [
+  {
+    id: "notch",
+    name: "Top Dynamic Notch",
+    badge: "Default",
+    desc: "Active playing media lives in the top dynamic island; taskbar stays minimal",
+  },
+  {
+    id: "taskbar",
+    name: "Bottom Taskbar Dock",
+    badge: "Dock",
+    desc: "Active playing media lives in the bottom taskbar cluster with controls",
+  },
+  {
+    id: "none",
+    name: "Disabled",
+    badge: "Off",
+    desc: "Hide media player and soundwave indicators from both notch and taskbar",
+  },
+];
+
 export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
-  const { settings, updateSettings, setTheme, toggleWidget, toggleTrayItem, setSysMonMode } = useSettings();
-  const [activeTab, setActiveTab] = useState<"appearance" | "widgets" | "pinned" | "layout" | "about">("appearance");
+  const { settings, updateSettings, setTheme, toggleWidget, toggleTrayItem, setSysMonMode, setMediaLocation } = useSettings();
+  const [activeTab, setActiveTab] = useState<"appearance" | "taskbar" | "island" | "tray" | "pinned" | "about">("appearance");
   const [pinnedApps, setPinnedApps] = useState<PinnedApp[]>([]);
   const [newAppName, setNewAppName] = useState("");
   const [newAppCmd, setNewAppCmd] = useState("");
@@ -98,7 +119,9 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const currentAccent = settings?.accent_color || "#10b981";
   const currentRadius = settings?.corner_radius ?? 20;
   const currentBlur = settings?.blur_intensity ?? 1.0;
-  const enabledWidgets = settings?.enabled_widgets || ["start", "apps", "media", "sysmon", "tray", "clock"];
+  const currentBarPos = settings?.bar_position || "bottom";
+  const currentBarAlign = (settings?.bar_alignment || "center") as BarAlignment;
+  const enabledWidgets = settings?.enabled_widgets || ["start", "apps", "sysmon", "tray", "clock"];
   const enabledTrayItems = settings?.tray_items || [
     "gear",
     "overflow",
@@ -108,10 +131,10 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
     "quick_settings",
   ];
   const currentSysmonMode = settings?.sysmon_mode || "cpu_ram";
-  const currentBarPos = settings?.bar_position || "bottom";
+  const currentMediaLocation = settings?.media_location || "notch";
   const currentAutostart = settings?.autostart ?? false;
   const islandEnabled = settings?.enable_dynamic_island ?? true;
-  const islandShowMedia = settings?.island_show_media ?? true;
+  const islandShowMedia = currentMediaLocation === "notch" && (settings?.island_show_media ?? true);
   const islandShowHardware = settings?.island_show_hardware ?? true;
   const islandShowBattery = settings?.island_show_battery ?? true;
 
@@ -166,6 +189,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
         </div>
 
         <nav className="settings-nav">
+          {/* Tab 1: Appearance */}
           <button
             className={`settings-nav-item ${activeTab === "appearance" ? "settings-nav-item--active" : ""}`}
             onClick={() => setActiveTab("appearance")}
@@ -180,19 +204,53 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             <span>Appearance</span>
           </button>
 
+          {/* Tab 2: Taskbar & Dock */}
           <button
-            className={`settings-nav-item ${activeTab === "widgets" ? "settings-nav-item--active" : ""}`}
-            onClick={() => setActiveTab("widgets")}
+            className={`settings-nav-item ${activeTab === "taskbar" ? "settings-nav-item--active" : ""}`}
+            onClick={() => setActiveTab("taskbar")}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect width="7" height="7" x="3" y="3" rx="1" />
-              <rect width="7" height="7" x="14" y="3" rx="1" />
-              <rect width="7" height="7" x="14" y="14" rx="1" />
-              <rect width="7" height="7" x="3" y="14" rx="1" />
+              <rect width="20" height="15" x="2" y="4.5" rx="2.5" />
+              <path d="M6 15.5h12" />
+              <circle cx="8" cy="15.5" r="0.8" fill="currentColor" />
+              <circle cx="12" cy="15.5" r="0.8" fill="currentColor" />
+              <circle cx="16" cy="15.5" r="0.8" fill="currentColor" />
             </svg>
-            <span>Modules</span>
+            <span>Taskbar & Dock</span>
           </button>
 
+          {/* Tab 3: Dynamic Island */}
+          <button
+            className={`settings-nav-item ${activeTab === "island" ? "settings-nav-item--active" : ""}`}
+            onClick={() => setActiveTab("island")}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect width="18" height="9" x="3" y="7.5" rx="4.5" />
+              <circle cx="7.5" cy="12" r="1.5" fill="currentColor" />
+            </svg>
+            <span>Dynamic Island</span>
+          </button>
+
+          {/* Tab 4: Status & Tray */}
+          <button
+            className={`settings-nav-item ${activeTab === "tray" ? "settings-nav-item--active" : ""}`}
+            onClick={() => setActiveTab("tray")}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 21v-7" />
+              <path d="M4 10V3" />
+              <path d="M12 21v-9" />
+              <path d="M12 8V3" />
+              <path d="M20 21v-5" />
+              <path d="M20 12V3" />
+              <path d="M1 14h6" />
+              <path d="M9 8h6" />
+              <path d="M17 16h6" />
+            </svg>
+            <span>Status & Tray</span>
+          </button>
+
+          {/* Tab 5: Pinned Apps */}
           <button
             className={`settings-nav-item ${activeTab === "pinned" ? "settings-nav-item--active" : ""}`}
             onClick={() => setActiveTab("pinned")}
@@ -204,17 +262,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             <span>Pinned Apps</span>
           </button>
 
-          <button
-            className={`settings-nav-item ${activeTab === "layout" ? "settings-nav-item--active" : ""}`}
-            onClick={() => setActiveTab("layout")}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect width="18" height="18" x="3" y="3" rx="2" />
-              <path d="M3 15h18" />
-            </svg>
-            <span>Layout</span>
-          </button>
-
+          {/* Tab 6: About */}
           <button
             className={`settings-nav-item ${activeTab === "about" ? "settings-nav-item--active" : ""}`}
             onClick={() => setActiveTab("about")}
@@ -234,9 +282,10 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
         <div className="settings-top-bar">
           <h4 className="settings-pane-title">
             {activeTab === "appearance" && "Appearance & Themes"}
-            {activeTab === "widgets" && "Taskbar Modules & Widgets"}
+            {activeTab === "taskbar" && "Taskbar & Dock Configuration"}
+            {activeTab === "island" && "Dynamic Island (Top Notch Hub)"}
+            {activeTab === "tray" && "Status Bar & System Tray"}
             {activeTab === "pinned" && "Taskbar Pinned Applications"}
-            {activeTab === "layout" && "Position & Behavior"}
             {activeTab === "about" && "System & Environment"}
           </h4>
           <button className="settings-close-circle icon-hover" onClick={onClose} title="Close Settings">
@@ -345,22 +394,130 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             </div>
           )}
 
-          {/* Tab 2: Widgets */}
-          {activeTab === "widgets" && (
+          {/* Tab 2: Taskbar & Dock */}
+          {activeTab === "taskbar" && (
             <div className="settings-section-block">
-              <span className="settings-block-label">Taskbar Capsules</span>
+              {/* Taskbar Alignment Selector */}
+              <span className="settings-block-label">Taskbar Dock Alignment</span>
+              <div className="layout-choice-grid">
+                {([
+                  { id: "left", title: "Left Aligned", sub: "Classic Windows 10 style" },
+                  { id: "center", title: "Centered Dock", sub: "Windows 11 / macOS style" },
+                  { id: "right", title: "Right Aligned", sub: "Clustered next to tray" },
+                ] as const).map((item) => {
+                  const isActive = currentBarAlign === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`layout-choice-btn ${isActive ? "layout-choice-btn--active" : ""}`}
+                      onClick={() => updateSettings({ bar_alignment: item.id })}
+                    >
+                      <span className="layout-choice-title">{item.title}</span>
+                      <span className="layout-choice-sub">{item.sub}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Taskbar Screen Position */}
+              <span className="settings-block-label" style={{ marginTop: "14px" }}>
+                Screen Placement
+              </span>
+              <div className="layout-choice-grid">
+                {([
+                  { id: "bottom", title: "Pinned Bottom", sub: "Standard bottom taskbar" },
+                  { id: "top", title: "Pinned Top", sub: "macOS top menu bar style" },
+                  { id: "floating", title: "Floating Island", sub: "Elevated modern dock" },
+                ] as const).map((pos) => {
+                  const isActive = currentBarPos === pos.id;
+                  return (
+                    <button
+                      key={pos.id}
+                      type="button"
+                      className={`layout-choice-btn ${isActive ? "layout-choice-btn--active" : ""}`}
+                      onClick={() => updateSettings({ bar_position: pos.id })}
+                    >
+                      <span className="layout-choice-title">{pos.title}</span>
+                      <span className="layout-choice-sub">{pos.sub}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Media Player Active Location Preference */}
+              <span className="settings-block-label" style={{ marginTop: "14px" }}>
+                Media Player Active Location (Single Active Module)
+              </span>
+              <div className="sysmon-mode-options-grid">
+                {MEDIA_LOCATIONS.map((loc) => {
+                  const isSelected = currentMediaLocation === loc.id;
+                  return (
+                    <div
+                      key={loc.id}
+                      className={`sysmon-mode-card icon-hover ${
+                        isSelected ? "sysmon-mode-card--active" : ""
+                      }`}
+                      onClick={() => setMediaLocation(loc.id)}
+                    >
+                      <div className="sysmon-mode-header">
+                        <span className="sysmon-mode-name">{loc.name}</span>
+                        <span className="sysmon-mode-badge">{loc.badge}</span>
+                      </div>
+                      <span className="sysmon-mode-desc">{loc.desc}</span>
+                      {isSelected && (
+                        <div className="sysmon-mode-check">
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Taskbar Capsules Visibility */}
+              <span className="settings-block-label" style={{ marginTop: "14px" }}>
+                Taskbar Capsules & Sections
+              </span>
               <div className="widget-items-stack">
                 {WIDGET_OPTIONS.map((w) => {
-                  const isEnabled = enabledWidgets.includes(w.id);
+                  const isEnabled = w.id === "media"
+                    ? currentMediaLocation === "taskbar"
+                    : enabledWidgets.includes(w.id);
                   return (
                     <div
                       key={w.id}
                       className="widget-row-card icon-hover"
-                      onClick={() => toggleWidget(w.id)}
+                      onClick={() => {
+                        if (w.id === "media") {
+                          setMediaLocation(currentMediaLocation === "taskbar" ? "notch" : "taskbar");
+                        } else {
+                          toggleWidget(w.id);
+                        }
+                      }}
                     >
                       <div className="widget-row-meta">
                         <span className="widget-row-name">{w.name}</span>
-                        <span className="widget-row-desc">{w.desc}</span>
+                        <span className="widget-row-desc">
+                          {w.id === "media"
+                            ? currentMediaLocation === "taskbar"
+                              ? "Active in Taskbar dock (Dynamic Notch media is dormant)"
+                              : currentMediaLocation === "notch"
+                              ? "Active in Top Dynamic Notch (Click to move into Taskbar)"
+                              : "Currently disabled in both Taskbar and Notch"
+                            : w.desc}
+                        </span>
                       </div>
                       <div className={`switch-pill ${isEnabled ? "switch-pill--on" : ""}`}>
                         <div className="switch-thumb" />
@@ -370,8 +527,98 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 })}
               </div>
 
+              {/* System Startup */}
+              <span className="settings-block-label" style={{ marginTop: "14px" }}>
+                System Startup
+              </span>
+              <div
+                className="widget-row-card icon-hover"
+                onClick={() => updateSettings({ autostart: !currentAutostart })}
+              >
+                <div className="widget-row-meta">
+                  <span className="widget-row-name">Launch on Windows Startup</span>
+                  <span className="widget-row-desc">Automatically initialize Glace upon user login</span>
+                </div>
+                <div className={`switch-pill ${currentAutostart ? "switch-pill--on" : ""}`}>
+                  <div className="switch-thumb" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 3: Dynamic Island */}
+          {activeTab === "island" && (
+            <div className="settings-section-block">
+              <span className="settings-block-label">Dynamic Island (Top Notch Hub)</span>
+              <div className="widget-items-stack">
+                <div
+                  className="widget-row-card icon-hover"
+                  onClick={() => updateSettings({ enable_dynamic_island: !islandEnabled })}
+                >
+                  <div className="widget-row-meta">
+                    <span className="widget-row-name">Enable Top Dynamic Island</span>
+                    <span className="widget-row-desc">Ambient top notch for music visualizer, hardware telemetry, and notifications</span>
+                  </div>
+                  <div className={`switch-pill ${islandEnabled ? "switch-pill--on" : ""}`}>
+                    <div className="switch-thumb" />
+                  </div>
+                </div>
+
+                {islandEnabled && (
+                  <>
+                    <div
+                      className="widget-row-card icon-hover"
+                      onClick={() => setMediaLocation(currentMediaLocation === "notch" ? "taskbar" : "notch")}
+                    >
+                      <div className="widget-row-meta">
+                        <span className="widget-row-name">Live Media Activity HUD</span>
+                        <span className="widget-row-desc">
+                          {currentMediaLocation === "notch"
+                            ? "Active in Dynamic Notch (Taskbar dock media is dormant)"
+                            : "Click to route active music player & soundwave to Dynamic Notch"}
+                        </span>
+                      </div>
+                      <div className={`switch-pill ${currentMediaLocation === "notch" ? "switch-pill--on" : ""}`}>
+                        <div className="switch-thumb" />
+                      </div>
+                    </div>
+
+                    <div
+                      className="widget-row-card icon-hover"
+                      onClick={() => updateSettings({ island_show_hardware: !islandShowHardware })}
+                    >
+                      <div className="widget-row-meta">
+                        <span className="widget-row-name">Hardware Quick Metrics</span>
+                        <span className="widget-row-desc">Show CPU load, RAM usage, and live Internet bandwidth in expanded notch</span>
+                      </div>
+                      <div className={`switch-pill ${islandShowHardware ? "switch-pill--on" : ""}`}>
+                        <div className="switch-thumb" />
+                      </div>
+                    </div>
+
+                    <div
+                      className="widget-row-card icon-hover"
+                      onClick={() => updateSettings({ island_show_battery: !islandShowBattery })}
+                    >
+                      <div className="widget-row-meta">
+                        <span className="widget-row-name">Battery & Power Status</span>
+                        <span className="widget-row-desc">Display battery level and charging indicator in compact notch</span>
+                      </div>
+                      <div className={`switch-pill ${islandShowBattery ? "switch-pill--on" : ""}`}>
+                        <div className="switch-thumb" />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Tab 4: Status & Tray */}
+          {activeTab === "tray" && (
+            <div className="settings-section-block">
               {/* System Monitor Mode Chooser */}
-              <span className="settings-block-label" style={{ marginTop: "20px" }}>
+              <span className="settings-block-label">
                 System Monitor Display Preference
               </span>
               <div className="sysmon-mode-options-grid">
@@ -412,7 +659,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               </div>
 
               {/* Tray & Status Bar Items Chooser */}
-              <span className="settings-block-label" style={{ marginTop: "24px" }}>
+              <span className="settings-block-label" style={{ marginTop: "16px" }}>
                 Tray & Status Bar Icons
               </span>
               <div className="widget-items-stack">
@@ -435,72 +682,10 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                   );
                 })}
               </div>
-
-              {/* Dynamic Island (Top Notch) Settings */}
-              <span className="settings-block-label" style={{ marginTop: "24px" }}>
-                Dynamic Island (Top Notch Hub)
-              </span>
-              <div className="widget-items-stack">
-                <div
-                  className="widget-row-card icon-hover"
-                  onClick={() => updateSettings({ enable_dynamic_island: !islandEnabled })}
-                >
-                  <div className="widget-row-meta">
-                    <span className="widget-row-name">Enable Top Dynamic Island</span>
-                    <span className="widget-row-desc">Ambient top notch for music, hardware sensors, and quick controls</span>
-                  </div>
-                  <div className={`switch-pill ${islandEnabled ? "switch-pill--on" : ""}`}>
-                    <div className="switch-thumb" />
-                  </div>
-                </div>
-
-                {islandEnabled && (
-                  <>
-                    <div
-                      className="widget-row-card icon-hover"
-                      onClick={() => updateSettings({ island_show_media: !islandShowMedia })}
-                    >
-                      <div className="widget-row-meta">
-                        <span className="widget-row-name">Media Player Activity HUD</span>
-                        <span className="widget-row-desc">Expand into live music pill with equalizer waveform</span>
-                      </div>
-                      <div className={`switch-pill ${islandShowMedia ? "switch-pill--on" : ""}`}>
-                        <div className="switch-thumb" />
-                      </div>
-                    </div>
-
-                    <div
-                      className="widget-row-card icon-hover"
-                      onClick={() => updateSettings({ island_show_hardware: !islandShowHardware })}
-                    >
-                      <div className="widget-row-meta">
-                        <span className="widget-row-name">Hardware Quick Metrics</span>
-                        <span className="widget-row-desc">Show CPU, RAM, and Live Internet Bandwidth in expanded island</span>
-                      </div>
-                      <div className={`switch-pill ${islandShowHardware ? "switch-pill--on" : ""}`}>
-                        <div className="switch-thumb" />
-                      </div>
-                    </div>
-
-                    <div
-                      className="widget-row-card icon-hover"
-                      onClick={() => updateSettings({ island_show_battery: !islandShowBattery })}
-                    >
-                      <div className="widget-row-meta">
-                        <span className="widget-row-name">Battery & Charging Indicator</span>
-                        <span className="widget-row-desc">Display battery level and charging status in compact notch</span>
-                      </div>
-                      <div className={`switch-pill ${islandShowBattery ? "switch-pill--on" : ""}`}>
-                        <div className="switch-thumb" />
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
             </div>
           )}
 
-          {/* Tab 3: Pinned Apps */}
+          {/* Tab 5: Pinned Apps */}
           {activeTab === "pinned" && (
             <div className="settings-section-block">
               <span className="settings-block-label">Pin New Application</span>
@@ -567,47 +752,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             </div>
           )}
 
-          {/* Tab 4: Layout & Behavior */}
-          {activeTab === "layout" && (
-            <div className="settings-section-block">
-              <span className="settings-block-label">Dock Positioning</span>
-              <div className="layout-choice-grid">
-                {(["bottom", "top", "floating"] as const).map((pos) => {
-                  const isActive = currentBarPos === pos;
-                  return (
-                    <button
-                      key={pos}
-                      className={`layout-choice-btn ${isActive ? "layout-choice-btn--active" : ""}`}
-                      onClick={() => updateSettings({ bar_position: pos })}
-                    >
-                      <span className="layout-choice-title">
-                        {pos === "bottom" ? "Pinned Bottom" : pos === "top" ? "Pinned Top" : "Floating Island"}
-                      </span>
-                      <span className="layout-choice-sub">
-                        {pos === "bottom" ? "Windows 11 standard" : pos === "top" ? "macOS menu bar style" : "Elevated dock"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <span className="settings-block-label">System Behavior</span>
-              <div
-                className="widget-row-card icon-hover"
-                onClick={() => updateSettings({ autostart: !currentAutostart })}
-              >
-                <div className="widget-row-meta">
-                  <span className="widget-row-name">Launch on Windows Startup</span>
-                  <span className="widget-row-desc">Automatically initialize Glace upon user login</span>
-                </div>
-                <div className={`switch-pill ${currentAutostart ? "switch-pill--on" : ""}`}>
-                  <div className="switch-thumb" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tab 5: About */}
+          {/* Tab 6: About */}
           {activeTab === "about" && (
             <div className="settings-section-block">
               <div className="about-hero-box">
@@ -644,7 +789,8 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                     blur_intensity: 1.0,
                     corner_radius: 20,
                     bar_position: "bottom",
-                    enabled_widgets: ["start", "apps", "media", "sysmon", "tray", "clock"],
+                    bar_alignment: "center",
+                    enabled_widgets: ["start", "apps", "sysmon", "tray", "clock"],
                     sysmon_mode: "cpu_ram",
                   })
                 }

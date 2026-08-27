@@ -36,7 +36,7 @@ export const DynamicIsland: React.FC = () => {
   const collapseTimeoutRef = useRef<number | null>(null);
 
   const isIslandEnabled = settings?.enable_dynamic_island ?? true;
-  const showMedia = settings?.island_show_media ?? true;
+  const showMedia = (settings?.media_location ?? "notch") === "notch" && (settings?.island_show_media ?? true);
   const showHardware = settings?.island_show_hardware ?? true;
   const showBattery = settings?.island_show_battery ?? true;
 

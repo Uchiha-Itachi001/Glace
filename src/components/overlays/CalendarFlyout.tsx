@@ -1,11 +1,16 @@
 import React, { useState } from "react";
+import { useSettings } from "../../stores/settingsStore";
 
 interface CalendarFlyoutProps {
   onClose: () => void;
 }
 
 export const CalendarFlyout: React.FC<CalendarFlyoutProps> = ({ onClose }) => {
+  const { settings } = useSettings();
   const [currentDate] = useState(new Date());
+
+  const barAlign = settings?.bar_alignment || "center";
+  const barPos = settings?.bar_position || "bottom";
 
   const year = currentDate.getFullYear();
   const monthName = currentDate.toLocaleString("default", { month: "long" });
@@ -19,7 +24,10 @@ export const CalendarFlyout: React.FC<CalendarFlyoutProps> = ({ onClose }) => {
   const blankDays = Array.from({ length: firstDayOfWeek }, (_, i) => i);
 
   return (
-    <div className="calendar-flyout flyout-enter" onClick={(e) => e.stopPropagation()}>
+    <div
+      className={`calendar-flyout calendar-flyout--align-${barAlign} calendar-flyout--pos-${barPos} flyout-enter`}
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="calendar-header">
         <div className="calendar-date-hero">
           <span className="calendar-hero-day">{dayName}</span>
