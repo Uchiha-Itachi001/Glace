@@ -176,8 +176,23 @@ export const DynamicIsland: React.FC = () => {
     }
   };
 
+  const getTrackColor = (title: string, artist: string) => {
+    let hash = 0;
+    const str = `${title}__${artist}`;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const hue = Math.abs(hash) % 360;
+    return {
+      waveColor: `hsl(${hue}, 88%, 58%)`,
+      glowColor: `hsla(${hue}, 88%, 58%, 0.45)`,
+    };
+  };
+
+  const trackTheme = getTrackColor(activeTitle, activeArtist);
+
   const batteryPct = metrics?.battery_percent ?? 100;
-  const isCharging = metrics?.is_charging ?? false;
 
   const modeClass = expanded
     ? "dynamic-notch--expanded"
@@ -191,11 +206,22 @@ export const DynamicIsland: React.FC = () => {
       {expanded && <div className="island-backdrop" onClick={() => handleCollapse()} />}
 
       <div className="dynamic-notch-wrapper">
-        {/* Left Concave Wing Ear */}
-        <div className="notch-ear notch-ear--left" />
-
         {/* Dynamic Notch Pitch-Black Hub */}
-        <div className={`dynamic-notch ${modeClass}`} onClick={handleExpand} onWheel={handleWheel}>
+        <div
+          className={`dynamic-notch ${modeClass}`}
+          onClick={handleExpand}
+          onWheel={handleWheel}
+          style={{
+            ["--wave-color" as any]: trackTheme.waveColor,
+            ["--wave-glow" as any]: trackTheme.glowColor,
+          }}
+        >
+          {/* Left Concave Wing Ear (Synchronized with notch edges) */}
+          <div className="notch-ear notch-ear--left" />
+
+          {/* Right Concave Wing Ear (Synchronized with notch edges) */}
+          <div className="notch-ear notch-ear--right" />
+
           {/* ─── State 1: Compact Notch (Clean Time & Battery - Zero Fake Camera) ─── */}
           {!expanded && (!showMedia || !activeIsPlaying) && (
             <div className="notch-compact-layout">
@@ -216,7 +242,7 @@ export const DynamicIsland: React.FC = () => {
             </div>
           )}
 
-          {/* ─── State 2: Live Activity Notch (Mini Playing State - Exact Image 1 Match) ─── */}
+          {/* ─── State 2: Live Activity Notch (Mini Playing State with Name & Dynamic Soundwave) ─── */}
           {!expanded && showMedia && activeIsPlaying && (
             <div className="notch-activity-layout">
               <div className="notch-activity-left">
@@ -232,8 +258,19 @@ export const DynamicIsland: React.FC = () => {
                 </div>
               </div>
 
+              {/* Middle: Clean Track Title */}
+              <div className="notch-activity-middle" title={`${activeTitle} — ${activeArtist}`}>
+                <span className="notch-activity-title">{activeTitle}</span>
+              </div>
+
               <div className="notch-activity-right">
-                <div className="notch-equalizer-wave">
+                <div
+                  className="notch-equalizer-wave"
+                  style={{
+                    ["--wave-color" as any]: trackTheme.waveColor,
+                    ["--wave-glow" as any]: trackTheme.glowColor,
+                  }}
+                >
                   <span className="notch-wave-bar" />
                   <span className="notch-wave-bar" />
                   <span className="notch-wave-bar" />

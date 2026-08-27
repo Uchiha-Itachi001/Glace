@@ -37,7 +37,7 @@ export const ClockCapsule: React.FC = () => {
 
   return (
     <div
-      className="capsule capsule--compact clock-capsule icon-hover"
+      className="capsule capsule--compact clock-capsule"
       onClick={handleClick}
       title="Notification Center & Calendar (Win + N)"
     >

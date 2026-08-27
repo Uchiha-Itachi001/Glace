@@ -43,7 +43,7 @@ export const SysMonCapsule: React.FC = () => {
 
   return (
     <div
-      className={`capsule capsule--compact sysmon-capsule sysmon-capsule--${mode} icon-hover`}
+      className={`capsule capsule--compact sysmon-capsule sysmon-capsule--${mode}`}
       onClick={handleCycleMode}
       onContextMenu={handleContextMenu}
       title={fullTooltip}

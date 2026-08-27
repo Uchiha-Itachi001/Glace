@@ -1023,13 +1023,26 @@ html, body {
 
 /* ─── Clock Capsule ─────────────────────────────────────────────────── */
 .clock-capsule {
-  padding: 0 12px;
+  padding: 0 8px;
   cursor: pointer;
-  width: 96px;
-  min-width: 96px;
-  max-width: 96px;
+  width: 90px;
+  min-width: 90px;
+  max-width: 90px;
   flex-shrink: 0;
   box-sizing: border-box;
+  transition: border-color var(--glace-duration-fast) ease, box-shadow var(--glace-duration-fast) ease, transform 0.1s ease;
+}
+
+.clock-capsule:hover {
+  background: var(--glace-bg-capsule) !important;
+  background-image: var(--glace-glass-gradient) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: var(--glace-shadow-hover) !important;
+  transform: none !important;
+}
+
+.clock-capsule:active {
+  transform: scale(0.97) !important;
 }
 
 .clock-capsule--active {
@@ -1623,26 +1636,38 @@ html, body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, border-color 0.15s ease;
+  transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color var(--glace-duration-fast) ease, box-shadow var(--glace-duration-fast) ease;
+}
+
+.sysmon-capsule:hover {
+  background: var(--glace-bg-capsule) !important;
+  background-image: var(--glace-glass-gradient) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: var(--glace-shadow-hover) !important;
+  transform: none !important;
+}
+
+.sysmon-capsule:active {
+  transform: scale(0.98) !important;
 }
 
 /* Fixed Rock-Solid Sizing for Each Mode (Zero Layout Shift) */
 .sysmon-capsule--cpu_ram {
-  width: 142px;
-  min-width: 142px;
-  max-width: 142px;
+  width: 136px;
+  min-width: 136px;
+  max-width: 136px;
 }
 
 .sysmon-capsule--network {
-  width: 168px;
-  min-width: 168px;
-  max-width: 168px;
+  width: 148px;
+  min-width: 148px;
+  max-width: 148px;
 }
 
 .sysmon-capsule--both {
-  width: 300px;
-  min-width: 300px;
-  max-width: 300px;
+  width: 278px;
+  min-width: 278px;
+  max-width: 278px;
 }
 
 .sysmon-metrics {
@@ -1657,9 +1682,9 @@ html, body {
 .sysmon-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-width: 52px;
-  width: 52px;
+  gap: 3px;
+  min-width: 50px;
+  width: 50px;
   justify-content: space-between;
 }
 
@@ -1678,7 +1703,7 @@ html, body {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
-  min-width: 26px;
+  min-width: 24px;
   text-align: right;
 }
 
@@ -1711,15 +1736,15 @@ html, body {
 .sysmon-net-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .sysmon-net-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-width: 66px;
-  width: 66px;
+  gap: 3px;
+  min-width: 56px;
+  width: 56px;
   justify-content: flex-start;
 }
 
@@ -1739,12 +1764,11 @@ html, body {
 .sysmon-net-val {
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.1px;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
   white-space: nowrap;
-  min-width: 50px;
-  text-align: right;
+  text-align: left;
 }
 
 .sysmon-net-val--down {

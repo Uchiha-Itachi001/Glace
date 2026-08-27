@@ -38,6 +38,7 @@
 
 .notch-ear--left {
   right: 100%;
+  margin-right: -0.5px;
 }
 
 .notch-ear--left::after {
@@ -53,6 +54,7 @@
 
 .notch-ear--right {
   left: 100%;
+  margin-left: -0.5px;
 }
 
 .notch-ear--right::after {
@@ -73,39 +75,54 @@
   top: 0;
   background: #000000;
   color: #ffffff;
-  border: none;
-  outline: none;
+  border: none !important;
+  outline: none !important;
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 16px;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
-
-  box-shadow: none;
+  box-shadow: none !important;
 
   display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible !important;
   cursor: pointer;
 
-  transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-              height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-              border-radius 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-              padding 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+              border-radius 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.38s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.dynamic-notch:hover {
-  box-shadow: none;
+/* Fluid Height Growth on Hover — Zero Shadows, Zero Detached Gap */
+.dynamic-notch:hover,
+.dynamic-notch--compact:hover,
+.dynamic-notch--activity:hover {
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+.dynamic-notch--compact:hover,
+.dynamic-notch--activity:hover {
+  height: 32px;
+}
+
+.dynamic-notch--compact:active,
+.dynamic-notch--activity:active {
+  height: 27px;
 }
 
 /* ─── State 1: Compact Notch (Clean Time & Battery - Zero Camera) ────────── */
 
 .dynamic-notch--compact {
   width: auto;
-  min-width: 195px;
+  min-width: 175px;
+  max-width: 200px;
   height: 28px;
-  padding: 0 14px;
+  padding: 0 12px;
   border-bottom-left-radius: 14px;
   border-bottom-right-radius: 14px;
 }
@@ -115,7 +132,8 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  gap: 16px;
+  gap: 14px;
+  animation: notchContentFadeIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .notch-compact-left {
@@ -147,12 +165,12 @@
   color: #38bdf8;
 }
 
-/* ─── State 2: Live Activity Notch (Mini Playing State - Exact Image 1 Match) ─── */
+/* ─── State 2: Live Activity Notch (Compact Playing State with Name & Wave) ──── */
 
 .dynamic-notch--activity {
   width: auto;
-  min-width: 170px;
-  max-width: 195px;
+  min-width: 175px;
+  max-width: 200px;
   height: 28px;
   padding: 0 10px;
   border-bottom-left-radius: 14px;
@@ -164,18 +182,21 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 0 2px;
+  gap: 6px;
+  padding: 0 1px;
+  animation: notchContentFadeIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .notch-activity-left {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .notch-album-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
+  width: 17px;
+  height: 17px;
+  border-radius: 4.5px;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   display: flex;
   align-items: center;
@@ -183,6 +204,7 @@
   flex-shrink: 0;
   overflow: hidden;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  animation: notchThumbPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .notch-album-thumb img {
@@ -191,13 +213,37 @@
   object-fit: cover;
 }
 
+/* Middle: Clean Song Title Display */
+.notch-activity-middle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0 2px;
+  animation: notchTitleSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.04s both;
+}
+
+.notch-activity-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 115px;
+  letter-spacing: 0.15px;
+}
+
 .notch-activity-right {
   display: flex;
   align-items: center;
   flex-shrink: 0;
 }
 
-/* ─── Equalizer Waveform Bars (Middle-Centered Symmetrical Soundwave) ────────── */
+/* ─── Equalizer Waveform Bars (Dynamic Glow Soundwave) ────────────────────── */
 
 .notch-equalizer-wave {
   display: flex;
@@ -205,26 +251,75 @@
   justify-content: center;
   gap: 2.5px;
   height: 16px;
+  animation: notchWaveRise 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
 }
 
 .notch-wave-bar {
   width: 2.5px;
   height: 14px;
   border-radius: 1.5px;
-  background: #38bdf8;
+  background: var(--wave-color, #38bdf8);
+  box-shadow: 0 0 6px var(--wave-glow, rgba(56, 189, 248, 0.4));
   transform-origin: center center;
   transform: scaleY(0.25);
-  animation: notchWaveMiddleAnim 0.75s ease-in-out infinite alternate;
+  animation: notchWaveMiddleAnim 1.4s ease-in-out infinite alternate;
+  transition: background 0.8s ease, box-shadow 0.8s ease;
 }
 
-.notch-wave-bar:nth-child(1) { animation-duration: 0.65s; animation-delay: 0.05s; }
-.notch-wave-bar:nth-child(2) { animation-duration: 0.85s; animation-delay: 0.3s; }
-.notch-wave-bar:nth-child(3) { animation-duration: 0.55s; animation-delay: 0.15s; }
-.notch-wave-bar:nth-child(4) { animation-duration: 0.75s; animation-delay: 0.4s; }
+.notch-wave-bar:nth-child(1) { animation-duration: 1.35s; animation-delay: 0.08s; }
+.notch-wave-bar:nth-child(2) { animation-duration: 1.75s; animation-delay: 0.35s; }
+.notch-wave-bar:nth-child(3) { animation-duration: 1.20s; animation-delay: 0.20s; }
+.notch-wave-bar:nth-child(4) { animation-duration: 1.55s; animation-delay: 0.45s; }
 
 .notch-equalizer-wave--paused .notch-wave-bar {
   animation-play-state: paused;
   transform: scaleY(0.2) !important;
+}
+
+@keyframes notchContentFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.93);
+    filter: blur(1.5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes notchThumbPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes notchTitleSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes notchWaveRise {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.7);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
 }
 
 @keyframes notchWaveMiddleAnim {
