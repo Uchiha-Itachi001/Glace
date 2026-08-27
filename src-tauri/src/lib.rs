@@ -79,6 +79,7 @@ pub fn run() {
             commands::media::media_volume_down,
             commands::media::media_volume_mute,
             commands::media::get_media_session_info,
+            commands::bluetooth::get_bluetooth_devices,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
@@ -178,7 +179,10 @@ pub fn run() {
                 }
             }
 
+            let initial_settings = config::settings::load();
+            services::bluetooth::set_enabled(initial_settings.enable_dynamic_island && initial_settings.island_show_bluetooth);
             services::window_watcher::start(app.handle().clone());
+            services::bluetooth::start();
 
             Ok(())
         })

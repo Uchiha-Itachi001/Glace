@@ -21,6 +21,11 @@ const listeners = new Set<(metrics: SystemMetrics) => void>();
 let pollTimer: number | null = null;
 
 function fetchAndUpdate() {
+  if (listeners.size === 0) {
+    stopPolling();
+    return;
+  }
+
   tauriBridge
     .getSystemMetrics()
     .then((metrics) => {
@@ -31,23 +36,27 @@ function fetchAndUpdate() {
 }
 
 function startPolling() {
-  if (pollTimer !== null) return;
+  if (pollTimer !== null || listeners.size === 0) return;
   fetchAndUpdate();
   // Single coordinated 2-second poll across entire application
   pollTimer = window.setInterval(fetchAndUpdate, 2000);
 }
 
 function stopPolling() {
-  if (listeners.size === 0 && pollTimer !== null) {
+  if (pollTimer !== null && listeners.size === 0) {
     clearInterval(pollTimer);
     pollTimer = null;
   }
 }
 
-export function useSystemMetrics(): SystemMetrics {
+export function useSystemMetrics(enabled: boolean = true): SystemMetrics {
   const [metrics, setMetrics] = useState<SystemMetrics>(currentMetrics);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     listeners.add(setMetrics);
     startPolling();
 
@@ -55,7 +64,7 @@ export function useSystemMetrics(): SystemMetrics {
       listeners.delete(setMetrics);
       stopPolling();
     };
-  }, []);
+  }, [enabled]);
 
   return metrics;
 }

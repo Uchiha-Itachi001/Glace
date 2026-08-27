@@ -24,13 +24,13 @@
   pointer-events: auto;
 }
 
-/* ─── Concave Corner Wings (Inverted Curved Ears at Top Screen Edge) ────────── */
+/* ─── Subtle Concave Corner Wings (Clean 9px Inverted Top Curves) ───────────── */
 
 .notch-ear {
   position: absolute;
   top: 0;
-  width: 16px;
-  height: 16px;
+  width: 9px;
+  height: 9px;
   overflow: hidden;
   pointer-events: none;
   z-index: 9991;
@@ -46,10 +46,10 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 32px;
-  height: 32px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  box-shadow: 16px -16px 0 0 #000000;
+  box-shadow: 9px -9px 0 0 #000000;
 }
 
 .notch-ear--right {
@@ -62,10 +62,10 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 32px;
-  height: 32px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  box-shadow: -16px -16px 0 0 #000000;
+  box-shadow: -9px -9px 0 0 #000000;
 }
 
 /* ─── DynamicWin Solid Pitch-Black Body ───────────────────────────────────── */
@@ -77,8 +77,8 @@
   color: #ffffff;
   border: none !important;
   outline: none !important;
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 16px;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
   box-shadow: none !important;
@@ -90,41 +90,50 @@
   overflow: visible !important;
   cursor: pointer;
 
-  transition: width 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              height 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              border-radius 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              padding 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              border-radius 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Fluid Height Growth on Hover — Zero Shadows, Zero Detached Gap */
+/* Fluid Subtle Height Growth on Hover — Zero Shadows, Zero Detached Gap */
 .dynamic-notch:hover,
 .dynamic-notch--compact:hover,
-.dynamic-notch--activity:hover {
+.dynamic-notch--activity:hover,
+.dynamic-notch--bluetooth-compact:hover,
+.notch-split-main:hover,
+.notch-split-secondary:hover {
   box-shadow: none !important;
   filter: none !important;
   transform: none !important;
 }
 
 .dynamic-notch--compact:hover,
-.dynamic-notch--activity:hover {
-  height: 32px;
+.dynamic-notch--activity:hover,
+.dynamic-notch--bluetooth-compact:hover,
+.notch-split-main:hover,
+.notch-split-secondary:hover {
+  height: 30px;
 }
 
 .dynamic-notch--compact:active,
-.dynamic-notch--activity:active {
-  height: 27px;
+.dynamic-notch--activity:active,
+.dynamic-notch--bluetooth-compact:active,
+.notch-split-main:active,
+.notch-split-secondary:active {
+  height: 25px;
 }
 
 /* ─── State 1: Compact Notch (Clean Time & Battery - Zero Camera) ────────── */
 
 .dynamic-notch--compact {
   width: auto;
-  min-width: 175px;
-  max-width: 200px;
-  height: 28px;
-  padding: 0 12px;
-  border-bottom-left-radius: 14px;
-  border-bottom-right-radius: 14px;
+  min-width: 165px;
+  max-width: 195px;
+  height: 26px;
+  padding: 0 10px;
+  border-bottom-left-radius: 11px;
+  border-bottom-right-radius: 11px;
 }
 
 .notch-compact-layout {
@@ -132,8 +141,8 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  gap: 14px;
-  animation: notchContentFadeIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  gap: 12px;
+  animation: notchContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .notch-compact-left {
@@ -142,7 +151,7 @@
 }
 
 .notch-compact-time {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: #ffffff;
   letter-spacing: 0.2px;
@@ -152,8 +161,8 @@
 .notch-compact-right {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
+  gap: 4px;
+  font-size: 11px;
   font-weight: 600;
   color: #cbd5e1;
   font-variant-numeric: tabular-nums;
@@ -165,16 +174,16 @@
   color: #38bdf8;
 }
 
-/* ─── State 2: Live Activity Notch (Compact Playing State with Name & Wave) ──── */
+/* ─── State 2: Single Live Activity Notch (When only Media is active) ────── */
 
 .dynamic-notch--activity {
   width: auto;
-  min-width: 175px;
+  min-width: 165px;
   max-width: 200px;
-  height: 28px;
-  padding: 0 10px;
-  border-bottom-left-radius: 14px;
-  border-bottom-right-radius: 14px;
+  height: 26px;
+  padding: 0 9px;
+  border-bottom-left-radius: 11px;
+  border-bottom-right-radius: 11px;
 }
 
 .notch-activity-layout {
@@ -184,7 +193,7 @@
   width: 100%;
   gap: 6px;
   padding: 0 1px;
-  animation: notchContentFadeIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: notchContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .notch-activity-left {
@@ -194,23 +203,29 @@
 }
 
 .notch-album-thumb {
-  width: 17px;
-  height: 17px;
-  border-radius: 4.5px;
+  width: 15px;
+  height: 15px;
+  border-radius: 3.5px;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
-  animation: notchThumbPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  animation: notchThumbPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .notch-album-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.notch-album-thumb--mini {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
 }
 
 /* Middle: Clean Song Title Display */
@@ -223,17 +238,17 @@
   overflow: hidden;
   white-space: nowrap;
   padding: 0 2px;
-  animation: notchTitleSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.04s both;
+  animation: notchTitleSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.03s both;
 }
 
 .notch-activity-title {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 115px;
+  max-width: 110px;
   letter-spacing: 0.15px;
 }
 
@@ -243,115 +258,199 @@
   flex-shrink: 0;
 }
 
-/* ─── Equalizer Waveform Bars (Dynamic Glow Soundwave) ────────────────────── */
+/* ─── State 3: Multi-Activity Split Notch (Matches User Reference Image 3) ── */
 
-.notch-equalizer-wave {
+.notch-split-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px; /* Distinct, clean separation between main notch and secondary notch */
+  position: relative;
+  top: 0;
+}
+
+
+.notch-split-main {
+  height: 26px;
+  border-bottom-left-radius: 11px;
+  border-bottom-right-radius: 11px;
+  animation: notchContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Compact Left Section when Media is active on main (Matches Ref Image 3) */
+.notch-split-main--media {
+  min-width: 120px;
+  max-width: 145px;
+  padding: 0 10px;
+}
+
+.notch-split-media-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 16px;
+}
+
+/* Left Section when Bluetooth is active on main (Matches Ref Image 2) */
+.notch-split-main--bluetooth {
+  min-width: 150px;
+  max-width: 180px;
+  padding: 0 10px;
+}
+
+.notch-split-bt-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.notch-split-bt-icon {
+  display: flex;
+  align-items: center;
+  color: #22c55e;
+  flex-shrink: 0;
+}
+
+.notch-split-bt-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #22c55e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+
+/* Detached Secondary Right Pill (Matches Ref Image 3) */
+.notch-split-secondary {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2.5px;
-  height: 16px;
-  animation: notchWaveRise 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+  animation: notchContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.notch-wave-bar {
-  width: 2.5px;
-  height: 14px;
-  border-radius: 1.5px;
-  background: var(--wave-color, #38bdf8);
-  box-shadow: 0 0 6px var(--wave-glow, rgba(56, 189, 248, 0.4));
-  transform-origin: center center;
-  transform: scaleY(0.25);
-  animation: notchWaveMiddleAnim 1.4s ease-in-out infinite alternate;
-  transition: background 0.8s ease, box-shadow 0.8s ease;
+.notch-mini-battery-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.notch-wave-bar:nth-child(1) { animation-duration: 1.35s; animation-delay: 0.08s; }
-.notch-wave-bar:nth-child(2) { animation-duration: 1.75s; animation-delay: 0.35s; }
-.notch-wave-bar:nth-child(3) { animation-duration: 1.20s; animation-delay: 0.20s; }
-.notch-wave-bar:nth-child(4) { animation-duration: 1.55s; animation-delay: 0.45s; }
+/* ─── State 4: Expanded Bluetooth Connected Card ──────────────────────────── */
 
-.notch-equalizer-wave--paused .notch-wave-bar {
-  animation-play-state: paused;
-  transform: scaleY(0.2) !important;
+.dynamic-notch--bluetooth-expanded {
+  width: 330px;
+  height: 66px;
+  padding: 10px 16px;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-@keyframes notchContentFadeIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.93);
-    filter: blur(1.5px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-    filter: blur(0);
-  }
+.notch-bluetooth-expanded-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+  animation: notchCardContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-@keyframes notchThumbPop {
-  0% {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
+/* Left Badge: Circular Dark Emblem with Bluetooth & Side Bars */
+.notch-bt-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #141416;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+  animation: notchThumbPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
-@keyframes notchTitleSlide {
-  0% {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Center / Information Text Column */
+.notch-bt-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
 }
 
-@keyframes notchWaveRise {
-  0% {
-    opacity: 0;
-    transform: scaleX(0.7);
-  }
-  100% {
-    opacity: 1;
-    transform: scaleX(1);
-  }
+.notch-bt-status {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #8e8e93;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
 }
 
-@keyframes notchWaveMiddleAnim {
-  0% { transform: scaleY(0.2); }
-  50% { transform: scaleY(0.95); }
-  100% { transform: scaleY(0.4); }
+.notch-bt-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.1px;
+  line-height: 1.22;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* ─── State 3: Exact Expanded Notch Card (User Reference Image 2) ────────── */
+/* Right: Circular Ring Battery Meter */
+.notch-bt-battery-ring-container {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notch-bt-ring-svg {
+  transform: rotate(0deg);
+  filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.4));
+}
+
+.notch-bt-ring-text {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 700;
+  color: #22c55e;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}
+
+/* ─── State 5: Full Expanded Media Card ───────────────────────────────────── */
 
 .dynamic-notch--expanded {
-  width: 336px;
-  height: 138px;
-  padding: 13px 16px 12px;
-  border-bottom-left-radius: 20px;
-  border-bottom-right-radius: 20px;
+  width: 330px;
+  height: 136px;
+  padding: 12px 16px 11px;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
   cursor: default;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  animation: notchExpandDown 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes notchExpandDown {
-  from {
-    transform: scaleY(0.92);
-    opacity: 0.8;
-  }
-  to {
-    transform: scaleY(1);
-    opacity: 1;
-  }
 }
 
 .notch-expanded-card {
@@ -360,6 +459,18 @@
   justify-content: space-between;
   width: 100%;
   height: 100%;
+  animation: notchCardContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes notchCardContentFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Row 1: Top Row (Album Art, Meta Text, Top-Right Waveform) */
@@ -373,15 +484,15 @@
 .notch-card-media-left {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   min-width: 0;
   flex: 1;
 }
 
 .notch-card-art {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 7px;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   display: flex;
   align-items: center;
@@ -406,7 +517,7 @@
 }
 
 .notch-card-title {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
@@ -416,7 +527,7 @@
 }
 
 .notch-card-artist {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
   color: #94a3b8;
   white-space: nowrap;
@@ -431,6 +542,41 @@
   padding-left: 8px;
 }
 
+/* ─── Equalizer Waveform Bars (Dynamic Glow Soundwave) ────────────────────── */
+
+.notch-equalizer-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 14px;
+  animation: notchWaveRise 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.04s both;
+}
+
+.notch-wave-bar {
+  width: 2.2px;
+  height: 12px;
+  border-radius: 1.2px;
+  background: var(--wave-color, #38bdf8);
+  box-shadow: 0 0 5px var(--wave-glow, rgba(56, 189, 248, 0.4));
+  transform-origin: center center;
+  transform: scaleY(0.25);
+  animation: notchWaveMiddleAnim 1.4s ease-in-out infinite alternate;
+  transition: background 0.8s ease, box-shadow 0.8s ease;
+}
+
+.notch-wave-bar:nth-child(1) { animation-duration: 1.35s; animation-delay: 0.08s; }
+.notch-wave-bar:nth-child(2) { animation-duration: 1.75s; animation-delay: 0.35s; }
+.notch-wave-bar:nth-child(3) { animation-duration: 1.20s; animation-delay: 0.20s; }
+.notch-wave-bar:nth-child(4) { animation-duration: 1.55s; animation-delay: 0.45s; }
+
+.notch-equalizer-wave--paused .notch-wave-bar {
+  animation-play-state: paused !important;
+  transform: scaleY(0.25) !important;
+  opacity: 0.55;
+}
+
+
 /* Row 2: Scrubber Row (Inline Labels + Track + Rounded Pill Thumb) */
 .notch-card-scrubber-row {
   display: flex;
@@ -440,11 +586,11 @@
 }
 
 .notch-time-label {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
   color: #71717a;
   font-variant-numeric: tabular-nums;
-  min-width: 32px;
+  min-width: 30px;
 }
 
 .notch-time-label:first-child {
@@ -458,7 +604,7 @@
 .notch-scrubber-track {
   position: relative;
   flex: 1;
-  height: 4px;
+  height: 3.5px;
   background: #27272a;
   border-radius: 2px;
   cursor: pointer;
@@ -473,12 +619,12 @@
 .notch-scrubber-thumb {
   position: absolute;
   top: 0px;
-  width: 12px;
-  height: 4px;
+  width: 10px;
+  height: 3.5px;
   border-radius: 2px;
   background: #ffffff;
   transform: translateX(-50%);
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 3px rgba(255, 255, 255, 0.4);
 }
 
 /* Row 3: 5 Evenly Distributed Playback Controls */
@@ -525,4 +671,56 @@
 .notch-btn-icon--active {
   color: #38bdf8;
   opacity: 1;
+}
+
+@keyframes notchContentFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+    filter: blur(1px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes notchThumbPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes notchTitleSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes notchWaveRise {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes notchWaveMiddleAnim {
+  0% { transform: scaleY(0.2); }
+  50% { transform: scaleY(0.95); }
+  100% { transform: scaleY(0.4); }
 }

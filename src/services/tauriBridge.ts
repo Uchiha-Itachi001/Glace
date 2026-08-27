@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { WindowInfo, TrayIcon, SystemMetrics, Settings, PinnedApp } from "../types";
+import { WindowInfo, TrayIcon, SystemMetrics, Settings, PinnedApp, BluetoothDevice } from "../types";
 
 export const tauriBridge = {
   // Window controls
@@ -243,6 +243,14 @@ export const tauriBridge = {
   },
 
   // Tray & System Status
+  getBluetoothDevices: async (): Promise<BluetoothDevice[]> => {
+    try {
+      return await invoke<BluetoothDevice[]>("get_bluetooth_devices");
+    } catch {
+      return [];
+    }
+  },
+
   getTrayIcons: async (): Promise<TrayIcon[]> => {
     try {
       return await invoke<TrayIcon[]>("get_tray_icons");

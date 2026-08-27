@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { MediaTrack, MediaSessionInfo } from "../../types";
 import { tauriBridge } from "../../services/tauriBridge";
+import { useSettings } from "../../stores/settingsStore";
 
 const DEMO_PLAYLIST: MediaTrack[] = [
   {
@@ -22,6 +23,9 @@ const DEMO_PLAYLIST: MediaTrack[] = [
 ];
 
 export const MediaCapsule: React.FC = () => {
+  const { settings } = useSettings();
+  const isMediaBarEnabled = (settings?.enabled_widgets ?? []).includes("media") && settings?.media_location !== "notch";
+
   const [trackIndex, setTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -30,8 +34,9 @@ export const MediaCapsule: React.FC = () => {
 
   const fallbackTrack = DEMO_PLAYLIST[trackIndex];
 
-  // Poll media session periodically (1500ms)
+  // Poll media session periodically only when media capsule is active on taskbar
   useEffect(() => {
+    if (!isMediaBarEnabled) return;
     let isMounted = true;
     const fetchSession = async () => {
       try {
@@ -56,7 +61,8 @@ export const MediaCapsule: React.FC = () => {
       isMounted = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [isMediaBarEnabled]);
+
 
   const handleTogglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();

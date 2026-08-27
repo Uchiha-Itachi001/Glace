@@ -95,6 +95,7 @@ const DEFAULT_SETTINGS: Settings = {
   tray_items: DEFAULT_TRAY_ITEMS,
   enable_dynamic_island: true,
   island_show_media: true,
+  island_show_bluetooth: true,
   island_show_hardware: true,
   island_show_battery: true,
   media_location: "notch",

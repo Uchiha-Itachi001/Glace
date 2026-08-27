@@ -93,9 +93,19 @@ export interface Settings {
   tray_items?: string[];
   enable_dynamic_island?: boolean;
   island_show_media?: boolean;
+  island_show_bluetooth?: boolean;
   island_show_hardware?: boolean;
   island_show_battery?: boolean;
   media_location?: MediaLocation;
+}
+
+export interface BluetoothDevice {
+  id: string;
+  name: string;
+  connected: boolean;
+  battery_percent: number | null;
+  device_type: "audio" | "headset" | "keyboard" | "mouse" | "phone" | "generic";
+  icon?: string;
 }
 
 export interface MediaTrack {
@@ -117,3 +127,4 @@ export interface MediaSessionInfo {
   current_sec: number;
   album_art_base64?: string;
 }
+

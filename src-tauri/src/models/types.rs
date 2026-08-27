@@ -68,6 +68,15 @@ fn default_bar_alignment() -> String {
     "center".into()
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BluetoothDevice {
+    pub id: String,
+    pub name: String,
+    pub connected: bool,
+    pub battery_percent: Option<u8>,
+    pub device_type: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub theme_id: String,
@@ -91,6 +100,8 @@ pub struct Settings {
     pub enable_dynamic_island: bool,
     #[serde(default = "default_true")]
     pub island_show_media: bool,
+    #[serde(default = "default_true")]
+    pub island_show_bluetooth: bool,
     #[serde(default = "default_true")]
     pub island_show_hardware: bool,
     #[serde(default = "default_true")]
@@ -130,10 +141,12 @@ impl Default for Settings {
             tray_items: default_tray_items(),
             enable_dynamic_island: true,
             island_show_media: true,
+            island_show_bluetooth: true,
             island_show_hardware: true,
             island_show_battery: true,
             media_location: "notch".into(),
         }
     }
 }
+
 

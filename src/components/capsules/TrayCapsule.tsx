@@ -1,26 +1,19 @@
-import React, { useState, useEffect } from "react";
-import { SystemMetrics } from "../../types";
+import React from "react";
 import { tauriBridge } from "../../services/tauriBridge";
 import { useFlyout } from "../../stores/flyoutStore";
 import { useSettings, DEFAULT_TRAY_ITEMS } from "../../stores/settingsStore";
+import { useSystemMetrics } from "../../hooks/useSystemMetrics";
 
 export const TrayCapsule: React.FC = () => {
-  const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
   const { activeFlyout, toggleFlyout } = useFlyout();
   const { settings } = useSettings();
 
   const trayItems = settings?.tray_items || DEFAULT_TRAY_ITEMS;
   const isItemVisible = (id: string) => trayItems.includes(id);
 
-  useEffect(() => {
-    tauriBridge.getSystemMetrics().then(setSystemMetrics).catch(console.error);
+  // Subscribe to shared metrics pool only if quick_settings indicator is visible
+  const systemMetrics = useSystemMetrics(isItemVisible("quick_settings"));
 
-    const interval = setInterval(() => {
-      tauriBridge.getSystemMetrics().then(setSystemMetrics).catch(console.error);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const handleSettingsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
