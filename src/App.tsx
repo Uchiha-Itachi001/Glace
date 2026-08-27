@@ -2,10 +2,12 @@ import "./styles/tokens.css";
 import "./styles/themes.css";
 import "./styles/capsule.css";
 import "./styles/animations.css";
+import "./styles/island.css";
 
 import { useSettings } from "./stores/settingsStore";
 import { useFlyout } from "./stores/flyoutStore";
 
+import { DynamicIsland } from "./components/island/DynamicIsland";
 import { StartCapsule } from "./components/capsules/StartCapsule";
 import { AppsCapsule } from "./components/capsules/AppsCapsule";
 import { MediaCapsule } from "./components/capsules/MediaCapsule";
@@ -21,11 +23,15 @@ export default function App() {
   const { settings } = useSettings();
   const { activeFlyout, closeFlyout } = useFlyout();
 
-  const { enabled_widgets, bar_position } = settings;
+  const enabled_widgets = settings?.enabled_widgets || ["start", "apps", "media", "sysmon", "tray", "clock"];
+  const bar_position = settings?.bar_position || "bottom";
   const isEnabled = (id: string) => enabled_widgets.includes(id);
 
   return (
     <div id="glace-app-root">
+      {/* Top Notch Dynamic Island */}
+      <DynamicIsland />
+
       {/* Invisible Flyout Backdrop to dismiss panels when clicking outside */}
       {activeFlyout !== null && (
         <div className="flyout-backdrop" onClick={closeFlyout} />

@@ -35,9 +35,9 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   width: 100vw;
   height: 48px;
   padding: 0 var(--glace-bar-margin);
@@ -55,9 +55,11 @@ html, body {
 .taskbar-section--left {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: var(--glace-gap);
-  flex-shrink: 0;
+  min-width: 0;
   height: 100%;
+  z-index: 950;
 }
 
 .taskbar-center,
@@ -65,18 +67,21 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
   min-width: 0;
+  max-width: 100%;
   height: 100%;
+  z-index: 960;
 }
 
 .taskbar-right,
 .taskbar-section--right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--glace-gap);
-  flex-shrink: 0;
+  min-width: 0;
   height: 100%;
+  z-index: 950;
 }
 
 /* ─── Capsule Shell ───────────────────────────────────────────────────── */
@@ -100,6 +105,7 @@ html, body {
   border-radius: var(--glace-radius-capsule);
   box-shadow: var(--glace-shadow);
   user-select: none;
+  contain: layout;
 
   transition: all var(--glace-duration-base) var(--glace-ease-spring);
 }
@@ -1399,11 +1405,17 @@ html, body {
   transition: width 0.3s linear;
 }
 
-/* ─── SysMon Capsule (Hardware Gauges) ─────────────────────────────────── */
+/* ─── SysMon Capsule (Hardware Gauges & Internet Speed) ──────────────── */
 
 .sysmon-capsule {
-  padding: 0 10px;
+  padding: 0 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  cursor: pointer;
+  user-select: none;
+  min-height: var(--glace-bar-height);
+  box-sizing: border-box;
 }
 
 .sysmon-metrics {
@@ -1413,7 +1425,7 @@ html, body {
 }
 
 .sysmon-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
 }
@@ -1428,6 +1440,9 @@ html, body {
 .sysmon-value {
   font-size: 11px;
   font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 .sysmon-val--normal {
@@ -1446,6 +1461,55 @@ html, body {
   width: 1px;
   height: 12px;
   background: var(--glace-border);
+}
+
+.sysmon-divider--subtle {
+  opacity: 0.35;
+  height: 10px;
+}
+
+/* Network Speed Group */
+.sysmon-net-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sysmon-net-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 58px;
+}
+
+.sysmon-net-icon {
+  flex-shrink: 0;
+  display: block;
+}
+
+.sysmon-net-icon--down {
+  color: #38bdf8;
+}
+
+.sysmon-net-icon--up {
+  color: #34d399;
+}
+
+.sysmon-net-val {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+}
+
+.sysmon-net-val--down {
+  color: #e0f2fe;
+}
+
+.sysmon-net-val--up {
+  color: #ecfdf5;
 }
 
 /* ─── Window Snapping Context Menu ────────────────────────────────────── */
@@ -1582,9 +1646,9 @@ html, body {
 /* ─── Settings Customizer Flyout (2-Column Luxury Hub) ───────────────────── */
 
 .settings-flyout {
-  position: absolute;
-  bottom: 54px;
-  right: 20px;
+  position: fixed;
+  bottom: 56px;
+  right: var(--glace-bar-margin, 20px);
   width: 600px;
   height: 480px;
   max-height: 480px;
@@ -1593,7 +1657,7 @@ html, body {
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 16px;
-  box-shadow: none !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75);
   z-index: 1000;
   cursor: default;
   display: flex;
@@ -2072,6 +2136,89 @@ html, body {
 
 .switch-pill--on .switch-thumb {
   transform: translateX(15px);
+}
+
+/* System Monitor Mode Chooser Grid in Settings */
+.sysmon-mode-options-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.sysmon-mode-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.sysmon-mode-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.sysmon-mode-card--active {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: var(--glace-accent);
+  box-shadow: 0 0 12px var(--glace-accent-dim);
+}
+
+.sysmon-mode-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sysmon-mode-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--glace-text-primary);
+}
+
+.sysmon-mode-badge {
+  font-size: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--glace-accent);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: fit-content;
+}
+
+.sysmon-mode-card--active .sysmon-mode-badge {
+  background: var(--glace-accent-dim);
+  border-color: var(--glace-accent);
+}
+
+.sysmon-mode-desc {
+  font-size: 9.5px;
+  color: var(--glace-text-muted);
+  line-height: 1.3;
+}
+
+.sysmon-mode-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--glace-accent);
+  color: #000000;
 }
 
 /* Pinned Apps Tab */

@@ -161,6 +161,71 @@ export const tauriBridge = {
     }
   },
 
+  toggleMediaPlayPause: async (): Promise<void> => {
+    try {
+      await invoke("media_toggle_play_pause");
+    } catch (e) {
+      console.error("mediaTogglePlayPause error:", e);
+    }
+  },
+
+  mediaNextTrack: async (): Promise<void> => {
+    try {
+      await invoke("media_next_track");
+    } catch (e) {
+      console.error("mediaNextTrack error:", e);
+    }
+  },
+
+  mediaPrevTrack: async (): Promise<void> => {
+    try {
+      await invoke("media_prev_track");
+    } catch (e) {
+      console.error("mediaPrevTrack error:", e);
+    }
+  },
+
+  mediaVolumeUp: async (): Promise<void> => {
+    try {
+      await invoke("media_volume_up");
+    } catch (e) {
+      console.error("mediaVolumeUp error:", e);
+    }
+  },
+
+  mediaVolumeDown: async (): Promise<void> => {
+    try {
+      await invoke("media_volume_down");
+    } catch (e) {
+      console.error("mediaVolumeDown error:", e);
+    }
+  },
+
+  mediaVolumeMute: async (): Promise<void> => {
+    try {
+      await invoke("media_volume_mute");
+    } catch (e) {
+      console.error("mediaVolumeMute error:", e);
+    }
+  },
+
+  getMediaSessionInfo: async (): Promise<MediaSessionInfo | null> => {
+    try {
+      return await invoke<MediaSessionInfo | null>("get_media_session_info");
+    } catch (e) {
+      console.error("getMediaSessionInfo error:", e);
+      return null;
+    }
+  },
+
+  updateWorkArea: async (topNotchEnabled: boolean): Promise<void> => {
+    try {
+      await invoke("update_work_area", { topNotchEnabled });
+    } catch (e) {
+      console.error("updateWorkArea error:", e);
+    }
+  },
+
   hideNativeTaskbar: async (): Promise<void> => {
     try {
       await invoke("hide_native_taskbar");
@@ -198,6 +263,10 @@ export const tauriBridge = {
         battery_percent: 100,
         is_charging: true,
         has_battery: true,
+        net_recv_speed_bps: 0,
+        net_sent_speed_bps: 0,
+        net_recv_formatted: "0 B/s",
+        net_sent_formatted: "0 B/s",
       };
     }
   },
@@ -217,6 +286,7 @@ export const tauriBridge = {
         enabled_widgets: ["start", "apps", "media", "sysmon", "tray", "clock"],
         autostart: false,
         monitor: "primary",
+        sysmon_mode: "cpu_ram",
       };
     }
   },

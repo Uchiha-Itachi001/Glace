@@ -23,17 +23,97 @@ const WIDGET_OPTIONS = [
   { id: "start", name: "Start Launcher", desc: "Keyboard launcher & quick apps search" },
   { id: "apps", name: "Taskbar Dock Apps", desc: "Pinned & active applications with live snap controls" },
   { id: "media", name: "Media Player", desc: "Soundwave visualizer & playback controls" },
-  { id: "sysmon", name: "System Monitor", desc: "Live CPU & RAM hardware gauges" },
+  { id: "sysmon", name: "System Monitor", desc: "Live CPU, RAM & Internet Speed monitor" },
   { id: "tray", name: "System Tray", desc: "Settings toggle and notification icons" },
   { id: "clock", name: "Clock & Calendar", desc: "Digital clock with interactive calendar" },
 ];
 
+const SYSMON_MODES: {
+  id: "cpu_ram" | "network" | "both";
+  name: string;
+  badge: string;
+  desc: string;
+}[] = [
+  {
+    id: "cpu_ram",
+    name: "CPU & RAM",
+    badge: "CPU 45% | RAM 60%",
+    desc: "Real-time processor & memory load",
+  },
+  {
+    id: "network",
+    name: "Internet Speed",
+    badge: "↓ 2.4 MB/s | ↑ 350 KB/s",
+    desc: "Real-time download & upload bandwidth",
+  },
+  {
+    id: "both",
+    name: "Combined (All-in-One)",
+    badge: "CPU · RAM · Net",
+    desc: "Show CPU, RAM, and Net speed together",
+  },
+];
+
+const TRAY_ITEM_OPTIONS = [
+  {
+    id: "gear",
+    name: "Glace Settings Gear",
+    desc: "Shortcut button to open the Glace settings flyout",
+  },
+  {
+    id: "overflow",
+    name: "Notification Area Overflow (^)",
+    desc: "Flyout menu for hidden background application icons",
+  },
+  {
+    id: "quick_settings",
+    name: "Quick Settings Indicators",
+    desc: "Wi-Fi internet, Volume audio, and Battery indicators",
+  },
+  {
+    id: "language",
+    name: "Input Language Switcher",
+    desc: "Active keyboard input method indicator (ENG / IN)",
+  },
+  {
+    id: "widgets",
+    name: "Windows Widgets & Copilot",
+    desc: "Windows widgets board and Copilot launcher button",
+  },
+  {
+    id: "keyboard",
+    name: "Touch Keyboard Launcher",
+    desc: "Windows on-screen virtual touch keyboard button",
+  },
+];
+
 export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
-  const { settings, updateSettings, setTheme, toggleWidget } = useSettings();
+  const { settings, updateSettings, setTheme, toggleWidget, toggleTrayItem, setSysMonMode } = useSettings();
   const [activeTab, setActiveTab] = useState<"appearance" | "widgets" | "pinned" | "layout" | "about">("appearance");
   const [pinnedApps, setPinnedApps] = useState<PinnedApp[]>([]);
   const [newAppName, setNewAppName] = useState("");
   const [newAppCmd, setNewAppCmd] = useState("");
+
+  const currentTheme = settings?.theme_id || "obsidian";
+  const currentAccent = settings?.accent_color || "#10b981";
+  const currentRadius = settings?.corner_radius ?? 20;
+  const currentBlur = settings?.blur_intensity ?? 1.0;
+  const enabledWidgets = settings?.enabled_widgets || ["start", "apps", "media", "sysmon", "tray", "clock"];
+  const enabledTrayItems = settings?.tray_items || [
+    "gear",
+    "overflow",
+    "keyboard",
+    "widgets",
+    "language",
+    "quick_settings",
+  ];
+  const currentSysmonMode = settings?.sysmon_mode || "cpu_ram";
+  const currentBarPos = settings?.bar_position || "bottom";
+  const currentAutostart = settings?.autostart ?? false;
+  const islandEnabled = settings?.enable_dynamic_island ?? true;
+  const islandShowMedia = settings?.island_show_media ?? true;
+  const islandShowHardware = settings?.island_show_hardware ?? true;
+  const islandShowBattery = settings?.island_show_battery ?? true;
 
   useEffect(() => {
     tauriBridge.getPinnedApps().then(setPinnedApps).catch(console.error);
@@ -174,7 +254,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               <span className="settings-block-label">Theme Presets</span>
               <div className="theme-grid-cards">
                 {THEME_PRESETS.map((preset) => {
-                  const isActive = settings.theme_id === preset.id;
+                  const isActive = currentTheme === preset.id;
                   return (
                     <div
                       key={preset.id}
@@ -210,7 +290,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                     <button
                       key={color}
                       className={`accent-dot-btn ${
-                        settings.accent_color === color ? "accent-dot-btn--active" : ""
+                        currentAccent === color ? "accent-dot-btn--active" : ""
                       }`}
                       style={{ background: color }}
                       onClick={() => updateSettings({ accent_color: color })}
@@ -221,11 +301,11 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 <div className="accent-native-wrapper" title="Custom Hex Picker">
                   <input
                     type="color"
-                    value={settings.accent_color}
+                    value={currentAccent}
                     onChange={(e) => updateSettings({ accent_color: e.target.value })}
                     className="accent-hex-input"
                   />
-                  <span className="accent-hex-label">{settings.accent_color}</span>
+                  <span className="accent-hex-label">{currentAccent}</span>
                 </div>
               </div>
 
@@ -234,13 +314,13 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 <div className="slider-control-group">
                   <div className="slider-label-row">
                     <span>Corner Radius</span>
-                    <span className="slider-value-pill">{settings.corner_radius}px</span>
+                    <span className="slider-value-pill">{currentRadius}px</span>
                   </div>
                   <input
                     type="range"
                     min="8"
                     max="32"
-                    value={settings.corner_radius}
+                    value={currentRadius}
                     onChange={(e) => updateSettings({ corner_radius: Number(e.target.value) })}
                     className="styled-slider"
                   />
@@ -249,14 +329,14 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 <div className="slider-control-group">
                   <div className="slider-label-row">
                     <span>Glass Blur Intensity</span>
-                    <span className="slider-value-pill">{settings.blur_intensity.toFixed(1)}x</span>
+                    <span className="slider-value-pill">{currentBlur.toFixed(1)}x</span>
                   </div>
                   <input
                     type="range"
                     min="0.5"
                     max="2.0"
                     step="0.1"
-                    value={settings.blur_intensity}
+                    value={currentBlur}
                     onChange={(e) => updateSettings({ blur_intensity: Number(e.target.value) })}
                     className="styled-slider"
                   />
@@ -271,7 +351,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               <span className="settings-block-label">Taskbar Capsules</span>
               <div className="widget-items-stack">
                 {WIDGET_OPTIONS.map((w) => {
-                  const isEnabled = settings.enabled_widgets.includes(w.id);
+                  const isEnabled = enabledWidgets.includes(w.id);
                   return (
                     <div
                       key={w.id}
@@ -288,6 +368,134 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                     </div>
                   );
                 })}
+              </div>
+
+              {/* System Monitor Mode Chooser */}
+              <span className="settings-block-label" style={{ marginTop: "20px" }}>
+                System Monitor Display Preference
+              </span>
+              <div className="sysmon-mode-options-grid">
+                {SYSMON_MODES.map((m) => {
+                  const isSelected = currentSysmonMode === m.id;
+                  return (
+                    <div
+                      key={m.id}
+                      className={`sysmon-mode-card icon-hover ${
+                        isSelected ? "sysmon-mode-card--active" : ""
+                      }`}
+                      onClick={() => setSysMonMode(m.id)}
+                    >
+                      <div className="sysmon-mode-header">
+                        <span className="sysmon-mode-name">{m.name}</span>
+                        <span className="sysmon-mode-badge">{m.badge}</span>
+                      </div>
+                      <span className="sysmon-mode-desc">{m.desc}</span>
+                      {isSelected && (
+                        <div className="sysmon-mode-check">
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Tray & Status Bar Items Chooser */}
+              <span className="settings-block-label" style={{ marginTop: "24px" }}>
+                Tray & Status Bar Icons
+              </span>
+              <div className="widget-items-stack">
+                {TRAY_ITEM_OPTIONS.map((item) => {
+                  const isEnabled = enabledTrayItems.includes(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className="widget-row-card icon-hover"
+                      onClick={() => toggleTrayItem(item.id)}
+                    >
+                      <div className="widget-row-meta">
+                        <span className="widget-row-name">{item.name}</span>
+                        <span className="widget-row-desc">{item.desc}</span>
+                      </div>
+                      <div className={`switch-pill ${isEnabled ? "switch-pill--on" : ""}`}>
+                        <div className="switch-thumb" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Dynamic Island (Top Notch) Settings */}
+              <span className="settings-block-label" style={{ marginTop: "24px" }}>
+                Dynamic Island (Top Notch Hub)
+              </span>
+              <div className="widget-items-stack">
+                <div
+                  className="widget-row-card icon-hover"
+                  onClick={() => updateSettings({ enable_dynamic_island: !islandEnabled })}
+                >
+                  <div className="widget-row-meta">
+                    <span className="widget-row-name">Enable Top Dynamic Island</span>
+                    <span className="widget-row-desc">Ambient top notch for music, hardware sensors, and quick controls</span>
+                  </div>
+                  <div className={`switch-pill ${islandEnabled ? "switch-pill--on" : ""}`}>
+                    <div className="switch-thumb" />
+                  </div>
+                </div>
+
+                {islandEnabled && (
+                  <>
+                    <div
+                      className="widget-row-card icon-hover"
+                      onClick={() => updateSettings({ island_show_media: !islandShowMedia })}
+                    >
+                      <div className="widget-row-meta">
+                        <span className="widget-row-name">Media Player Activity HUD</span>
+                        <span className="widget-row-desc">Expand into live music pill with equalizer waveform</span>
+                      </div>
+                      <div className={`switch-pill ${islandShowMedia ? "switch-pill--on" : ""}`}>
+                        <div className="switch-thumb" />
+                      </div>
+                    </div>
+
+                    <div
+                      className="widget-row-card icon-hover"
+                      onClick={() => updateSettings({ island_show_hardware: !islandShowHardware })}
+                    >
+                      <div className="widget-row-meta">
+                        <span className="widget-row-name">Hardware Quick Metrics</span>
+                        <span className="widget-row-desc">Show CPU, RAM, and Live Internet Bandwidth in expanded island</span>
+                      </div>
+                      <div className={`switch-pill ${islandShowHardware ? "switch-pill--on" : ""}`}>
+                        <div className="switch-thumb" />
+                      </div>
+                    </div>
+
+                    <div
+                      className="widget-row-card icon-hover"
+                      onClick={() => updateSettings({ island_show_battery: !islandShowBattery })}
+                    >
+                      <div className="widget-row-meta">
+                        <span className="widget-row-name">Battery & Charging Indicator</span>
+                        <span className="widget-row-desc">Display battery level and charging status in compact notch</span>
+                      </div>
+                      <div className={`switch-pill ${islandShowBattery ? "switch-pill--on" : ""}`}>
+                        <div className="switch-thumb" />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -365,7 +573,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               <span className="settings-block-label">Dock Positioning</span>
               <div className="layout-choice-grid">
                 {(["bottom", "top", "floating"] as const).map((pos) => {
-                  const isActive = settings.bar_position === pos;
+                  const isActive = currentBarPos === pos;
                   return (
                     <button
                       key={pos}
@@ -386,13 +594,13 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               <span className="settings-block-label">System Behavior</span>
               <div
                 className="widget-row-card icon-hover"
-                onClick={() => updateSettings({ autostart: !settings.autostart })}
+                onClick={() => updateSettings({ autostart: !currentAutostart })}
               >
                 <div className="widget-row-meta">
                   <span className="widget-row-name">Launch on Windows Startup</span>
                   <span className="widget-row-desc">Automatically initialize Glace upon user login</span>
                 </div>
-                <div className={`switch-pill ${settings.autostart ? "switch-pill--on" : ""}`}>
+                <div className={`switch-pill ${currentAutostart ? "switch-pill--on" : ""}`}>
                   <div className="switch-thumb" />
                 </div>
               </div>
@@ -437,6 +645,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                     corner_radius: 20,
                     bar_position: "bottom",
                     enabled_widgets: ["start", "apps", "media", "sysmon", "tray", "clock"],
+                    sysmon_mode: "cpu_ram",
                   })
                 }
               >

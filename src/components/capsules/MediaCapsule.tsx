@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { MediaTrack } from "../../types";
+import { MediaTrack, MediaSessionInfo } from "../../types";
+import { tauriBridge } from "../../services/tauriBridge";
 
 const DEMO_PLAYLIST: MediaTrack[] = [
   {
     title: "Midnight City",
     artist: "M83",
-    isPlaying: true,
+    isPlaying: false,
     progressPercent: 45,
     durationSec: 243,
     currentSec: 109,
@@ -13,53 +14,70 @@ const DEMO_PLAYLIST: MediaTrack[] = [
   {
     title: "Resonance",
     artist: "HOME",
-    isPlaying: true,
+    isPlaying: false,
     progressPercent: 62,
     durationSec: 212,
     currentSec: 131,
-  },
-  {
-    title: "Starboy",
-    artist: "The Weeknd & Daft Punk",
-    isPlaying: true,
-    progressPercent: 28,
-    durationSec: 230,
-    currentSec: 64,
   },
 ];
 
 export const MediaCapsule: React.FC = () => {
   const [trackIndex, setTrackIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [progress, setProgress] = useState(45);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
+  const [liveSession, setLiveSession] = useState<MediaSessionInfo | null>(null);
 
-  const currentTrack = DEMO_PLAYLIST[trackIndex];
+  const fallbackTrack = DEMO_PLAYLIST[trackIndex];
 
+  // Poll media session periodically (1500ms)
   useEffect(() => {
-    if (!isPlaying) return;
-    const timer = setInterval(() => {
-      setProgress((prev) => (prev >= 100 ? 0 : prev + 1));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [isPlaying]);
+    let isMounted = true;
+    const fetchSession = async () => {
+      try {
+        const session = await tauriBridge.getMediaSessionInfo();
+        if (isMounted) {
+          setLiveSession(session);
+          if (session) {
+            setIsPlaying(session.is_playing);
+            if (session.duration_sec > 0) {
+              setProgress(Math.min(100, Math.round((session.current_sec * 100) / session.duration_sec)));
+            }
+          }
+        }
+      } catch {
+        // Ignore
+      }
+    };
+
+    fetchSession();
+    const timer = setInterval(fetchSession, 1500);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, []);
 
   const handleTogglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsPlaying(!isPlaying);
+    tauriBridge.toggleMediaPlayPause().catch(console.error);
   };
 
   const handleNext = (e: React.MouseEvent) => {
     e.stopPropagation();
     setTrackIndex((prev) => (prev + 1) % DEMO_PLAYLIST.length);
-    setProgress(0);
+    tauriBridge.mediaNextTrack().catch(console.error);
   };
 
   const handlePrev = (e: React.MouseEvent) => {
     e.stopPropagation();
     setTrackIndex((prev) => (prev - 1 + DEMO_PLAYLIST.length) % DEMO_PLAYLIST.length);
-    setProgress(0);
+    tauriBridge.mediaPrevTrack().catch(console.error);
   };
+
+  const displayTitle = liveSession?.title || fallbackTrack.title;
+  const displayArtist = liveSession?.artist || fallbackTrack.artist;
 
   return (
     <div
@@ -80,8 +98,8 @@ export const MediaCapsule: React.FC = () => {
 
         {/* Track Details */}
         <div className="media-info">
-          <span className="media-title">{currentTrack.title}</span>
-          <span className="media-artist">{currentTrack.artist}</span>
+          <span className="media-title">{displayTitle}</span>
+          <span className="media-artist">{displayArtist}</span>
         </div>
 
         {/* Quick Media Controls */}

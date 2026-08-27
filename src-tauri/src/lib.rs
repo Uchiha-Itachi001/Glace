@@ -56,6 +56,7 @@ pub fn run() {
             commands::taskbar::open_widgets_panel,
             commands::taskbar::launch_app,
             commands::taskbar::power_action,
+            commands::taskbar::update_work_area,
             commands::windows::get_open_windows,
             commands::windows::focus_window,
             commands::windows::minimize_window,
@@ -71,6 +72,13 @@ pub fn run() {
             commands::pinned::get_pinned_apps,
             commands::pinned::pin_app,
             commands::pinned::unpin_app,
+            commands::media::media_toggle_play_pause,
+            commands::media::media_next_track,
+            commands::media::media_prev_track,
+            commands::media::media_volume_up,
+            commands::media::media_volume_down,
+            commands::media::media_volume_mute,
+            commands::media::get_media_session_info,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
@@ -157,6 +165,7 @@ pub fn run() {
                         );
                     }
 
+                    let top_notch_physical = (28.0 * scale_factor).round() as i32;
                     work_area::pin_window_to_bottom(
                         win32_hwnd,
                         pos.x,
@@ -164,6 +173,7 @@ pub fn run() {
                         size.width as i32,
                         size.height as i32,
                         bar_height_physical,
+                        top_notch_physical,
                     );
                 }
             }

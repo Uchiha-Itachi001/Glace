@@ -40,6 +40,10 @@ windows = { version = "0.61", features = [
   "Win32_System_SystemInformation",
   "Win32_System_Com",
   "Win32_Storage_FileSystem",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_NetworkManagement_Ndis",
+  "Media_Control",
+  "Storage_Streams",
 ] }
 
 [profile.release]

@@ -26,6 +26,10 @@ pub struct SystemMetrics {
     pub battery_percent: u8,
     pub is_charging: bool,
     pub has_battery: bool,
+    pub net_recv_speed_bps: u64,
+    pub net_sent_speed_bps: u64,
+    pub net_recv_formatted: String,
+    pub net_sent_formatted: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -35,6 +39,25 @@ pub struct PinnedApp {
     pub exe: String,
     pub lnk_path: String,
     pub icon_b64: String,
+}
+
+fn default_sysmon_mode() -> String {
+    "cpu_ram".into()
+}
+
+fn default_tray_items() -> Vec<String> {
+    vec![
+        "gear".into(),
+        "overflow".into(),
+        "keyboard".into(),
+        "widgets".into(),
+        "language".into(),
+        "quick_settings".into(),
+    ]
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +73,18 @@ pub struct Settings {
     pub monitor: String,
     #[serde(default)]
     pub pinned_apps: Vec<PinnedApp>,
+    #[serde(default = "default_sysmon_mode")]
+    pub sysmon_mode: String,
+    #[serde(default = "default_tray_items")]
+    pub tray_items: Vec<String>,
+    #[serde(default = "default_true")]
+    pub enable_dynamic_island: bool,
+    #[serde(default = "default_true")]
+    pub island_show_media: bool,
+    #[serde(default = "default_true")]
+    pub island_show_hardware: bool,
+    #[serde(default = "default_true")]
+    pub island_show_battery: bool,
 }
 
 impl Default for Settings {
@@ -79,6 +114,12 @@ impl Default for Settings {
             autostart: false,
             monitor: "primary".into(),
             pinned_apps: Vec::new(),
+            sysmon_mode: "cpu_ram".into(),
+            tray_items: default_tray_items(),
+            enable_dynamic_island: true,
+            island_show_media: true,
+            island_show_hardware: true,
+            island_show_battery: true,
         }
     }
 }

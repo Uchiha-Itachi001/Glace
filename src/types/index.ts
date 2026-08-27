@@ -21,10 +21,16 @@ export interface SystemMetrics {
   battery_percent: number;
   is_charging: boolean;
   has_battery: boolean;
+  net_recv_speed_bps?: number;
+  net_sent_speed_bps?: number;
+  net_recv_formatted?: string;
+  net_sent_formatted?: string;
 }
 
 // Backwards compatibility alias
 export type SystemStatus = SystemMetrics;
+
+export type SysMonMode = "cpu_ram" | "network" | "both";
 
 export type ThemeId =
   | "obsidian"
@@ -79,6 +85,12 @@ export interface Settings {
   autostart: boolean;
   monitor: string;
   pinned_apps?: PinnedApp[];
+  sysmon_mode?: SysMonMode;
+  tray_items?: string[];
+  enable_dynamic_island?: boolean;
+  island_show_media?: boolean;
+  island_show_hardware?: boolean;
+  island_show_battery?: boolean;
 }
 
 export interface MediaTrack {
@@ -89,4 +101,14 @@ export interface MediaTrack {
   progressPercent: number;
   durationSec: number;
   currentSec: number;
+}
+
+export interface MediaSessionInfo {
+  title: string;
+  artist: string;
+  album_title?: string;
+  is_playing: boolean;
+  duration_sec: number;
+  current_sec: number;
+  album_art_base64?: string;
 }

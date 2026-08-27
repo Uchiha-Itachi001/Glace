@@ -71,6 +71,15 @@ export const THEME_PRESETS: ThemePreset[] = [
   },
 ];
 
+export const DEFAULT_TRAY_ITEMS = [
+  "gear",
+  "overflow",
+  "keyboard",
+  "widgets",
+  "language",
+  "quick_settings",
+];
+
 const DEFAULT_SETTINGS: Settings = {
   theme_id: "obsidian",
   accent_color: "#10b981",
@@ -81,6 +90,12 @@ const DEFAULT_SETTINGS: Settings = {
   enabled_widgets: ["start", "apps", "media", "sysmon", "tray", "clock"],
   autostart: false,
   monitor: "primary",
+  sysmon_mode: "cpu_ram",
+  tray_items: DEFAULT_TRAY_ITEMS,
+  enable_dynamic_island: true,
+  island_show_media: true,
+  island_show_hardware: true,
+  island_show_battery: true,
 };
 
 let globalSettings: Settings = DEFAULT_SETTINGS;
@@ -132,7 +147,7 @@ export function useSettings() {
     // Initial fetch from backend
     tauriBridge.getSettings().then((loaded) => {
       if (loaded && loaded.theme_id) {
-        notify(loaded);
+        notify({ ...DEFAULT_SETTINGS, ...loaded });
       }
     }).catch(console.error);
 
@@ -163,12 +178,28 @@ export function useSettings() {
 
   const toggleWidget = useCallback((widgetId: string) => {
     updateSettings((prev) => {
-      const exists = prev.enabled_widgets.includes(widgetId);
+      const currentList = prev.enabled_widgets || DEFAULT_SETTINGS.enabled_widgets;
+      const exists = currentList.includes(widgetId);
       const enabled_widgets = exists
-        ? prev.enabled_widgets.filter((w) => w !== widgetId)
-        : [...prev.enabled_widgets, widgetId];
+        ? currentList.filter((w) => w !== widgetId)
+        : [...currentList, widgetId];
       return { ...prev, enabled_widgets };
     });
+  }, [updateSettings]);
+
+  const toggleTrayItem = useCallback((itemId: string) => {
+    updateSettings((prev) => {
+      const currentList = prev.tray_items || DEFAULT_TRAY_ITEMS;
+      const exists = currentList.includes(itemId);
+      const tray_items = exists
+        ? currentList.filter((id) => id !== itemId)
+        : [...currentList, itemId];
+      return { ...prev, tray_items };
+    });
+  }, [updateSettings]);
+
+  const setSysMonMode = useCallback((mode: "cpu_ram" | "network" | "both") => {
+    updateSettings({ sysmon_mode: mode });
   }, [updateSettings]);
 
   return {
@@ -176,6 +207,8 @@ export function useSettings() {
     updateSettings,
     setTheme,
     toggleWidget,
+    toggleTrayItem,
+    setSysMonMode,
     presets: THEME_PRESETS,
   };
 }

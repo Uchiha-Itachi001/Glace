@@ -12,12 +12,12 @@ use windows::{
     },
 };
 
-pub fn reserve(bar_height: i32, screen_height: i32, screen_width: i32) {
+pub fn reserve(top_notch_height: i32, bottom_bar_height: i32, screen_height: i32, screen_width: i32) {
     let mut work_area = RECT {
         left: 0,
-        top: 0,
+        top: top_notch_height,
         right: screen_width,
-        bottom: screen_height - bar_height,
+        bottom: screen_height - bottom_bar_height,
     };
     unsafe {
         let _ = SystemParametersInfoW(
@@ -55,18 +55,29 @@ pub fn update_window_region(
     _flyout_w: i32,
     _flyout_h: i32,
 ) {
-    use windows::Win32::Graphics::Gdi::{CreateRectRgn, SetWindowRgn};
+    use windows::Win32::Graphics::Gdi::{CombineRgn, CreateRectRgn, SetWindowRgn, RGN_OR};
 
     unsafe {
         if flyout_expanded {
-            // Expand region to full monitor so flyouts, context menus and backdrop clicks work
+            // Expand region to full monitor so flyouts, context menus, expanded island, and backdrop clicks work
             let rgn_full = CreateRectRgn(0, 0, monitor_w, monitor_h);
             let _ = SetWindowRgn(hwnd, Some(rgn_full), true);
         } else {
-            // Strictly clip region to bottom taskbar bar height so area above is 100% transparent and clickable
+            // Composite hardware region:
+            // 1. Bottom taskbar: (0, monitor_h - bar_height, monitor_w, monitor_h)
+            // 2. Top dynamic island notch: (monitor_w / 2 - 220, 0, monitor_w / 2 + 220, 48)
+            // Combined with RGN_OR so middle screen remains 100% click-through!
             let bar_top = monitor_h - bar_height;
             let rgn_bar = CreateRectRgn(0, bar_top, monitor_w, monitor_h);
-            let _ = SetWindowRgn(hwnd, Some(rgn_bar), true);
+
+            let island_half_w = 220;
+            let island_left = (monitor_w / 2) - island_half_w;
+            let island_right = (monitor_w / 2) + island_half_w;
+            let rgn_island = CreateRectRgn(island_left, 0, island_right, 48);
+
+            let rgn_combined = CreateRectRgn(0, 0, 0, 0);
+            CombineRgn(Some(rgn_combined), Some(rgn_bar), Some(rgn_island), RGN_OR);
+            let _ = SetWindowRgn(hwnd, Some(rgn_combined), true);
         }
     }
 }
@@ -78,6 +89,7 @@ pub fn pin_window_to_bottom(
     monitor_w: i32,
     monitor_h: i32,
     bar_height_physical: i32,
+    top_notch_physical: i32,
 ) {
     unsafe {
         // Position window across full monitor
@@ -91,7 +103,7 @@ pub fn pin_window_to_bottom(
             SWP_NOACTIVATE | SWP_SHOWWINDOW,
         );
 
-        // Hardware-clip mouse interaction region to only the bottom bar initially
+        // Hardware-clip mouse interaction region to only the bottom bar & top notch initially
         update_window_region(
             hwnd,
             monitor_w,
@@ -102,7 +114,7 @@ pub fn pin_window_to_bottom(
             0,
         );
 
-        reserve(bar_height_physical, monitor_h, monitor_w);
+        reserve(top_notch_physical, bar_height_physical, monitor_h, monitor_w);
         hide_native_taskbar();
     }
 }

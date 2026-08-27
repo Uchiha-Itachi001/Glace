@@ -201,3 +201,30 @@ pub fn power_action(action: String) -> Result<(), String> {
         _ => Err("Unknown power action".into()),
     }
 }
+
+#[tauri::command]
+pub fn update_work_area(
+    app: tauri::AppHandle,
+    top_notch_enabled: bool,
+) -> Result<(), String> {
+    use tauri::Manager;
+    if let Some(window) = app.get_webview_window("main") {
+        if let Ok(Some(monitor)) = window.primary_monitor() {
+            let size = monitor.size();
+            let scale_factor = monitor.scale_factor();
+            let bar_height_physical = (48.0 * scale_factor).round() as i32;
+            let top_notch_physical = if top_notch_enabled {
+                (28.0 * scale_factor).round() as i32
+            } else {
+                0
+            };
+            work_area::reserve(
+                top_notch_physical,
+                bar_height_physical,
+                size.height as i32,
+                size.width as i32,
+            );
+        }
+    }
+    Ok(())
+}

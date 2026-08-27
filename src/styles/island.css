@@ -1,0 +1,433 @@
+/* ─── Authentic DynamicWin V2 Dynamic Notch / Island Design ────────────────── */
+
+.dynamic-notch-wrapper {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9990;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: auto;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Roboto, sans-serif;
+}
+
+.island-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  z-index: 9985;
+  pointer-events: auto;
+}
+
+/* ─── Concave Corner Wings (Inverted Curved Ears at Top Screen Edge) ────────── */
+
+.notch-ear {
+  position: absolute;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 9991;
+}
+
+.notch-ear--left {
+  right: 100%;
+}
+
+.notch-ear--left::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-shadow: 16px -16px 0 0 #000000;
+}
+
+.notch-ear--right {
+  left: 100%;
+}
+
+.notch-ear--right::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-shadow: -16px -16px 0 0 #000000;
+}
+
+/* ─── DynamicWin Solid Pitch-Black Body ───────────────────────────────────── */
+
+.dynamic-notch {
+  position: relative;
+  top: 0;
+  background: #000000;
+  color: #ffffff;
+  border: none;
+  outline: none;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+
+  box-shadow: none;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  cursor: pointer;
+
+  transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              border-radius 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dynamic-notch:hover {
+  box-shadow: none;
+}
+
+/* ─── State 1: Compact Notch (Clean Time & Battery - Zero Camera) ────────── */
+
+.dynamic-notch--compact {
+  width: auto;
+  min-width: 195px;
+  height: 28px;
+  padding: 0 14px;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+
+.notch-compact-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 16px;
+}
+
+.notch-compact-left {
+  display: flex;
+  align-items: center;
+}
+
+.notch-compact-time {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.notch-compact-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #cbd5e1;
+  font-variant-numeric: tabular-nums;
+}
+
+.notch-battery-icon {
+  display: flex;
+  align-items: center;
+  color: #38bdf8;
+}
+
+/* ─── State 2: Live Activity Notch (Mini Playing State - Exact Image 1 Match) ─── */
+
+.dynamic-notch--activity {
+  width: auto;
+  min-width: 170px;
+  max-width: 195px;
+  height: 28px;
+  padding: 0 10px;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+
+.notch-activity-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 2px;
+}
+
+.notch-activity-left {
+  display: flex;
+  align-items: center;
+}
+
+.notch-album-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.notch-album-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.notch-activity-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ─── Equalizer Waveform Bars (Middle-Centered Symmetrical Soundwave) ────────── */
+
+.notch-equalizer-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5px;
+  height: 16px;
+}
+
+.notch-wave-bar {
+  width: 2.5px;
+  height: 14px;
+  border-radius: 1.5px;
+  background: #38bdf8;
+  transform-origin: center center;
+  transform: scaleY(0.25);
+  animation: notchWaveMiddleAnim 0.75s ease-in-out infinite alternate;
+}
+
+.notch-wave-bar:nth-child(1) { animation-duration: 0.65s; animation-delay: 0.05s; }
+.notch-wave-bar:nth-child(2) { animation-duration: 0.85s; animation-delay: 0.3s; }
+.notch-wave-bar:nth-child(3) { animation-duration: 0.55s; animation-delay: 0.15s; }
+.notch-wave-bar:nth-child(4) { animation-duration: 0.75s; animation-delay: 0.4s; }
+
+.notch-equalizer-wave--paused .notch-wave-bar {
+  animation-play-state: paused;
+  transform: scaleY(0.2) !important;
+}
+
+@keyframes notchWaveMiddleAnim {
+  0% { transform: scaleY(0.2); }
+  50% { transform: scaleY(0.95); }
+  100% { transform: scaleY(0.4); }
+}
+
+/* ─── State 3: Exact Expanded Notch Card (User Reference Image 2) ────────── */
+
+.dynamic-notch--expanded {
+  width: 336px;
+  height: 138px;
+  padding: 13px 16px 12px;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  animation: notchExpandDown 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes notchExpandDown {
+  from {
+    transform: scaleY(0.92);
+    opacity: 0.8;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.notch-expanded-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+}
+
+/* Row 1: Top Row (Album Art, Meta Text, Top-Right Waveform) */
+.notch-card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.notch-card-media-left {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  flex: 1;
+}
+
+.notch-card-art {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+
+.notch-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.notch-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.notch-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.1px;
+}
+
+.notch-card-artist {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notch-card-wave-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-left: 8px;
+}
+
+/* Row 2: Scrubber Row (Inline Labels + Track + Rounded Pill Thumb) */
+.notch-card-scrubber-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.notch-time-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #71717a;
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+}
+
+.notch-time-label:first-child {
+  text-align: left;
+}
+
+.notch-time-label:last-child {
+  text-align: right;
+}
+
+.notch-scrubber-track {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  background: #27272a;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.notch-scrubber-fill {
+  height: 100%;
+  background: #ffffff;
+  border-radius: 2px;
+}
+
+.notch-scrubber-thumb {
+  position: absolute;
+  top: 0px;
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: #ffffff;
+  transform: translateX(-50%);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
+}
+
+/* Row 3: 5 Evenly Distributed Playback Controls */
+.notch-card-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.notch-btn-icon {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 50%;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease;
+  opacity: 0.85;
+}
+
+.notch-btn-icon:hover {
+  opacity: 1;
+  transform: scale(1.14);
+}
+
+.notch-btn-icon:active {
+  transform: scale(0.92);
+}
+
+.notch-btn-icon--play {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.notch-btn-icon--play:hover {
+  transform: scale(1.2);
+}
+
+.notch-btn-icon--active {
+  color: #38bdf8;
+  opacity: 1;
+}
