@@ -3226,10 +3226,27 @@ html, body {
   transition: all 0.15s ease;
 }
 
+.tray-glace-logo {
+  width: 15px;
+  height: 15px;
+  border-radius: 3.5px;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease;
+  display: block;
+}
+
 .tray-settings-btn:hover,
 .tray-settings-btn--active {
   color: var(--glace-accent);
   background: var(--glace-bg-hover);
+}
+
+.tray-settings-btn:hover .tray-glace-logo,
+.tray-settings-btn--active .tray-glace-logo {
+  transform: scale(1.12);
+  filter: drop-shadow(0 0 6px var(--glace-accent-glow, rgba(16, 185, 129, 0.5)));
 }
 
 /* ─── Work Area & Screen Margin Controls ──────────────────────────────── */

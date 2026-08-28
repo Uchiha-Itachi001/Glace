@@ -26,7 +26,7 @@ export const useBluetooth = () => {
         if (isMounted) {
           if (list && list.length > 0) {
             setDevices(list);
-            const connected = list.find((d) => d.connected) || list[0];
+            const connected = list.find((d) => d.connected) || null;
             setActiveDevice(connected);
           } else {
             setDevices([]);

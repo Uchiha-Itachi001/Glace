@@ -54,115 +54,74 @@ pub fn start() {
 
 
 fn scan_devices() -> Vec<BluetoothDevice> {
-    // WinRT & AudioEndpoint scanner to extract ONLY currently connected Bluetooth devices
     let ps_script = r#"
         try {
-            Add-Type -AssemblyName System.Runtime.WindowsRuntime -ErrorAction SilentlyContinue
-
-            function AwaitTask($WinRtTask) {
-                try {
-                    $asTask = [System.WindowsRuntimeSystemExtensions]::AsTask($WinRtTask)
-                    if ($asTask.Wait(2500)) { $asTask.Result } else { $null }
-                } catch { $null }
-            }
-
-            $null = [Windows.Devices.Bluetooth.BluetoothDevice, Windows.Devices.Bluetooth, ContentType = WindowsRuntime]
-            $null = [Windows.Devices.Enumeration.DeviceInformation, Windows.Devices.Enumeration, ContentType = WindowsRuntime]
-
             $result = @()
             $seen = @{}
 
-            # 1. Primary: Query ONLY devices with ConnectionStatus == 1 (Connected)
-            try {
-                $selector = [Windows.Devices.Bluetooth.BluetoothDevice]::GetDeviceSelectorFromConnectionStatus(1)
-                $devInfos = AwaitTask ([Windows.Devices.Enumeration.DeviceInformation]::FindAllAsync($selector))
+            # 1. Query ONLY actively connected Bluetooth Audio endpoints (render / communication)
+            $audioActive = Get-PnpDevice -Class 'AudioEndpoint' -Status 'OK' -ErrorAction SilentlyContinue | Where-Object {
+                $_.Present -eq $true -and
+                $_.FriendlyName -notmatch 'Realtek|High Definition Audio|Speakers \(|Microphone Array|Stereo Mix|NVIDIA|Intel|Display|Steam|Virtual|Default'
+            }
 
-                if ($devInfos) {
-                    foreach ($info in $devInfos) {
-                        $name = $info.Name
-                        if (-not $name) { continue }
-                        $name = $name.Trim()
-                        if ($name.Length -eq 0 -or $seen.ContainsKey($name)) { continue }
-                        if ($name -match '(?i)Adapter|Enumerator|Radio|Generic|Host|Controller|Intel|Realtek|Qualcomm|Microsoft|Device Identification|LE Device|Personal Area|Network Service|RFCOMM') { continue }
+            if ($audioActive) {
+                foreach ($adev in $audioActive) {
+                    $rawName = $adev.FriendlyName
+                    if ($rawName -match '^(?:Headphones|Headset|Earphones|Speakers|Microphone)\s*\((.*?)\)$') {
+                        $rawName = $Matches[1]
+                    }
+                    $cleanName = (($rawName -replace '\s*Hands-Free AG Audio', '') -replace '\s*Hands-Free', '') -replace '\s*Stereo', ''
+                    $cleanName = $cleanName.Trim()
 
-                        $batt = $null
-                        try {
-                            $bt = AwaitTask ([Windows.Devices.Bluetooth.BluetoothDevice]::FromIdAsync($info.Id))
-                            if ($bt) {
-                                if ($bt.ConnectionStatus -ne 1) { continue }
+                    if ($cleanName.Length -eq 0 -or $seen.ContainsKey($cleanName.ToLower())) { continue }
+                    $seen[$cleanName.ToLower()] = $true
 
-                                # Query GATT battery
-                                $gattResult = AwaitTask ($bt.GetGattServicesForUuidAsync([Guid]'0000180f-0000-1000-8000-00805f9b34fb'))
-                                if ($gattResult -and $gattResult.Status -eq 0 -and $gattResult.Services.Count -gt 0) {
-                                    $svc = $gattResult.Services[0]
-                                    $charResult = AwaitTask ($svc.GetCharacteristicsForUuidAsync([Guid]'00002a19-0000-1000-8000-00805f9b34fb'))
-                                    if ($charResult -and $charResult.Status -eq 0 -and $charResult.Characteristics.Count -gt 0) {
-                                        $read = AwaitTask ($charResult.Characteristics[0].ReadValueAsync())
-                                        if ($read -and $read.Status -eq 0) {
-                                            $reader = [Windows.Storage.Streams.DataReader]::FromBuffer($read.Value)
-                                            $batt = [int]$reader.ReadByte()
-                                        }
-                                    }
-                                }
-                            }
-                        } catch {}
-
-                        # Fallback for battery property via PnP
-                        if ($null -eq $batt) {
-                            try {
-                                $pnp = Get-PnpDevice -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -eq $name -and $_.Status -eq 'OK' }
-                                foreach ($p in $pnp) {
-                                    $prop = Get-PnpDeviceProperty -InstanceId $p.InstanceId -KeyName '{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2' -ErrorAction SilentlyContinue
-                                    if ($prop -and $prop.Data) {
-                                        $batt = [int]$prop.Data
-                                        break
-                                    }
-                                }
-                            } catch {}
-                        }
-
-                        $seen[$name] = $true
-                        $result += [PSCustomObject]@{
-                            id = $info.Id
-                            name = $name
-                            connected = $true
-                            battery_percent = $batt
-                            device_type = if ($name -match '(?i)Buds|Headset|Headphones|AirPods|Earphones|Speaker|Sound|Audio|Neckband|Wireless') { 'audio' } else { 'generic' }
+                    # Fetch live battery property for this active device from Hands-Free service
+                    $batt = $null
+                    $hfDevs = Get-PnpDevice -FriendlyName "*$cleanName*" -Status 'OK' -ErrorAction SilentlyContinue | Where-Object {
+                        $_.Present -eq $true -and ($_.FriendlyName -match 'Hands-Free' -or $_.InstanceId -match '{0000111E')
+                    }
+                    foreach ($h in $hfDevs) {
+                        $prop = Get-PnpDeviceProperty -InstanceId $h.InstanceId -KeyName '{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2' -ErrorAction SilentlyContinue
+                        if ($prop -and $prop.Data -ne $null) {
+                            $batt = [int]$prop.Data
+                            break
                         }
                     }
-                }
-            } catch {}
 
-            # 2. Secondary fallback: Check active connected AudioEndpoint render devices
-            if ($result.Count -eq 0) {
-                $audioActive = Get-PnpDevice -Class 'AudioEndpoint' -Status 'OK' -ErrorAction SilentlyContinue | Where-Object {
-                    $_.FriendlyName -and
-                    $_.FriendlyName -notmatch 'Realtek|High Definition Audio|Speakers|Microphone Array|Stereo Mix|NVIDIA|Intel|Display|Steam|Virtual|Default' -and
-                    $_.Present -eq $true
+                    $result += [PSCustomObject]@{
+                        id = $adev.InstanceId
+                        name = $cleanName
+                        connected = $true
+                        battery_percent = $batt
+                        device_type = 'audio'
+                    }
                 }
-                if ($audioActive) {
-                    foreach ($adev in $audioActive) {
-                        $rawName = $adev.FriendlyName
-                        if ($rawName -match '^(?:Headphones|Headset|Earphones|Speakers)\s*\((.*?)\)$') {
-                            $rawName = $Matches[1]
-                        }
-                        $cleanName = (($rawName -replace '\s*Hands-Free AG Audio', '') -replace '\s*Stereo', '').Trim()
-                        if ($cleanName.Length -gt 0 -and (-not $seen.ContainsKey($cleanName))) {
-                            $batt = $null
-                            try {
-                                $prop = Get-PnpDeviceProperty -InstanceId $adev.InstanceId -KeyName '{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2' -ErrorAction SilentlyContinue
-                                if ($prop -and $prop.Data) { $batt = [int]$prop.Data }
-                            } catch {}
+            }
 
-                            $seen[$cleanName] = $true
-                            $result += [PSCustomObject]@{
-                                id = $adev.InstanceId
-                                name = $cleanName
-                                connected = $true
-                                battery_percent = $batt
-                                device_type = 'audio'
-                            }
-                        }
+            # 2. Query ONLY actively connected Bluetooth HID Peripherals (Mice, Keyboards, Gamepads)
+            $hidActive = Get-PnpDevice -Class 'HIDClass' -Status 'OK' -ErrorAction SilentlyContinue | Where-Object {
+                $_.Present -eq $true -and ($_.InstanceId -match '^BTH\\|^BTHENUM\\|^BTHLE\\|^HID\\{00001124')
+            }
+
+            if ($hidActive) {
+                foreach ($hdev in $hidActive) {
+                    $name = $hdev.FriendlyName.Trim()
+                    if ($name.Length -eq 0 -or $seen.ContainsKey($name.ToLower())) { continue }
+                    if ($name -match '(?i)Radio|Adapter|Generic|Consumer Control|Vendor Defined|System Multi-Axis') { continue }
+                    $seen[$name.ToLower()] = $true
+
+                    $batt = $null
+                    $prop = Get-PnpDeviceProperty -InstanceId $hdev.InstanceId -KeyName '{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2' -ErrorAction SilentlyContinue
+                    if ($prop -and $prop.Data -ne $null) { $batt = [int]$prop.Data }
+
+                    $result += [PSCustomObject]@{
+                        id = $hdev.InstanceId
+                        name = $name
+                        connected = $true
+                        battery_percent = $batt
+                        device_type = 'generic'
                     }
                 }
             }

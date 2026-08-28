@@ -134,6 +134,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const currentMediaLocation = settings?.media_location || "notch";
   const currentAutostart = settings?.autostart ?? false;
   const islandEnabled = settings?.enable_dynamic_island ?? true;
+  const islandShowBluetooth = settings?.island_show_bluetooth ?? true;
   const islandShowHardware = settings?.island_show_hardware ?? true;
   const islandShowBattery = settings?.island_show_battery ?? true;
   const currentMarginTop = settings?.margin_top ?? 32;
@@ -892,24 +893,39 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
 
           {/* Tab 3: Dynamic Island */}
           {activeTab === "island" && (
-            <div className="settings-section-block">
-              <span className="settings-block-label">Dynamic Island (Top Notch Hub)</span>
-              <div className="widget-items-stack">
-                <div
-                  className="widget-row-card"
-                  onClick={() => updateSettings({ enable_dynamic_island: !islandEnabled })}
-                >
-                  <div className="widget-row-meta">
-                    <span className="widget-row-name">Enable Top Dynamic Island</span>
-                    <span className="widget-row-desc">Ambient top notch for music visualizer, hardware telemetry, and notifications</span>
-                  </div>
-                  <div className={`switch-pill ${islandEnabled ? "switch-pill--on" : ""}`}>
-                    <div className="switch-thumb" />
+            <>
+              {/* 1. Master Switch Section */}
+              <div className="settings-section-block">
+                <span className="settings-block-label">Master Switch</span>
+                <div className="widget-items-stack">
+                  <div
+                    className="widget-row-card"
+                    style={{
+                      border: islandEnabled ? "1px solid var(--glace-accent)" : "1px solid rgba(255, 255, 255, 0.08)",
+                      background: islandEnabled ? "rgba(var(--glace-accent-rgb, 16, 185, 129), 0.08)" : undefined,
+                    }}
+                    onClick={() => updateSettings({ enable_dynamic_island: !islandEnabled })}
+                  >
+                    <div className="widget-row-meta">
+                      <span className="widget-row-name" style={{ fontWeight: 600 }}>Enable Top Dynamic Island</span>
+                      <span className="widget-row-desc">
+                        {islandEnabled
+                          ? "Active: Dynamic Notch hub is active on the top screen edge"
+                          : "Disabled: Dynamic Notch is completely turned off"}
+                      </span>
+                    </div>
+                    <div className={`switch-pill ${islandEnabled ? "switch-pill--on" : ""}`}>
+                      <div className="switch-thumb" />
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                {islandEnabled && (
-                  <>
+              {/* 2. Sub-Features & Activity HUDs */}
+              {islandEnabled && (
+                <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                  <span className="settings-block-label">Notch Features & Activity HUDs</span>
+                  <div className="widget-items-stack">
                     <div
                       className="widget-row-card"
                       onClick={() => setMediaLocation(currentMediaLocation === "notch" ? "taskbar" : "notch")}
@@ -923,6 +939,19 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                         </span>
                       </div>
                       <div className={`switch-pill ${currentMediaLocation === "notch" ? "switch-pill--on" : ""}`}>
+                        <div className="switch-thumb" />
+                      </div>
+                    </div>
+
+                    <div
+                      className="widget-row-card"
+                      onClick={() => updateSettings({ island_show_bluetooth: !islandShowBluetooth })}
+                    >
+                      <div className="widget-row-meta">
+                        <span className="widget-row-name">Bluetooth Device HUD</span>
+                        <span className="widget-row-desc">Show connected audio headsets, earbuds, and live battery level</span>
+                      </div>
+                      <div className={`switch-pill ${islandShowBluetooth ? "switch-pill--on" : ""}`}>
                         <div className="switch-thumb" />
                       </div>
                     </div>
@@ -952,12 +981,15 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                         <div className="switch-thumb" />
                       </div>
                     </div>
+                  </div>
+                </div>
+              )}
 
-                    {/* Window Overlap & Top Margin Clearance */}
-                    <span className="settings-block-label" style={{ marginTop: "14px" }}>
-                      Notch Screen Clearance & Window Overlap
-                    </span>
-
+              {/* 3. Window Overlap & Top Margin Clearance */}
+              {islandEnabled && (
+                <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                  <span className="settings-block-label">Notch Screen Clearance & Window Overlap</span>
+                  <div className="widget-items-stack">
                     <div
                       className="widget-row-card"
                       onClick={() => updateSettings({ margin_top: currentMarginTop === 0 ? 32 : 0 })}
@@ -1033,10 +1065,10 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                         ))}
                       </div>
                     </div>
-                  </>
-                )}
-              </div>
-            </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Tab 4: Status & Tray */}

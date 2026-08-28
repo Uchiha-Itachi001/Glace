@@ -456,6 +456,15 @@
 }
 
 
+/* Left Section when Default Time + Battery is active on main */
+.notch-split-main--default {
+  min-width: auto;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Detached Secondary Right Pill (Matches Ref Image 3) */
 .notch-split-secondary {
   width: 26px;
@@ -475,6 +484,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
@@ -915,4 +926,177 @@
   0% { transform: scaleY(0.2); }
   50% { transform: scaleY(0.95); }
   100% { transform: scaleY(0.4); }
+}
+
+/* ─── State 6: Full Expanded Hardware Quick Metrics Card ─────────────────── */
+
+.dynamic-notch--hardware-expanded {
+  width: 310px;
+  height: 154px;
+  padding: 11px 14px 10px;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  animation: notch-card-expand 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.notch-hardware-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  gap: 8px;
+  animation: notchCardContentFadeIn var(--glace-duration-base) var(--glace-ease-spring) both;
+}
+
+.notch-hw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.notch-hw-title-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.notch-hw-chip-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notch-hw-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: 0.15px;
+}
+
+.notch-hw-collapse-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.notch-hw-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.notch-hw-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  width: 100%;
+}
+
+.notch-hw-metric-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 9px;
+  padding: 6px 8px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notch-hw-metric-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notch-hw-metric-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.notch-hw-metric-val {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.notch-hw-graph-wrap {
+  width: 100%;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.notch-hw-subtext {
+  font-size: 8.5px;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  margin-top: -2px;
+}
+
+.notch-hw-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 9.5px;
+  color: #94a3b8;
+}
+
+.notch-hw-net {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notch-hw-net-item {
+  display: flex;
+  align-items: center;
+  gap: 2.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.notch-hw-net-arrow--down {
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.notch-hw-net-arrow--up {
+  color: #a855f7;
+  font-weight: 700;
+}
+
+.notch-hw-power {
+  display: flex;
+  align-items: center;
+  gap: 3.5px;
+  font-variant-numeric: tabular-nums;
+  color: #e2e8f0;
+}
+
+.notch-hw-power-label {
+  font-size: 8.5px;
+  color: #64748b;
 }

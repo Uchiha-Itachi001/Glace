@@ -1,40 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { MediaTrack, MediaSessionInfo } from "../../types";
+import { MediaSessionInfo } from "../../types";
 import { tauriBridge } from "../../services/tauriBridge";
 import { useSettings } from "../../stores/settingsStore";
 import { albumArtService, TrackColorTheme } from "../../services/albumArtService";
-
-const DEMO_PLAYLIST: MediaTrack[] = [
-  {
-    title: "Midnight City",
-    artist: "M83",
-    isPlaying: false,
-    progressPercent: 45,
-    durationSec: 243,
-    currentSec: 109,
-  },
-  {
-    title: "Resonance",
-    artist: "HOME",
-    isPlaying: false,
-    progressPercent: 62,
-    durationSec: 212,
-    currentSec: 131,
-  },
-];
 
 export const MediaCapsule: React.FC = () => {
   const { settings } = useSettings();
   const isMediaBarEnabled = (settings?.enabled_widgets ?? []).includes("media") && settings?.media_location !== "notch";
 
-  const [trackIndex, setTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
   const [liveSession, setLiveSession] = useState<MediaSessionInfo | null>(null);
   const [dynamicColor, setDynamicColor] = useState<TrackColorTheme | null>(null);
-
-  const fallbackTrack = DEMO_PLAYLIST[trackIndex];
 
   // Poll media session periodically only when media capsule is active on taskbar
   useEffect(() => {
@@ -105,18 +83,16 @@ export const MediaCapsule: React.FC = () => {
 
   const handleNext = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setTrackIndex((prev) => (prev + 1) % DEMO_PLAYLIST.length);
     tauriBridge.mediaNextTrack().catch(console.error);
   };
 
   const handlePrev = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setTrackIndex((prev) => (prev - 1 + DEMO_PLAYLIST.length) % DEMO_PLAYLIST.length);
     tauriBridge.mediaPrevTrack().catch(console.error);
   };
 
-  const displayTitle = liveSession ? (liveSession.title || "") : fallbackTrack.title;
-  const displayArtist = liveSession ? (liveSession.artist || "") : fallbackTrack.artist;
+  const displayTitle = liveSession?.title || "No Media Playing";
+  const displayArtist = liveSession?.artist || "Play music or video";
 
   return (
     <div

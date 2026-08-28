@@ -7,59 +7,56 @@ import { windowExpansion } from "../../services/windowExpansion";
 import { MediaSessionInfo } from "../../types";
 import { albumArtService, TrackColorTheme } from "../../services/albumArtService";
 
-const DEMO_TRACKS = [
-  {
-    title: "Midnight City",
-    artist: "M83",
-    durationSec: 243,
-  },
-  {
-    title: "Resonance",
-    artist: "HOME",
-    durationSec: 212,
-  },
-  {
-    title: "Starboy",
-    artist: "The Weeknd & Daft Punk",
-    durationSec: 230,
-  },
-];
+
 
 export const DynamicIsland: React.FC = () => {
   const { settings } = useSettings();
   const isIslandEnabled = settings?.enable_dynamic_island ?? true;
   const showMedia = isIslandEnabled && (settings?.media_location ?? "notch") === "notch" && (settings?.island_show_media ?? true);
   const showBluetooth = isIslandEnabled && (settings?.island_show_bluetooth ?? true);
+  const showHardware = isIslandEnabled && (settings?.island_show_hardware ?? true);
+  const showBattery = isIslandEnabled && (settings?.island_show_battery ?? true);
 
   const bluetooth = useBluetooth();
   const systemMetrics = useSystemMetrics(isIslandEnabled);
   const batteryPercent = systemMetrics?.battery_percent ?? 100;
+  const isCharging = Boolean(systemMetrics?.is_charging);
 
   const [currentTime, setCurrentTime] = useState<string>(() => {
     const now = new Date();
-    return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+    return now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
   });
+
+  const [cpuHistory, setCpuHistory] = useState<number[]>([12, 16, 14, 20, 15, 18, 22, 19, 14, 16, 12, 10]);
+  const [ramHistory, setRamHistory] = useState<number[]>([60, 61, 62, 63, 62, 64, 65, 65, 66, 66, 65, 66]);
+
+  useEffect(() => {
+    if (systemMetrics?.cpu_percent !== undefined) {
+      setCpuHistory((prev) => [...prev.slice(-14), systemMetrics.cpu_percent]);
+    }
+    if (systemMetrics?.ram_percent !== undefined) {
+      setRamHistory((prev) => [...prev.slice(-14), systemMetrics.ram_percent]);
+    }
+  }, [systemMetrics?.cpu_percent, systemMetrics?.ram_percent]);
 
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }));
+      setCurrentTime(now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }));
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const [expandedType, setExpandedType] = useState<"media" | "bluetooth" | null>(null);
+  const [expandedType, setExpandedType] = useState<"media" | "bluetooth" | "hardware" | null>(null);
   const [splitViewMode, setSplitViewMode] = useState<"media_main" | "bt_main">("media_main");
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isShuffle, setIsShuffle] = useState(false);
-  const [trackIndex, setTrackIndex] = useState(0);
-  const [currentSec, setCurrentSec] = useState(65);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [currentSec, setCurrentSec] = useState(0);
   const [liveMedia, setLiveMedia] = useState<MediaSessionInfo | null>(null);
   const [dynamicTheme, setDynamicTheme] = useState<TrackColorTheme | null>(null);
 
-  const currentTrack = DEMO_TRACKS[trackIndex];
   const { activeDevice: activeBtDevice, isConnected: isBtConnected } = bluetooth;
-  const btBatteryPct = activeBtDevice?.battery_percent ?? 80;
+  const btBatteryPct = activeBtDevice?.battery_percent ?? null;
 
   // Auto-Detect Windows Global System Media Transport (Only polls when showMedia is active)
   useEffect(() => {
@@ -129,21 +126,21 @@ export const DynamicIsland: React.FC = () => {
   useEffect(() => {
     if (!showMedia || !activeIsPlaying) return;
     const interval = setInterval(() => {
-      setCurrentSec((prev) => (prev >= (liveMedia?.duration_sec || currentTrack.durationSec) ? 0 : prev + 1));
+      setCurrentSec((prev) => (liveMedia?.duration_sec && prev >= liveMedia.duration_sec ? 0 : prev + 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [showMedia, activeIsPlaying, liveMedia?.duration_sec, currentTrack.durationSec]);
+  }, [showMedia, activeIsPlaying, liveMedia?.duration_sec]);
 
   const hasLiveMedia = liveMedia !== null && (Boolean(liveMedia.title?.trim()) || Boolean(liveMedia.artist?.trim()));
-  const activeTitle = liveMedia ? (liveMedia.title || "") : (showMedia ? currentTrack.title : "");
-  const activeArtist = liveMedia ? (liveMedia.artist || "") : (showMedia ? currentTrack.artist : "");
-  const activeDuration = liveMedia && liveMedia.duration_sec > 0 ? liveMedia.duration_sec : currentTrack.durationSec;
+  const activeTitle = liveMedia?.title || "";
+  const activeArtist = liveMedia?.artist || "";
+  const activeDuration = liveMedia && liveMedia.duration_sec > 0 ? liveMedia.duration_sec : 0;
   const activeCurrentSec = currentSec > activeDuration ? activeDuration : currentSec;
   const progressPercent = activeDuration > 0 ? (activeCurrentSec / activeDuration) * 100 : 0;
 
-  // Media session is active whenever there is a live media track / app open (playing or paused)
-  const hasMediaSession = showMedia && (hasLiveMedia || Boolean(activeTitle));
-  // Multi-activity is active when media session exists AND a real bluetooth device is connected!
+  // Media session is active ONLY when a real media player session is detected from Windows
+  const hasMediaSession = showMedia && hasLiveMedia;
+  // Multi-activity is active when real media exists AND a real bluetooth device is connected!
   const isMultiActivity = hasMediaSession && showBluetooth && isBtConnected && activeBtDevice !== null;
 
   if (!isIslandEnabled) {
@@ -171,6 +168,12 @@ export const DynamicIsland: React.FC = () => {
     e.stopPropagation();
     setExpandedType("bluetooth");
     windowExpansion.request("island", 180);
+  };
+
+  const handleExpandHardware = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedType("hardware");
+    windowExpansion.request("island", 195);
   };
 
   const handleCollapse = (e?: React.MouseEvent) => {
@@ -203,16 +206,20 @@ export const DynamicIsland: React.FC = () => {
 
   const handleNextTrack = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setTrackIndex((prev) => (prev + 1) % DEMO_TRACKS.length);
     setCurrentSec(0);
     tauriBridge.mediaNextTrack().catch(console.error);
   };
 
   const handlePrevTrack = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setTrackIndex((prev) => (prev - 1 + DEMO_TRACKS.length) % DEMO_TRACKS.length);
     setCurrentSec(0);
     tauriBridge.mediaPrevTrack().catch(console.error);
+  };
+
+  const handleToggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMuted((prev) => !prev);
+    tauriBridge.mediaVolumeMute().catch(console.error);
   };
 
   const handleScrubberClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -256,12 +263,42 @@ export const DynamicIsland: React.FC = () => {
   // Circular ring calculation for Image 1: 42px SVG (radius 17)
   const ringRadius = 17;
   const ringCircumference = 2 * Math.PI * ringRadius;
-  const ringOffset = ringCircumference - (btBatteryPct / 100) * ringCircumference;
+  const displayRingPct = btBatteryPct ?? 100;
+  const ringOffset = ringCircumference - (displayRingPct / 100) * ringCircumference;
 
   // Mini circular ring calculation for Image 2 & 3: 13px SVG (radius 4.2)
   const miniRadius = 4.2;
   const miniCircumference = 2 * Math.PI * miniRadius;
-  const miniOffset = miniCircumference - (btBatteryPct / 100) * miniCircumference;
+  const miniOffset = miniCircumference - (displayRingPct / 100) * miniCircumference;
+
+  const renderSparkline = (data: number[], strokeColor: string, gradientId: string) => {
+    const w = 124;
+    const h = 24;
+    if (!data || data.length === 0) return null;
+    const max = 100;
+    const min = 0;
+    const range = max - min || 1;
+    const pts = data.map((v, i) => {
+      const x = (i / Math.max(1, data.length - 1)) * w;
+      const y = h - ((Math.min(100, Math.max(0, v)) - min) / range) * (h - 6) - 3;
+      return { x, y };
+    });
+    const lineD = pts.reduce((acc, p, i) => (i === 0 ? `M ${p.x.toFixed(1)},${p.y.toFixed(1)}` : `${acc} L ${p.x.toFixed(1)},${p.y.toFixed(1)}`), "");
+    const areaD = `${lineD} L ${w},${h} L 0,${h} Z`;
+
+    return (
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: "visible", display: "block" }}>
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.38" />
+            <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
+          </linearGradient>
+        </defs>
+        <path d={areaD} fill={`url(#${gradientId})`} />
+        <path d={lineD} fill="none" stroke={strokeColor} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  };
 
   const renderLightBorder = () => (
     <div className="notch-light-border" aria-hidden="true">
@@ -346,7 +383,9 @@ export const DynamicIsland: React.FC = () => {
                     transform="rotate(-90 21 21)"
                   />
                 </svg>
-                <span className="notch-bt-ring-text">{btBatteryPct}%</span>
+                <span className="notch-bt-ring-text">
+                  {btBatteryPct !== null ? `${btBatteryPct}%` : "--"}
+                </span>
               </div>
             </div>
           </div>
@@ -417,19 +456,25 @@ export const DynamicIsland: React.FC = () => {
 
               {/* Row 3: 5 Playback Controls (Evenly Clustered & Enlarged) */}
               <div className="notch-card-controls-row">
-                {/* 1. Shuffle */}
+                {/* 1. System Audio Mute / Unmute */}
                 <button
-                  className={`notch-btn-icon ${isShuffle ? "notch-btn-icon--active" : ""}`}
-                  onClick={() => setIsShuffle(!isShuffle)}
-                  title="Shuffle"
+                  className={`notch-btn-icon ${isMuted ? "notch-btn-icon--active" : ""}`}
+                  onClick={handleToggleMute}
+                  title={isMuted ? "Unmute Sound" : "Mute Sound"}
                 >
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="16 3 21 3 21 8" />
-                    <line x1="4" y1="20" x2="21" y2="3" />
-                    <polyline points="21 16 21 21 16 21" />
-                    <line x1="15" y1="15" x2="21" y2="21" />
-                    <line x1="4" y1="4" x2="9" y2="9" />
-                  </svg>
+                  {isMuted ? (
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                      <line x1="23" y1="9" x2="17" y2="15" />
+                      <line x1="17" y1="9" x2="23" y2="15" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    </svg>
+                  )}
                 </button>
 
                 {/* 2. Previous Track */}
@@ -464,17 +509,121 @@ export const DynamicIsland: React.FC = () => {
                   </svg>
                 </button>
 
-                {/* 5. Switch / Collapse */}
-                <button className="notch-btn-icon" onClick={handleCollapse} title="Queue">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                    <circle cx="4.5" cy="6" r="1.5" />
-                    <rect x="8.5" y="4.75" width="12" height="2.5" rx="1.25" />
-                    <circle cx="4.5" cy="12" r="1.5" />
-                    <rect x="8.5" y="10.75" width="12" height="2.5" rx="1.25" />
-                    <circle cx="4.5" cy="18" r="1.5" />
-                    <rect x="8.5" y="16.75" width="12" height="2.5" rx="1.25" />
+                {/* 5. Collapse / Minimize Notch */}
+                <button className="notch-btn-icon" onClick={handleCollapse} title="Minimize Notch">
+                  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── CASE C: EXPANDED HARDWARE QUICK METRICS CARD ─── */}
+        {expandedType === "hardware" && (
+          <div
+            className="dynamic-notch dynamic-notch--hardware-expanded"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              ["--wave-color" as any]: "#38bdf8",
+              ["--wave-glow" as any]: "rgba(56, 189, 248, 0.4)",
+            }}
+          >
+            {/* Left Concave Wing Ear */}
+            <div className="notch-ear notch-ear--left" />
+            {/* Right Concave Wing Ear */}
+            <div className="notch-ear notch-ear--right" />
+            {/* Moving Light Border Beam */}
+            {renderLightBorder()}
+
+            <div className="notch-hardware-card">
+              {/* Header: Chip Icon + Title + Collapse Button */}
+              <div className="notch-hw-header">
+                <div className="notch-hw-title-group">
+                  <div className="notch-hw-chip-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.2">
+                      <rect x="4" y="4" width="16" height="16" rx="2" />
+                      <rect x="9" y="9" width="6" height="6" />
+                      <line x1="9" y1="1" x2="9" y2="4" />
+                      <line x1="15" y1="1" x2="15" y2="4" />
+                      <line x1="9" y1="20" x2="9" y2="23" />
+                      <line x1="15" y1="20" x2="15" y2="23" />
+                      <line x1="20" y1="9" x2="23" y2="9" />
+                      <line x1="20" y1="14" x2="23" y2="14" />
+                      <line x1="1" y1="9" x2="4" y2="9" />
+                      <line x1="1" y1="14" x2="4" y2="14" />
+                    </svg>
+                  </div>
+                  <span className="notch-hw-title">Hardware Telemetry</span>
+                </div>
+
+                <button
+                  type="button"
+                  className="notch-hw-collapse-btn"
+                  onClick={handleCollapse}
+                  title="Collapse Notch"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Grid: CPU & RAM Sparkline Cards */}
+              <div className="notch-hw-grid">
+                {/* CPU Graph Box */}
+                <div className="notch-hw-metric-card">
+                  <div className="notch-hw-metric-top">
+                    <span className="notch-hw-metric-label">CPU Load</span>
+                    <span className="notch-hw-metric-val">{systemMetrics.cpu_percent}%</span>
+                  </div>
+                  <div className="notch-hw-graph-wrap">
+                    {renderSparkline(cpuHistory, "#38bdf8", "cpu-spark-grad")}
+                  </div>
+                </div>
+
+                {/* RAM Graph Box */}
+                <div className="notch-hw-metric-card">
+                  <div className="notch-hw-metric-top">
+                    <span className="notch-hw-metric-label">Memory</span>
+                    <span className="notch-hw-metric-val">{systemMetrics.ram_percent}%</span>
+                  </div>
+                  <div className="notch-hw-graph-wrap">
+                    {renderSparkline(ramHistory, "#a855f7", "ram-spark-grad")}
+                  </div>
+                  <div className="notch-hw-subtext">
+                    {((systemMetrics.used_ram_mb || 0) / 1024).toFixed(1)} GB / {((systemMetrics.total_ram_mb || 16384) / 1024).toFixed(0)} GB
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Row: Network Speeds & Power Details */}
+              <div className="notch-hw-footer">
+                <div className="notch-hw-net">
+                  <div className="notch-hw-net-item">
+                    <span className="notch-hw-net-arrow notch-hw-net-arrow--down">↓</span>
+                    <span>{systemMetrics.net_recv_formatted || "0 B/s"}</span>
+                  </div>
+                  <div className="notch-hw-net-item">
+                    <span className="notch-hw-net-arrow notch-hw-net-arrow--up">↑</span>
+                    <span>{systemMetrics.net_sent_formatted || "0 B/s"}</span>
+                  </div>
+                </div>
+
+                {showBattery && (
+                  <div className="notch-hw-power">
+                    {isCharging && (
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="#22c55e" stroke="#22c55e" strokeWidth="1.5">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                      </svg>
+                    )}
+                    <span>{batteryPercent}%</span>
+                    <span className="notch-hw-power-label">
+                      {isCharging ? "AC" : "Batt"}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -637,7 +786,7 @@ export const DynamicIsland: React.FC = () => {
           </div>
         )}
 
-        {/* ─── CASE D: SINGLE ACTIVITY NOTCH ─── */}
+        {/* ─── CASE D1: SINGLE ACTIVITY MEDIA NOTCH ─── */}
         {expandedType === null && !isMultiActivity && hasMediaSession && (
           <div
             className="dynamic-notch dynamic-notch--activity"
@@ -688,14 +837,104 @@ export const DynamicIsland: React.FC = () => {
           </div>
         )}
 
+        {/* ─── CASE D2: DUAL DEFAULT HUB + BLUETOOTH SPLIT NOTCH (When no media is playing) ─── */}
+        {expandedType === null && !hasMediaSession && showBluetooth && isBtConnected && activeBtDevice !== null && (
+          <div className="notch-split-container">
+            {/* 1. Left Pill: Default Time + Battery Hub */}
+            <div
+              className="dynamic-notch notch-split-main notch-split-main--default"
+              onClick={showHardware ? handleExpandHardware : undefined}
+              style={{
+                ["--wave-color" as any]: "#38bdf8",
+                ["--wave-glow" as any]: "rgba(56, 189, 248, 0.45)",
+                cursor: showHardware ? "pointer" : "default",
+              }}
+              title={showHardware ? "Hardware Telemetry — Click to expand" : undefined}
+            >
+              {/* Left Concave Wing Ear */}
+              <div className="notch-ear notch-ear--left" />
+              {/* Right Concave Wing Ear */}
+              <div className="notch-ear notch-ear--right" />
+              {/* Moving Light Border Beam */}
+              {renderLightBorder()}
+
+              <div className="notch-compact-layout" style={{ gap: "8px", padding: "0 8px", width: "auto" }}>
+                <span className="notch-compact-time">{currentTime}</span>
+                {showBattery && (
+                  <div className="notch-compact-right" style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                    {isCharging && (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#22c55e" stroke="#22c55e" strokeWidth="1.5">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                      </svg>
+                    )}
+                    <span>{batteryPercent}%</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Right Pill: Centered Bluetooth Battery Ring Meter */}
+            <div
+              className="dynamic-notch notch-split-secondary"
+              onClick={handleExpandBluetooth}
+              title={`${activeBtDevice.name} (${btBatteryPct !== null ? `${btBatteryPct}%` : "Connected"}) — Click to expand`}
+              style={{
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                width: "26px",
+                height: "26px",
+                minWidth: "26px",
+              }}
+            >
+              {/* Left Concave Wing Ear */}
+              <div className="notch-ear notch-ear--left" />
+              {/* Right Concave Wing Ear */}
+              <div className="notch-ear notch-ear--right" />
+              {/* Moving Light Border Beam */}
+              {renderLightBorder()}
+
+              <div className="notch-mini-battery-ring" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" style={{ display: "block" }}>
+                  <circle
+                    cx="7"
+                    cy="7"
+                    r={4.5}
+                    fill="none"
+                    stroke="rgba(255, 255, 255, 0.18)"
+                    strokeWidth="2.0"
+                  />
+                  <circle
+                    cx="7"
+                    cy="7"
+                    r={4.5}
+                    fill="none"
+                    stroke="#22c55e"
+                    strokeWidth="2.0"
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 4.5}
+                    strokeDashoffset={2 * Math.PI * 4.5 - (displayRingPct / 100) * (2 * Math.PI * 4.5)}
+                    transform="rotate(-90 7 7)"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ─── CASE E: INACTIVE / IDLE COMPACT NOTCH ─── */}
-        {expandedType === null && !isMultiActivity && !hasMediaSession && (
+        {expandedType === null && !isMultiActivity && !hasMediaSession && (!showBluetooth || !isBtConnected || activeBtDevice === null) && (
           <div
             className="dynamic-notch dynamic-notch--compact"
+            onClick={showHardware ? handleExpandHardware : undefined}
             style={{
               ["--wave-color" as any]: "#38bdf8",
               ["--wave-glow" as any]: "rgba(56, 189, 248, 0.45)",
+              cursor: showHardware ? "pointer" : "default",
             }}
+            title={showHardware ? "Hardware Telemetry — Click to expand" : undefined}
           >
             {/* Left Concave Wing Ear */}
             <div className="notch-ear notch-ear--left" />
@@ -708,9 +947,16 @@ export const DynamicIsland: React.FC = () => {
               <div className="notch-compact-left">
                 <span className="notch-compact-time">{currentTime}</span>
               </div>
-              <div className="notch-compact-right">
-                <span>{batteryPercent}%</span>
-              </div>
+              {showBattery && (
+                <div className="notch-compact-right" style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                  {isCharging && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#22c55e" stroke="#22c55e" strokeWidth="1.5">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                    </svg>
+                  )}
+                  <span>{batteryPercent}%</span>
+                </div>
+              )}
             </div>
           </div>
         )}
