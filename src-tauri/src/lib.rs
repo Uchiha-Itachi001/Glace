@@ -193,6 +193,18 @@ pub fn run() {
             services::window_watcher::start(app.handle().clone());
             services::bluetooth::start();
 
+            // Background working set trimmer: flushes unused heap pages every 45s to minimize RAM footprint
+            std::thread::spawn(|| {
+                use windows::Win32::System::Threading::GetCurrentProcess;
+                use windows::Win32::System::ProcessStatus::EmptyWorkingSet;
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(45));
+                    unsafe {
+                        let _ = EmptyWorkingSet(GetCurrentProcess());
+                    }
+                }
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| {

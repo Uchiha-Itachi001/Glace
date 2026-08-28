@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use windows::Win32::UI::Input::KeyboardAndMouse::{keybd_event, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP};
 use windows::Media::Control::{
+    GlobalSystemMediaTransportControlsSession,
     GlobalSystemMediaTransportControlsSessionManager,
     GlobalSystemMediaTransportControlsSessionPlaybackStatus,
 };
@@ -31,6 +32,57 @@ static MEDIA_CACHE: Mutex<MediaCache> = Mutex::new(MediaCache {
     cached_session: None,
 });
 
+struct SendThumb(windows::Storage::Streams::IRandomAccessStreamReference);
+unsafe impl Send for SendThumb {}
+unsafe impl Sync for SendThumb {}
+
+impl SendThumb {
+    pub fn extract(&self) -> Option<String> {
+        extract_thumbnail_base64(&self.0)
+    }
+}
+
+struct ArtCacheEntry {
+    title: String,
+    artist: String,
+    art_base64: Option<String>,
+}
+
+static ART_CACHE: Mutex<Option<ArtCacheEntry>> = Mutex::new(None);
+static ART_FETCHING_KEY: Mutex<Option<(String, String)>> = Mutex::new(None);
+
+fn extract_thumbnail_base64(thumb_ref: &windows::Storage::Streams::IRandomAccessStreamReference) -> Option<String> {
+    use base64::engine::general_purpose::STANDARD as BASE64;
+    use base64::Engine;
+    use windows::Storage::Streams::DataReader;
+
+    let stream = thumb_ref.OpenReadAsync().ok()?.get().ok()?;
+    let size = stream.Size().ok()? as usize;
+    if size == 0 || size > 5 * 1024 * 1024 {
+        return None;
+    }
+
+    let reader = DataReader::CreateDataReader(&stream).ok()?;
+    let load_op = reader.LoadAsync(size as u32).ok()?;
+    let loaded = load_op.get().ok()?;
+    if (loaded as usize) < size {
+        return None;
+    }
+
+    let mut bytes = vec![0u8; size];
+    reader.ReadBytes(&mut bytes).ok()?;
+
+    let mime = if bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
+        "image/png"
+    } else if bytes.starts_with(&[0x52, 0x49, 0x46, 0x46]) {
+        "image/webp"
+    } else {
+        "image/jpeg"
+    };
+
+    Some(format!("data:{};base64,{}", mime, BASE64.encode(&bytes)))
+}
+
 pub fn get_current_media_session() -> Option<MediaSessionInfo> {
     let now = Instant::now();
 
@@ -54,13 +106,53 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
         }
     }
 
-    let session_opt = if let Some(mgr) = &cache.manager {
-        mgr.GetCurrentSession().ok()
-    } else {
-        None
-    };
+    let mut selected_session: Option<GlobalSystemMediaTransportControlsSession> = None;
+    let mut fallback_session: Option<GlobalSystemMediaTransportControlsSession> = None;
 
-    let session_info = if let Some(session) = session_opt {
+    if let Some(mgr) = &cache.manager {
+        // Priority 1: Prioritize session that is ACTIVELY PLAYING across all apps & browser tabs
+        if let Ok(sessions) = mgr.GetSessions() {
+            for session in sessions {
+                let is_playing = if let Ok(playback_info) = session.GetPlaybackInfo() {
+                    playback_info.PlaybackStatus().map(|s| s == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing).unwrap_or(false)
+                } else {
+                    false
+                };
+
+                if is_playing {
+                    if let Ok(props_op) = session.TryGetMediaPropertiesAsync() {
+                        if let Ok(props) = props_op.get() {
+                            let t = props.Title().map(|s| s.to_string()).unwrap_or_default();
+                            let a = props.Artist().map(|s| s.to_string()).unwrap_or_default();
+                            if !t.trim().is_empty() || !a.trim().is_empty() {
+                                selected_session = Some(session);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if fallback_session.is_none() {
+                    if let Ok(props_op) = session.TryGetMediaPropertiesAsync() {
+                        if let Ok(props) = props_op.get() {
+                            let t = props.Title().map(|s| s.to_string()).unwrap_or_default();
+                            let a = props.Artist().map(|s| s.to_string()).unwrap_or_default();
+                            if !t.trim().is_empty() || !a.trim().is_empty() {
+                                fallback_session = Some(session);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Priority 2: If none is playing, fallback to Windows current session or first valid session
+        if selected_session.is_none() {
+            selected_session = mgr.GetCurrentSession().ok().or(fallback_session);
+        }
+    }
+
+    let session_info = if let Some(session) = selected_session {
         let playback_info = session.GetPlaybackInfo().ok();
         let is_playing = if let Some(info) = playback_info {
             if let Ok(status) = info.PlaybackStatus() {
@@ -73,13 +165,14 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
         };
 
         let props = session.TryGetMediaPropertiesAsync().ok().and_then(|op| op.get().ok());
-        let (title, artist, album_title) = if let Some(p) = props {
+        let (title, artist, album_title, send_thumb_opt) = if let Some(ref p) = props {
             let t = p.Title().map(|s| s.to_string()).unwrap_or_default();
             let a = p.Artist().map(|s| s.to_string()).unwrap_or_default();
             let alb = p.AlbumTitle().map(|s| s.to_string()).ok();
-            (t, a, alb)
+            let thumb = p.Thumbnail().ok().map(SendThumb);
+            (t, a, alb, thumb)
         } else {
-            (String::new(), String::new(), None)
+            (String::new(), String::new(), None, None)
         };
 
         if title.trim().is_empty() && artist.trim().is_empty() {
@@ -94,6 +187,60 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
                 (0, 0)
             };
 
+            // Check if we already have the thumbnail in cache
+            let mut album_art_base64: Option<String> = None;
+            let mut needs_fetch = false;
+
+            if let Ok(art_guard) = ART_CACHE.lock() {
+                if let Some(ref entry) = *art_guard {
+                    if entry.title == title && entry.artist == artist {
+                        album_art_base64 = entry.art_base64.clone();
+                    } else {
+                        needs_fetch = true;
+                    }
+                } else {
+                    needs_fetch = true;
+                }
+            }
+
+            // Spawn non-blocking background thread to extract thumbnail without stalling UI
+            if needs_fetch {
+                if let Some(send_thumb) = send_thumb_opt {
+                    let key = (title.clone(), artist.clone());
+                    let mut should_spawn = false;
+                    if let Ok(mut fetch_guard) = ART_FETCHING_KEY.lock() {
+                        if *fetch_guard != Some(key.clone()) {
+                            *fetch_guard = Some(key);
+                            should_spawn = true;
+                        }
+                    }
+
+                    if should_spawn {
+                        let t_clone = title.clone();
+                        let a_clone = artist.clone();
+                        std::thread::spawn(move || {
+                            unsafe {
+                                let _ = windows::Win32::System::Com::CoInitializeEx(
+                                    None,
+                                    windows::Win32::System::Com::COINIT_MULTITHREADED,
+                                );
+                            }
+                            let art = send_thumb.extract();
+                            if let Ok(mut art_guard) = ART_CACHE.lock() {
+                                *art_guard = Some(ArtCacheEntry {
+                                    title: t_clone,
+                                    artist: a_clone,
+                                    art_base64: art,
+                                });
+                            }
+                            if let Ok(mut fetch_guard) = ART_FETCHING_KEY.lock() {
+                                *fetch_guard = None;
+                            }
+                        });
+                    }
+                }
+            }
+
             Some(MediaSessionInfo {
                 title,
                 artist,
@@ -101,7 +248,7 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
                 is_playing,
                 duration_sec,
                 current_sec,
-                album_art_base64: None,
+                album_art_base64,
             })
         }
     } else {

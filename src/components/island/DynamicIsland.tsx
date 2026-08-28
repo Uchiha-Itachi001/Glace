@@ -135,8 +135,8 @@ export const DynamicIsland: React.FC = () => {
   }, [showMedia, activeIsPlaying, liveMedia?.duration_sec, currentTrack.durationSec]);
 
   const hasLiveMedia = liveMedia !== null && (Boolean(liveMedia.title?.trim()) || Boolean(liveMedia.artist?.trim()));
-  const activeTitle = liveMedia?.title || (isPlaying ? currentTrack.title : (liveMedia ? "" : currentTrack.title));
-  const activeArtist = liveMedia?.artist || (isPlaying ? currentTrack.artist : (liveMedia ? "" : currentTrack.artist));
+  const activeTitle = liveMedia ? (liveMedia.title || "") : (showMedia ? currentTrack.title : "");
+  const activeArtist = liveMedia ? (liveMedia.artist || "") : (showMedia ? currentTrack.artist : "");
   const activeDuration = liveMedia && liveMedia.duration_sec > 0 ? liveMedia.duration_sec : currentTrack.durationSec;
   const activeCurrentSec = currentSec > activeDuration ? activeDuration : currentSec;
   const progressPercent = activeDuration > 0 ? (activeCurrentSec / activeDuration) * 100 : 0;

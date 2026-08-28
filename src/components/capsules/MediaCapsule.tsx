@@ -115,8 +115,8 @@ export const MediaCapsule: React.FC = () => {
     tauriBridge.mediaPrevTrack().catch(console.error);
   };
 
-  const displayTitle = liveSession?.title || fallbackTrack.title;
-  const displayArtist = liveSession?.artist || fallbackTrack.artist;
+  const displayTitle = liveSession ? (liveSession.title || "") : fallbackTrack.title;
+  const displayArtist = liveSession ? (liveSession.artist || "") : fallbackTrack.artist;
 
   return (
     <div
