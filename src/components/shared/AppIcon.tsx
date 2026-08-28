@@ -5,6 +5,7 @@ import { tauriBridge } from "../../services/tauriBridge";
 
 interface AppIconProps {
   app: DockAppItem;
+  index?: number;
   onClick: (app: DockAppItem) => void;
   onPin?: (app: DockAppItem) => void;
   onUnpin?: (id: string) => void;
@@ -20,6 +21,7 @@ interface AppIconProps {
 export const AppIcon = React.memo<AppIconProps>(
   ({
     app,
+    index = 0,
     onClick,
     onPin,
     onUnpin,
@@ -87,6 +89,7 @@ export const AppIcon = React.memo<AppIconProps>(
         } ${!app.is_running ? "app-icon--idle" : "app-icon--running"} ${
           hasMultipleWindows ? "app-icon--stacked" : ""
         }`}
+        style={{ "--item-index": index } as React.CSSProperties}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         onMouseEnter={handleMouseEnter}

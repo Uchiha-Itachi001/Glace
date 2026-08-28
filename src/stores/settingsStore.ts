@@ -99,6 +99,10 @@ const DEFAULT_SETTINGS: Settings = {
   island_show_hardware: true,
   island_show_battery: true,
   media_location: "notch",
+  margin_top: 32,
+  margin_bottom: 48,
+  margin_left: 0,
+  margin_right: 0,
 };
 
 let globalSettings: Settings = DEFAULT_SETTINGS;
@@ -114,32 +118,28 @@ export function applyThemeToDOM(settings: Settings) {
   const root = document.documentElement;
   root.setAttribute("data-theme", settings.theme_id);
 
-  if (settings.accent_color) {
-    root.style.setProperty("--glace-accent", settings.accent_color);
-    root.style.setProperty(
-      "--glace-accent-dim",
-      `${settings.accent_color}33`
-    );
-    root.style.setProperty(
-      "--glace-accent-glow",
-      `${settings.accent_color}66`
-    );
+  const preset = THEME_PRESETS.find((p) => p.id === settings.theme_id) || THEME_PRESETS[0];
+
+  const accent = settings.accent_color || preset.accent;
+  root.style.setProperty("--glace-accent", accent);
+  root.style.setProperty("--glace-accent-dim", `${accent}33`);
+  root.style.setProperty("--glace-accent-glow", `${accent}66`);
+  root.style.setProperty("--glace-accent-subtle", `${accent}1a`);
+
+  if (settings.corner_radius !== undefined) {
+    root.style.setProperty("--glace-radius-capsule", `${settings.corner_radius}px`);
   }
 
-  if (settings.corner_radius) {
-    root.style.setProperty(
-      "--glace-radius-capsule",
-      `${settings.corner_radius}px`
-    );
-  }
+  const blurVal = settings.blur_intensity ?? 1.0;
+  const blurPx = Math.round(28 * blurVal);
+  const sat = Math.round(140 + 50 * blurVal);
+  root.style.setProperty("--glace-blur", `blur(${blurPx}px) saturate(${sat}%)`);
+  root.style.setProperty("--glace-blur-px", `${blurPx}px`);
 
-  if (settings.blur_intensity) {
-    const blurPx = Math.round(28 * settings.blur_intensity);
-    const sat = Math.round(180 * settings.blur_intensity);
-    root.style.setProperty(
-      "--glace-blur",
-      `blur(${blurPx}px) saturate(${sat}%)`
-    );
+  if (preset) {
+    root.style.setProperty("--glace-bg-capsule", preset.bgCapsule);
+    root.style.setProperty("--glace-border", preset.border);
+    root.style.setProperty("--glace-bg-base", preset.bgBase);
   }
 }
 
@@ -243,6 +243,11 @@ export function useSettings() {
     updateSettings({ sysmon_mode: mode });
   }, [updateSettings]);
 
+  const setMargin = useCallback((side: "top" | "bottom" | "left" | "right", val: number) => {
+    const key = `margin_${side}` as keyof Settings;
+    updateSettings({ [key]: val });
+  }, [updateSettings]);
+
   return {
     settings,
     updateSettings,
@@ -251,6 +256,7 @@ export function useSettings() {
     toggleTrayItem,
     setSysMonMode,
     setMediaLocation,
+    setMargin,
     presets: THEME_PRESETS,
   };
 }

@@ -77,6 +77,18 @@ pub struct BluetoothDevice {
     pub device_type: String,
 }
 
+fn default_margin_top() -> u32 {
+    32
+}
+
+fn default_margin_bottom() -> u32 {
+    48
+}
+
+fn default_margin_zero() -> u32 {
+    0
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub theme_id: String,
@@ -108,6 +120,14 @@ pub struct Settings {
     pub island_show_battery: bool,
     #[serde(default = "default_media_location")]
     pub media_location: String,
+    #[serde(default = "default_margin_top")]
+    pub margin_top: u32,
+    #[serde(default = "default_margin_bottom")]
+    pub margin_bottom: u32,
+    #[serde(default = "default_margin_zero")]
+    pub margin_left: u32,
+    #[serde(default = "default_margin_zero")]
+    pub margin_right: u32,
 }
 
 impl Default for Settings {
@@ -145,6 +165,10 @@ impl Default for Settings {
             island_show_hardware: true,
             island_show_battery: true,
             media_location: "notch".into(),
+            margin_top: 32,
+            margin_bottom: 48,
+            margin_left: 0,
+            margin_right: 0,
         }
     }
 }

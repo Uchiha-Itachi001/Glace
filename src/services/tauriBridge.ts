@@ -218,9 +218,18 @@ export const tauriBridge = {
     }
   },
 
-  updateWorkArea: async (topNotchEnabled: boolean): Promise<void> => {
+  updateWorkArea: async (
+    topNotchEnabled?: boolean,
+    margins?: { top?: number; bottom?: number; left?: number; right?: number }
+  ): Promise<void> => {
     try {
-      await invoke("update_work_area", { topNotchEnabled });
+      await invoke("update_work_area", {
+        topNotchEnabled: topNotchEnabled ?? true,
+        marginTop: margins?.top ?? null,
+        marginBottom: margins?.bottom ?? null,
+        marginLeft: margins?.left ?? null,
+        marginRight: margins?.right ?? null,
+      });
     } catch (e) {
       console.error("updateWorkArea error:", e);
     }

@@ -17,7 +17,7 @@ import { ClockCapsule } from "./components/capsules/ClockCapsule";
 
 import { SettingsFlyout } from "./components/overlays/SettingsFlyout";
 import { CalendarFlyout } from "./components/overlays/CalendarFlyout";
-import { StartLauncherFlyout } from "./components/overlays/StartLauncherFlyout";
+import { tauriBridge } from "./services/tauriBridge";
 
 export default function App() {
   const { settings } = useSettings();
@@ -25,6 +25,7 @@ export default function App() {
 
   const enabled_widgets = settings?.enabled_widgets || ["start", "apps", "sysmon", "tray", "clock"];
   const bar_position = settings?.bar_position || "bottom";
+  const isMacStyle = bar_position === "macos" || bar_position === "top";
   const bar_alignment = settings?.bar_alignment || "center";
   const isEnabled = (id: string) => enabled_widgets.includes(id);
 
@@ -50,9 +51,37 @@ export default function App() {
   );
 
   return (
-    <div id="glace-app-root">
-      {/* Top Notch Dynamic Island */}
-      <DynamicIsland />
+    <div id="glace-app-root" className={isMacStyle ? "glace-layout--macos" : "glace-layout--windows"}>
+      {/* macOS Top Menu & Status Bar (rendered in macOS mode) */}
+      {isMacStyle ? (
+        <header id="glace-top-bar" className="macos-top-bar">
+          <div className="macos-top-bar-left">
+            <button
+              type="button"
+              className="macos-apple-logo-btn"
+              onClick={() => tauriBridge.openStartMenu().catch(console.error)}
+              title="Start Menu (Win)"
+            >
+              <img src="/logo.png" alt="Glace" className="macos-brand-icon" />
+            </button>
+            <span className="macos-brand-title">Glace</span>
+            {isEnabled("sysmon") && <SysMonCapsule />}
+          </div>
+
+          <div className="macos-top-bar-center">
+            {/* Top Notch Dynamic Island */}
+            <DynamicIsland />
+          </div>
+
+          <div className="macos-top-bar-right">
+            {isEnabled("tray") && <TrayCapsule />}
+            {isEnabled("clock") && <ClockCapsule />}
+          </div>
+        </header>
+      ) : (
+        /* Windows Mode: Top Notch Dynamic Island */
+        <DynamicIsland />
+      )}
 
       {/* Invisible Flyout Backdrop to dismiss panels when clicking outside */}
       {activeFlyout !== null && (
@@ -62,29 +91,38 @@ export default function App() {
       {/* Flyout Panels */}
       {activeFlyout === "settings" && <SettingsFlyout onClose={closeFlyout} />}
       {activeFlyout === "calendar" && <CalendarFlyout onClose={closeFlyout} />}
-      {activeFlyout === "start" && <StartLauncherFlyout onClose={closeFlyout} />}
 
-      {/* Taskbar Bar */}
+      {/* Bottom Taskbar / macOS Dock */}
       <main
         id="taskbar-bar"
-        className={`bar-pos--${bar_position || "bottom"} bar-align--${bar_alignment || "center"}`}
+        className={`bar-pos--${bar_position} bar-align--${bar_alignment} ${
+          isMacStyle ? "taskbar-bar--macos-dock" : "taskbar-bar--windows"
+        }`}
       >
-        {/* Left Section: Apps (in left align) OR Status (in right align) */}
-        <div className="taskbar-left taskbar-section taskbar-section--left">
-          {bar_alignment === "left" && renderAppsCluster()}
-          {bar_alignment === "right" && renderStatusCluster()}
-        </div>
+        {isMacStyle ? (
+          /* macOS Mode: Bottom Dock holds only Start + Media + Apps directly (same capsule styling as Windows) */
+          renderAppsCluster()
+        ) : (
+          /* Windows Mode: Unified taskbar holding Apps & Status clusters */
+          <>
+            {/* Left Section: Apps (in left align) OR Status (in right align) */}
+            <div className="taskbar-left taskbar-section taskbar-section--left">
+              {bar_alignment === "left" && renderAppsCluster()}
+              {bar_alignment === "right" && renderStatusCluster()}
+            </div>
 
-        {/* Center Section: Apps (in center align) */}
-        <div className="taskbar-center taskbar-section taskbar-section--center">
-          {bar_alignment === "center" && renderAppsCluster()}
-        </div>
+            {/* Center Section: Apps (in center align) */}
+            <div className="taskbar-center taskbar-section taskbar-section--center">
+              {bar_alignment === "center" && renderAppsCluster()}
+            </div>
 
-        {/* Right Section: Status (in left/center align) OR Apps (in right align) */}
-        <div className="taskbar-right taskbar-section taskbar-section--right">
-          {(bar_alignment === "left" || bar_alignment === "center") && renderStatusCluster()}
-          {bar_alignment === "right" && renderAppsCluster()}
-        </div>
+            {/* Right Section: Status (in left/center align) OR Apps (in right align) */}
+            <div className="taskbar-right taskbar-section taskbar-section--right">
+              {(bar_alignment === "left" || bar_alignment === "center") && renderStatusCluster()}
+              {bar_alignment === "right" && renderAppsCluster()}
+            </div>
+          </>
+        )}
       </main>
     </div>
   );

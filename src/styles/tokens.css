@@ -16,7 +16,8 @@
   --glace-accent-glow:    rgba(16, 185, 129, 0.45);
   --glace-accent-subtle:  rgba(16, 185, 129, 0.1);
 
-  /* Typography Colors */
+  /* Typography */
+  --glace-font:           "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Inter, sans-serif;
   --glace-text-primary:   rgba(255, 255, 255, 0.95);
   --glace-text-secondary: rgba(255, 255, 255, 0.65);
   --glace-text-muted:     rgba(255, 255, 255, 0.35);

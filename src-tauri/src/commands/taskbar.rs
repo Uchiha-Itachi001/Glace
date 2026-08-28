@@ -205,24 +205,54 @@ pub fn power_action(action: String) -> Result<(), String> {
 #[tauri::command]
 pub fn update_work_area(
     app: tauri::AppHandle,
-    top_notch_enabled: bool,
+    top_notch_enabled: Option<bool>,
+    margin_top: Option<i32>,
+    margin_bottom: Option<i32>,
+    margin_left: Option<i32>,
+    margin_right: Option<i32>,
 ) -> Result<(), String> {
     use tauri::Manager;
     if let Some(window) = app.get_webview_window("main") {
         if let Ok(Some(monitor)) = window.primary_monitor() {
             let size = monitor.size();
+            let pos = monitor.position();
             let scale_factor = monitor.scale_factor();
-            let bar_height_physical = (48.0 * scale_factor).round() as i32;
-            let top_notch_physical = if top_notch_enabled {
-                (28.0 * scale_factor).round() as i32
+
+            let top = if let Some(m_top) = margin_top {
+                (m_top as f64 * scale_factor).round() as i32
+            } else if top_notch_enabled.unwrap_or(true) {
+                (32.0 * scale_factor).round() as i32
             } else {
                 0
             };
-            work_area::reserve(
-                top_notch_physical,
-                bar_height_physical,
-                size.height as i32,
+
+            let bottom = if let Some(m_bottom) = margin_bottom {
+                (m_bottom as f64 * scale_factor).round() as i32
+            } else {
+                (48.0 * scale_factor).round() as i32
+            };
+
+            let left = if let Some(m_left) = margin_left {
+                (m_left as f64 * scale_factor).round() as i32
+            } else {
+                0
+            };
+
+            let right = if let Some(m_right) = margin_right {
+                (m_right as f64 * scale_factor).round() as i32
+            } else {
+                0
+            };
+
+            work_area::reserve_margins(
+                top,
+                bottom,
+                left,
+                right,
+                pos.x,
+                pos.y,
                 size.width as i32,
+                size.height as i32,
             );
         }
     }

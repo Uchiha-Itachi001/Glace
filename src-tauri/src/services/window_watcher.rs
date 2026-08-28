@@ -5,8 +5,10 @@ use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use windows::core::{BOOL, PCWSTR};
-use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+use windows::Win32::Foundation::{HWND, LPARAM, RECT, WPARAM};
+use windows::Win32::Graphics::Dwm::{
+    DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS,
+};
 use windows::Win32::Graphics::Gdi::{
     CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDC, GetMonitorInfoW,
     MonitorFromWindow, ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
@@ -23,15 +25,16 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, DestroyIcon, DrawIconEx, EnumChildWindows, EnumWindows,
-    GetClassLongPtrW, GetClassNameW, GetForegroundWindow, GetWindow, GetWindowLongW,
+    GetAncestor, GetClassLongPtrW, GetClassNameW, GetForegroundWindow, GetWindow, GetWindowLongW,
     GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow,
     IsWindowVisible, PostMessageW, SendMessageTimeoutW, SetForegroundWindow, SetWindowPos,
     ShowWindow, DI_NORMAL, EVENT_OBJECT_CLOAKED, EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY,
     EVENT_OBJECT_UNCLOAKED, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND,
-    EVENT_SYSTEM_MINIMIZESTART, GCLP_HICON, GCLP_HICONSM, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HICON,
-    MSG, SMTO_ABORTIFHUNG, SWP_FRAMECHANGED, SWP_NOZORDER, SWP_SHOWWINDOW, SW_MAXIMIZE,
-    SW_MINIMIZE, SW_RESTORE, SW_SHOW, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_CLOSE,
-    WM_GETICON, WS_CHILD, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+    EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MOVESIZEEND, GA_ROOT, GCLP_HICON, GCLP_HICONSM,
+    GWL_EXSTYLE, GWL_STYLE, GW_OWNER, HICON, MSG, SMTO_ABORTIFHUNG, SWP_FRAMECHANGED,
+    SWP_NOZORDER, SWP_SHOWWINDOW, SW_MAXIMIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOW,
+    WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_CLOSE, WM_GETICON, WS_CHILD,
+    WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
 };
 
 use crate::models::types::WindowInfo;
@@ -727,11 +730,122 @@ unsafe extern "system" fn win_event_proc(
     }
 }
 
+pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
+    unsafe {
+        let mut fg = GetForegroundWindow();
+        if fg.0.is_null() {
+            return false;
+        }
+
+        if fg == glace_hwnd {
+            return false;
+        }
+
+        let mut fg_pid: u32 = 0;
+        GetWindowThreadProcessId(fg, Some(&mut fg_pid));
+        if fg_pid == 0 || fg_pid == current_pid {
+            return false;
+        }
+
+        let root = GetAncestor(fg, GA_ROOT);
+        if !root.0.is_null() && root != fg {
+            let mut root_pid: u32 = 0;
+            GetWindowThreadProcessId(root, Some(&mut root_pid));
+            if root_pid == current_pid || root == glace_hwnd {
+                return false;
+            }
+            fg = root;
+        }
+
+        if !IsWindow(Some(fg)).as_bool() || !IsWindowVisible(fg).as_bool() || IsIconic(fg).as_bool() {
+            return false;
+        }
+
+        let mut cloaked: u32 = 0;
+        let _ = DwmGetWindowAttribute(
+            fg,
+            DWMWA_CLOAKED,
+            &mut cloaked as *mut _ as *mut std::ffi::c_void,
+            std::mem::size_of::<u32>() as u32,
+        );
+        if cloaked != 0 {
+            return false;
+        }
+
+        let mut class_buf = [0u16; 256];
+        let class_len = GetClassNameW(fg, &mut class_buf);
+        if class_len > 0 {
+            let class_name = String::from_utf16_lossy(&class_buf[..class_len as usize]);
+            if class_name == "Progman"
+                || class_name == "WorkerW"
+                || class_name == "Shell_TrayWnd"
+                || class_name == "Shell_SecondaryTrayWnd"
+                || class_name == "Windows.UI.Core.CoreWindow"
+                || class_name == "XamlExplorerHostIslandWindow"
+                || class_name == "MultitaskingViewFrame"
+                || class_name == "Shell_LightDismissOverlayWindow"
+            {
+                return false;
+            }
+        }
+
+        let fg_monitor = MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST);
+        let glace_monitor = MonitorFromWindow(glace_hwnd, MONITOR_DEFAULTTONEAREST);
+        if fg_monitor != glace_monitor {
+            return false;
+        }
+
+        let mut mi = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        if !GetMonitorInfoW(fg_monitor, &mut mi).as_bool() {
+            return false;
+        }
+
+        let mon_rect = mi.rcMonitor;
+
+        let mut rc = RECT::default();
+        let hr = DwmGetWindowAttribute(
+            fg,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            &mut rc as *mut _ as *mut std::ffi::c_void,
+            std::mem::size_of::<RECT>() as u32,
+        );
+        if hr.is_err() || (rc.right - rc.left <= 0) || (rc.bottom - rc.top <= 0) {
+            let _ = windows::Win32::UI::WindowsAndMessaging::GetWindowRect(fg, &mut rc);
+        }
+
+        rc.left <= mon_rect.left
+            && rc.top <= mon_rect.top
+            && rc.right >= mon_rect.right
+            && rc.bottom >= mon_rect.bottom
+    }
+}
+
 pub fn start(app_handle: AppHandle) {
     let (tx, rx) = channel::<()>();
     if let Ok(mut guard) = EVENT_SENDER.lock() {
         *guard = Some(tx);
     }
+
+    // Dedicated high-responsiveness fullscreen monitoring loop
+    thread::spawn(move || {
+        let current_pid = unsafe { GetCurrentProcessId() };
+        let mut last_fullscreen_state = false;
+
+        loop {
+            thread::sleep(Duration::from_millis(100));
+
+            if let Some(glace_hwnd) = crate::services::work_area::get_glace_hwnd() {
+                let is_fs = is_foreground_fullscreen(glace_hwnd, current_pid);
+                if is_fs != last_fullscreen_state {
+                    last_fullscreen_state = is_fs;
+                    crate::services::work_area::set_fullscreen_hidden(is_fs);
+                }
+            }
+        }
+    });
 
     let app_handle_broadcaster = app_handle.clone();
     thread::spawn(move || {
@@ -762,6 +876,16 @@ pub fn start(app_handle: AppHandle) {
         let hook_fg = SetWinEventHook(
             EVENT_SYSTEM_FOREGROUND,
             EVENT_SYSTEM_FOREGROUND,
+            None,
+            Some(win_event_proc),
+            0,
+            0,
+            WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
+        );
+
+        let hook_movesize = SetWinEventHook(
+            EVENT_SYSTEM_MOVESIZEEND,
+            EVENT_SYSTEM_MOVESIZEEND,
             None,
             Some(win_event_proc),
             0,
@@ -808,6 +932,7 @@ pub fn start(app_handle: AppHandle) {
         }
 
         let _ = UnhookWinEvent(hook_fg);
+        let _ = UnhookWinEvent(hook_movesize);
         let _ = UnhookWinEvent(hook_min);
         let _ = UnhookWinEvent(hook_create);
         let _ = UnhookWinEvent(hook_cloak);

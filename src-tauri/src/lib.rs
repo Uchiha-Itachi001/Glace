@@ -38,7 +38,7 @@ pub fn run() {
     std::panic::set_hook(Box::new(|info| {
         eprintln!("[glace] panic: {info}");
         work_area::restore_native_taskbar();
-        work_area::restore(1080, 1920);
+        work_area::restore(0, 0);
     }));
 
     let app = tauri::Builder::default()
@@ -88,8 +88,6 @@ pub fn run() {
                 let size = monitor.size();
                 let pos = monitor.position();
                 let scale_factor = monitor.scale_factor();
-                let bar_height_logical = 48.0;
-                let bar_height_physical = (bar_height_logical * scale_factor).round() as i32;
 
                 if let Ok(hwnd) = window.hwnd() {
                     let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as _);
@@ -166,15 +164,26 @@ pub fn run() {
                         );
                     }
 
-                    let top_notch_physical = (28.0 * scale_factor).round() as i32;
+                    let initial_settings = config::settings::load();
+                    let top_notch_physical = if initial_settings.enable_dynamic_island {
+                        (initial_settings.margin_top as f64 * scale_factor).round() as i32
+                    } else {
+                        0
+                    };
+                    let bar_bottom_physical = (initial_settings.margin_bottom as f64 * scale_factor).round() as i32;
+                    let left_margin_physical = (initial_settings.margin_left as f64 * scale_factor).round() as i32;
+                    let right_margin_physical = (initial_settings.margin_right as f64 * scale_factor).round() as i32;
+
                     work_area::pin_window_to_bottom(
                         win32_hwnd,
                         pos.x,
                         pos.y,
                         size.width as i32,
                         size.height as i32,
-                        bar_height_physical,
+                        bar_bottom_physical,
                         top_notch_physical,
+                        left_margin_physical,
+                        right_margin_physical,
                     );
                 }
             }
@@ -204,7 +213,7 @@ pub fn run() {
     app.run(|_app_handle, event| {
         if let tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit = event {
             work_area::restore_native_taskbar();
-            work_area::restore(1080, 1920);
+            work_area::restore(0, 0);
         }
     });
 }

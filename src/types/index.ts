@@ -82,7 +82,7 @@ export interface Settings {
   accent_color: string;
   blur_intensity: number;
   corner_radius: number;
-  bar_position: "bottom" | "top" | "floating";
+  bar_position: "windows" | "macos" | "bottom" | "top";
   bar_alignment?: BarAlignment;
   capsule_order: string[];
   enabled_widgets: string[];
@@ -97,6 +97,10 @@ export interface Settings {
   island_show_hardware?: boolean;
   island_show_battery?: boolean;
   media_location?: MediaLocation;
+  margin_top?: number;
+  margin_bottom?: number;
+  margin_left?: number;
+  margin_right?: number;
 }
 
 export interface BluetoothDevice {

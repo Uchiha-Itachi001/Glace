@@ -3,6 +3,7 @@ import { useSettings } from "../../stores/settingsStore";
 import { useSystemMetrics } from "../../hooks/useSystemMetrics";
 import { useBluetooth } from "../../hooks/useBluetooth";
 import { tauriBridge } from "../../services/tauriBridge";
+import { windowExpansion } from "../../services/windowExpansion";
 import { MediaSessionInfo } from "../../types";
 
 const DEMO_TRACKS = [
@@ -48,14 +49,6 @@ export const DynamicIsland: React.FC = () => {
   const currentTrack = DEMO_TRACKS[trackIndex];
   const { activeDevice: activeBtDevice, isConnected: isBtConnected } = bluetooth;
   const btBatteryPct = activeBtDevice?.battery_percent ?? 80;
-
-  // Synchronize Windows desktop Work Area with Dynamic Notch status
-  useEffect(() => {
-    tauriBridge.updateWorkArea(isIslandEnabled).catch(console.error);
-    return () => {
-      tauriBridge.updateWorkArea(false).catch(console.error);
-    };
-  }, [isIslandEnabled]);
 
   // Real-time Clock Ticker (Only runs if dynamic island is enabled)
   useEffect(() => {
@@ -147,19 +140,19 @@ export const DynamicIsland: React.FC = () => {
   const handleExpandMedia = (e: React.MouseEvent) => {
     e.stopPropagation();
     setExpandedType("media");
-    tauriBridge.setWindowHeight(true, 220).catch(console.error);
+    windowExpansion.request("island", 220);
   };
 
   const handleExpandBluetooth = (e: React.MouseEvent) => {
     e.stopPropagation();
     setExpandedType("bluetooth");
-    tauriBridge.setWindowHeight(true, 180).catch(console.error);
+    windowExpansion.request("island", 180);
   };
 
   const handleCollapse = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setExpandedType(null);
-    tauriBridge.setWindowHeight(false).catch(console.error);
+    windowExpansion.release("island");
   };
 
   // When clicking the main (left) section: open/expand the active feature

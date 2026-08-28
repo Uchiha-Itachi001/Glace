@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useApps } from "../../hooks/useApps";
 import { useSettings } from "../../stores/settingsStore";
 import { AppIcon } from "../shared/AppIcon";
-import { tauriBridge } from "../../services/tauriBridge";
+import { windowExpansion } from "../../services/windowExpansion";
 
 export const AppsCapsule: React.FC = () => {
   const { dockApps, loading, launchOrFocus, pinApp, unpinApp } = useApps();
@@ -70,17 +70,16 @@ export const AppsCapsule: React.FC = () => {
     setHoveredAppId(appId);
     if (activeContextMenuAppId && activeContextMenuAppId !== appId) {
       setActiveContextMenuAppId(null);
+      windowExpansion.release("apps-context");
     }
-    tauriBridge.setWindowHeight(true, activeContextMenuAppId ? 360 : 220).catch(console.error);
+    windowExpansion.request("apps-hover", activeContextMenuAppId ? 360 : 220);
   };
 
   const handleIconMouseLeave = (appId: string) => {
     if (collapseTimeoutRef.current) clearTimeout(collapseTimeoutRef.current);
     collapseTimeoutRef.current = window.setTimeout(() => {
       setHoveredAppId((current) => (current === appId ? null : current));
-      if (!activeContextMenuAppId && !isOverflowOpen) {
-        tauriBridge.setWindowHeight(false).catch(console.error);
-      }
+      windowExpansion.release("apps-hover");
     }, 180);
   };
 
@@ -90,23 +89,21 @@ export const AppsCapsule: React.FC = () => {
       collapseTimeoutRef.current = null;
     }
     setActiveContextMenuAppId(appId);
-    tauriBridge.setWindowHeight(true, 360).catch(console.error);
+    windowExpansion.request("apps-context", 360);
   };
 
   const handleCloseContextMenu = () => {
     setActiveContextMenuAppId(null);
-    if (!hoveredAppId && !isOverflowOpen) {
-      tauriBridge.setWindowHeight(false).catch(console.error);
-    } else {
-      tauriBridge.setWindowHeight(true, isOverflowOpen ? 320 : 220).catch(console.error);
-    }
+    windowExpansion.release("apps-context");
   };
 
   const handleIconClick = (app: Parameters<typeof launchOrFocus>[0]) => {
     setActiveContextMenuAppId(null);
     setIsOverflowOpen(false);
+    windowExpansion.release("apps-context");
+    windowExpansion.release("apps-overflow");
+    windowExpansion.release("apps-hover");
     launchOrFocus(app);
-    tauriBridge.setWindowHeight(false).catch(console.error);
   };
 
   const toggleOverflow = (e: React.MouseEvent) => {
@@ -114,9 +111,9 @@ export const AppsCapsule: React.FC = () => {
     const nextState = !isOverflowOpen;
     setIsOverflowOpen(nextState);
     if (nextState) {
-      tauriBridge.setWindowHeight(true, 320).catch(console.error);
-    } else if (!hoveredAppId && !activeContextMenuAppId) {
-      tauriBridge.setWindowHeight(false).catch(console.error);
+      windowExpansion.request("apps-overflow", 320);
+    } else {
+      windowExpansion.release("apps-overflow");
     }
   };
 
@@ -140,31 +137,39 @@ export const AppsCapsule: React.FC = () => {
           className="jumplist-backdrop"
           onClick={() => {
             setIsOverflowOpen(false);
-            if (!hoveredAppId && !activeContextMenuAppId) {
-              tauriBridge.setWindowHeight(false).catch(console.error);
-            }
+            windowExpansion.release("apps-overflow");
           }}
         />
       )}
 
       <div className="capsule apps-capsule">
         <div className="apps-list">
-          {visibleApps.map((app) => (
-            <AppIcon
-              key={app.id}
-              app={app}
-              onClick={handleIconClick}
-              onPin={pinApp}
-              onUnpin={unpinApp}
-              isHovered={hoveredAppId === app.id}
-              isContextMenuOpen={activeContextMenuAppId === app.id}
-              isAnyContextMenuOpen={activeContextMenuAppId !== null}
-              onHoverStart={() => handleIconMouseEnter(app.id)}
-              onHoverEnd={() => handleIconMouseLeave(app.id)}
-              onOpenContextMenu={() => handleOpenContextMenu(app.id)}
-              onCloseContextMenu={handleCloseContextMenu}
-            />
-          ))}
+          {loading && dockApps.length === 0 ? (
+            <div className="apps-skeleton-list">
+              <div className="app-icon-skeleton" />
+              <div className="app-icon-skeleton" />
+              <div className="app-icon-skeleton" />
+              <div className="app-icon-skeleton" />
+            </div>
+          ) : (
+            visibleApps.map((app, index) => (
+              <AppIcon
+                key={app.id}
+                app={app}
+                index={index}
+                onClick={handleIconClick}
+                onPin={pinApp}
+                onUnpin={unpinApp}
+                isHovered={hoveredAppId === app.id}
+                isContextMenuOpen={activeContextMenuAppId === app.id}
+                isAnyContextMenuOpen={activeContextMenuAppId !== null}
+                onHoverStart={() => handleIconMouseEnter(app.id)}
+                onHoverEnd={() => handleIconMouseLeave(app.id)}
+                onOpenContextMenu={() => handleOpenContextMenu(app.id)}
+                onCloseContextMenu={handleCloseContextMenu}
+              />
+            ))
+          )}
 
           {/* Ellipsis Overflow Button when apps exceed space */}
           {overflowApps.length > 0 && (
@@ -205,19 +210,18 @@ export const AppsCapsule: React.FC = () => {
                 className="apps-overflow-close"
                 onClick={() => {
                   setIsOverflowOpen(false);
-                  if (!hoveredAppId && !activeContextMenuAppId) {
-                    tauriBridge.setWindowHeight(false).catch(console.error);
-                  }
+                  windowExpansion.release("apps-overflow");
                 }}
               >
                 ✕
               </button>
             </div>
             <div className="apps-overflow-grid">
-              {overflowApps.map((app) => (
+              {overflowApps.map((app, index) => (
                 <AppIcon
                   key={app.id}
                   app={app}
+                  index={index}
                   onClick={handleIconClick}
                   onPin={pinApp}
                   onUnpin={unpinApp}

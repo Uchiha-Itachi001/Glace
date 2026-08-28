@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
-import { tauriBridge } from "../services/tauriBridge";
+import { windowExpansion } from "../services/windowExpansion";
 
-export type FlyoutType = "start" | "settings" | "quick-settings" | "calendar" | "overflow" | null;
+export type FlyoutType = "settings" | "quick-settings" | "calendar" | "overflow" | null;
 
 let activeFlyoutState: FlyoutType = null;
 const flyoutListeners = new Set<(flyout: FlyoutType) => void>();
 
 function setFlyout(next: FlyoutType, heightPx = 520) {
   activeFlyoutState = next;
-  const isExpanded = next !== null;
-
   flyoutListeners.forEach((fn) => fn(next));
-  tauriBridge.setWindowHeight(isExpanded, heightPx).catch(console.error);
+
+  if (next !== null) {
+    windowExpansion.request("flyout", heightPx);
+  } else {
+    windowExpansion.release("flyout");
+  }
 }
 
 export function useFlyout() {

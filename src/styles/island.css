@@ -90,10 +90,11 @@
   overflow: visible !important;
   cursor: pointer;
 
-  transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-              height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-              border-radius 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-              padding 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width var(--glace-duration-base) var(--glace-ease-spring),
+              height var(--glace-duration-base) var(--glace-ease-spring),
+              border-radius var(--glace-duration-base) var(--glace-ease-spring),
+              padding var(--glace-duration-base) var(--glace-ease-spring),
+              transform var(--glace-duration-fast) var(--glace-ease-spring) !important;
 }
 
 /* Fluid Subtle Height Growth on Hover — Zero Shadows, Zero Detached Gap */
@@ -142,7 +143,7 @@
   justify-content: space-between;
   width: 100%;
   gap: 12px;
-  animation: notchContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: notchContentFadeIn var(--glace-duration-base) var(--glace-ease-spring) both;
 }
 
 .notch-compact-left {
@@ -184,6 +185,7 @@
   padding: 0 9px;
   border-bottom-left-radius: 11px;
   border-bottom-right-radius: 11px;
+  animation: notch-activate-bounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .notch-activity-layout {
@@ -193,7 +195,7 @@
   width: 100%;
   gap: 6px;
   padding: 0 1px;
-  animation: notchContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: notchContentFadeIn var(--glace-duration-base) var(--glace-ease-spring) both;
 }
 
 .notch-activity-left {
@@ -213,7 +215,7 @@
   flex-shrink: 0;
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
-  animation: notchThumbPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: notchThumbPop var(--glace-duration-base) var(--glace-ease-spring) both;
 }
 
 .notch-album-thumb img {
@@ -238,7 +240,7 @@
   overflow: hidden;
   white-space: nowrap;
   padding: 0 2px;
-  animation: notchTitleSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.03s both;
+  animation: notchTitleSlide var(--glace-duration-base) var(--glace-ease-spring) 0.03s both;
 }
 
 .notch-activity-title {
@@ -266,6 +268,7 @@
   gap: 16px; /* Distinct, clean separation between main notch and secondary notch */
   position: relative;
   top: 0;
+  transition: all var(--glace-duration-base) var(--glace-ease-spring) !important;
 }
 
 
@@ -273,7 +276,8 @@
   height: 26px;
   border-bottom-left-radius: 11px;
   border-bottom-right-radius: 11px;
-  animation: notchContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: notch-activate-bounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: all var(--glace-duration-base) var(--glace-ease-spring) !important;
 }
 
 /* Compact Left Section when Media is active on main (Matches Ref Image 3) */
@@ -335,7 +339,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: notchContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: notch-activate-bounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s both;
+  transition: all var(--glace-duration-base) var(--glace-ease-spring) !important;
 }
 
 .notch-mini-battery-ring {
@@ -357,6 +362,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  animation: notch-card-expand 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .notch-bluetooth-expanded-card {
@@ -365,7 +371,7 @@
   justify-content: space-between;
   width: 100%;
   gap: 12px;
-  animation: notchCardContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: notchCardContentFadeIn var(--glace-duration-base) var(--glace-ease-spring) both;
 }
 
 /* Left Badge: Circular Dark Emblem with Bluetooth & Side Bars */
@@ -380,7 +386,7 @@
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
-  animation: notchThumbPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: notchThumbPop var(--glace-duration-base) var(--glace-ease-spring) both;
 }
 
 /* Center / Information Text Column */
@@ -451,6 +457,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  animation: notch-card-expand 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .notch-expanded-card {
@@ -459,17 +466,17 @@
   justify-content: space-between;
   width: 100%;
   height: 100%;
-  animation: notchCardContentFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: notchCardContentFadeIn var(--glace-duration-base) var(--glace-ease-spring) both;
 }
 
 @keyframes notchCardContentFadeIn {
   0% {
     opacity: 0;
-    transform: translateY(-3px);
+    transform: translateY(-8px) scale(0.96);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -646,17 +653,17 @@
   justify-content: center;
   padding: 4px;
   border-radius: 50%;
-  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease;
+  transition: transform var(--glace-duration-fast) var(--glace-ease-spring), opacity 0.16s ease;
   opacity: 0.85;
 }
 
 .notch-btn-icon:hover {
   opacity: 1;
-  transform: scale(1.14);
+  transform: scale(1.18);
 }
 
 .notch-btn-icon:active {
-  transform: scale(0.92);
+  transform: scale(0.9);
 }
 
 .notch-btn-icon--play {
@@ -665,7 +672,7 @@
 }
 
 .notch-btn-icon--play:hover {
-  transform: scale(1.2);
+  transform: scale(1.22);
 }
 
 .notch-btn-icon--active {
@@ -676,20 +683,18 @@
 @keyframes notchContentFadeIn {
   0% {
     opacity: 0;
-    transform: scale(0.95);
-    filter: blur(1px);
+    transform: scale(0.9);
   }
   100% {
     opacity: 1;
     transform: scale(1);
-    filter: blur(0);
   }
 }
 
 @keyframes notchThumbPop {
   0% {
     opacity: 0;
-    transform: scale(0.6);
+    transform: scale(0.5);
   }
   100% {
     opacity: 1;
@@ -700,11 +705,44 @@
 @keyframes notchTitleSlide {
   0% {
     opacity: 0;
-    transform: translateY(2px);
+    transform: translateY(4px);
   }
   100% {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes notch-activate-bounce {
+  0% {
+    transform: scaleX(0.72) scaleY(0.65) translateY(-4px);
+    opacity: 0.4;
+  }
+  60% {
+    transform: scaleX(1.06) scaleY(1.12) translateY(2px);
+    opacity: 1;
+  }
+  82% {
+    transform: scaleX(0.97) scaleY(0.96) translateY(-1px);
+  }
+  100% {
+    transform: scaleX(1) scaleY(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes notch-card-expand {
+  0% {
+    transform: scale(0.85) translateY(-8px);
+    opacity: 0.2;
+  }
+  65% {
+    transform: scale(1.03) translateY(2px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
   }
 }
 

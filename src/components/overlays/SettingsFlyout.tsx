@@ -137,6 +137,10 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const islandShowMedia = currentMediaLocation === "notch" && (settings?.island_show_media ?? true);
   const islandShowHardware = settings?.island_show_hardware ?? true;
   const islandShowBattery = settings?.island_show_battery ?? true;
+  const currentMarginTop = settings?.margin_top ?? 32;
+  const currentMarginBottom = settings?.margin_bottom ?? 48;
+  const currentMarginLeft = settings?.margin_left ?? 0;
+  const currentMarginRight = settings?.margin_right ?? 0;
 
   useEffect(() => {
     tauriBridge.getPinnedApps().then(setPinnedApps).catch(console.error);
@@ -356,36 +360,145 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               </div>
 
               <span className="settings-block-label">Glass Geometry & Refraction</span>
-              <div className="settings-sliders-box">
-                <div className="slider-control-group">
-                  <div className="slider-label-row">
-                    <span>Corner Radius</span>
-                    <span className="slider-value-pill">{currentRadius}px</span>
+              <div className="geometry-controls-container">
+                {/* Corner Radius Card */}
+                <div className="geometry-card">
+                  <div className="geometry-card-header">
+                    <div className="geometry-card-left">
+                      <div className="geometry-icon-box">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect width="18" height="18" x="3" y="3" rx="5" />
+                        </svg>
+                      </div>
+                      <div className="geometry-titles">
+                        <span className="geometry-title">Capsule Curvature</span>
+                        <span className="geometry-desc">Taskbar dock border radius and corner smoothness</span>
+                      </div>
+                    </div>
+                    <span className="geometry-val-badge">{currentRadius}px</span>
                   </div>
-                  <input
-                    type="range"
-                    min="8"
-                    max="32"
-                    value={currentRadius}
-                    onChange={(e) => updateSettings({ corner_radius: Number(e.target.value) })}
-                    className="styled-slider"
-                  />
+
+                  <div className="glace-slider-wrapper">
+                    <input
+                      type="range"
+                      min="8"
+                      max="32"
+                      value={currentRadius}
+                      onChange={(e) => updateSettings({ corner_radius: Number(e.target.value) })}
+                      className="glace-range-slider"
+                      style={{
+                        background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                          ((currentRadius - 8) / (32 - 8)) * 100
+                        }%, rgba(255, 255, 255, 0.12) ${
+                          ((currentRadius - 8) / (32 - 8)) * 100
+                        }%, rgba(255, 255, 255, 0.12) 100%)`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="geometry-presets-row">
+                    {[
+                      { val: 8, label: "8px Square" },
+                      { val: 14, label: "14px Subtle" },
+                      { val: 20, label: "20px Balanced" },
+                      { val: 28, label: "28px Full Pill" },
+                    ].map((p) => (
+                      <button
+                        key={p.val}
+                        type="button"
+                        className={`geometry-preset-chip ${
+                          currentRadius === p.val ? "geometry-preset-chip--active" : ""
+                        }`}
+                        onClick={() => updateSettings({ corner_radius: p.val })}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="slider-control-group">
-                  <div className="slider-label-row">
-                    <span>Glass Blur Intensity</span>
-                    <span className="slider-value-pill">{currentBlur.toFixed(1)}x</span>
+                {/* Glass Blur Intensity Card */}
+                <div className="geometry-card">
+                  <div className="geometry-card-header">
+                    <div className="geometry-card-left">
+                      <div className="geometry-icon-box">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 2v2" />
+                          <path d="m4.93 4.93 1.41 1.41" />
+                          <path d="M20 12h2" />
+                          <path d="m19.07 4.93-1.41 1.41" />
+                          <path d="M15.93 15.93 12 22l-3.93-6.07A8 8 0 1 1 15.93 15.93z" />
+                        </svg>
+                      </div>
+                      <div className="geometry-titles">
+                        <span className="geometry-title">Backdrop Blur & Frosting</span>
+                        <span className="geometry-desc">Glass refraction, diffusion depth, and saturation</span>
+                      </div>
+                    </div>
+                    <span className="geometry-val-badge">
+                      {currentBlur.toFixed(1)}x · {Math.round(28 * currentBlur)}px
+                    </span>
                   </div>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="2.0"
-                    step="0.1"
-                    value={currentBlur}
-                    onChange={(e) => updateSettings({ blur_intensity: Number(e.target.value) })}
-                    className="styled-slider"
-                  />
+
+                  <div className="glace-slider-wrapper">
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.1"
+                      value={currentBlur}
+                      onChange={(e) => updateSettings({ blur_intensity: Number(e.target.value) })}
+                      className="glace-range-slider"
+                      style={{
+                        background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                          ((currentBlur - 0.5) / (2.0 - 0.5)) * 100
+                        }%, rgba(255, 255, 255, 0.12) ${
+                          ((currentBlur - 0.5) / (2.0 - 0.5)) * 100
+                        }%, rgba(255, 255, 255, 0.12) 100%)`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="geometry-presets-row">
+                    {[
+                      { val: 0.5, label: "0.5x Crystal" },
+                      { val: 1.0, label: "1.0x Balanced" },
+                      { val: 1.5, label: "1.5x Frosted" },
+                      { val: 2.0, label: "2.0x Deep Obsidian" },
+                    ].map((p) => (
+                      <button
+                        key={p.val}
+                        type="button"
+                        className={`geometry-preset-chip ${
+                          Math.abs(currentBlur - p.val) < 0.05 ? "geometry-preset-chip--active" : ""
+                        }`}
+                        onClick={() => updateSettings({ blur_intensity: p.val })}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Live Interactive Glass Preview */}
+                <div className="geometry-live-preview-box">
+                  <div className="geometry-preview-label">Live Dock Glass & Curvature Preview</div>
+                  <div
+                    className="geometry-preview-capsule"
+                    style={{
+                      borderRadius: `${currentRadius}px`,
+                      backdropFilter: `blur(${Math.round(28 * currentBlur)}px) saturate(${Math.round(140 + 50 * currentBlur)}%)`,
+                      WebkitBackdropFilter: `blur(${Math.round(28 * currentBlur)}px) saturate(${Math.round(140 + 50 * currentBlur)}%)`,
+                    }}
+                  >
+                    <div className="geometry-preview-capsule-left">
+                      <div className="geometry-preview-dot" />
+                      <span className="geometry-preview-text">Glace Live Glass Refraction</span>
+                    </div>
+                    <span style={{ fontSize: "10px", color: "var(--glace-text-secondary)" }}>
+                      r: {currentRadius}px · b: {Math.round(28 * currentBlur)}px
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -417,29 +530,264 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 })}
               </div>
 
-              {/* Taskbar Screen Position */}
+              {/* Desktop Layout Style */}
               <span className="settings-block-label" style={{ marginTop: "14px" }}>
-                Screen Placement
+                Desktop Layout Style
               </span>
-              <div className="layout-choice-grid">
-                {([
-                  { id: "bottom", title: "Pinned Bottom", sub: "Standard bottom taskbar" },
-                  { id: "top", title: "Pinned Top", sub: "macOS top menu bar style" },
-                  { id: "floating", title: "Floating Island", sub: "Elevated modern dock" },
-                ] as const).map((pos) => {
-                  const isActive = currentBarPos === pos.id;
-                  return (
-                    <button
-                      key={pos.id}
-                      type="button"
-                      className={`layout-choice-btn ${isActive ? "layout-choice-btn--active" : ""}`}
-                      onClick={() => updateSettings({ bar_position: pos.id })}
+              <div className="layout-choice-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                <button
+                  type="button"
+                  className={`layout-choice-btn ${currentBarPos !== "macos" && currentBarPos !== "top" ? "layout-choice-btn--active" : ""}`}
+                  onClick={() => updateSettings({ bar_position: "windows", margin_top: 32, margin_bottom: 48 })}
+                >
+                  <span className="layout-choice-title">Windows Style</span>
+                  <span className="layout-choice-sub">Unified bottom taskbar with apps, start & tray</span>
+                </button>
+                <button
+                  type="button"
+                  className={`layout-choice-btn ${currentBarPos === "macos" || currentBarPos === "top" ? "layout-choice-btn--active" : ""}`}
+                  onClick={() => updateSettings({ bar_position: "macos", margin_top: 32, margin_bottom: 48 })}
+                >
+                  <span className="layout-choice-title">macOS Style</span>
+                  <span className="layout-choice-sub">Bottom app dock + Top menu bar with status & clock</span>
+                </button>
+              </div>
+
+              {/* App Screen Bounds & Desktop Work Area Margins */}
+              <div style={{ marginTop: "16px" }}>
+                <span className="settings-block-label" style={{ margin: 0 }}>
+                  Active App Screen Bounds & Desktop Margins
+                </span>
+                <span style={{ fontSize: "11px", color: "var(--glace-text-muted)", display: "block", marginTop: "2px", marginBottom: "8px" }}>
+                  Restricts maximized & snapped apps to prevent overlapping custom top, bottom, left, or right spaces
+                </span>
+              </div>
+
+              {/* Margins Sliders Grid */}
+              <div className="margin-controls-grid">
+                {/* Top Margin */}
+                <div className="geometry-slider-card">
+                  <div className="geometry-slider-header">
+                    <div className="geometry-meta">
+                      <div className="geometry-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="18 15 12 9 6 15" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span className="geometry-title">Top Margin (Notch / Top Area)</span>
+                        <span className="geometry-desc">Reserved height at the top edge</span>
+                      </div>
+                    </div>
+                    <span className="geometry-val-badge">{currentMarginTop}px</span>
+                  </div>
+                  <div className="glace-slider-wrapper">
+                    <input
+                      type="range"
+                      min="0"
+                      max="150"
+                      step="2"
+                      value={currentMarginTop}
+                      onChange={(e) => updateSettings({ margin_top: Number(e.target.value) })}
+                      className="glace-range-slider"
+                      style={{
+                        background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                          (currentMarginTop / 150) * 100
+                        }%, rgba(255, 255, 255, 0.12) ${
+                          (currentMarginTop / 150) * 100
+                        }%, rgba(255, 255, 255, 0.12) 100%)`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Bottom Margin */}
+                <div className="geometry-slider-card">
+                  <div className="geometry-slider-header">
+                    <div className="geometry-meta">
+                      <div className="geometry-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span className="geometry-title">Bottom Margin (Taskbar Dock)</span>
+                        <span className="geometry-desc">Reserved height for bottom dock</span>
+                      </div>
+                    </div>
+                    <span className="geometry-val-badge">{currentMarginBottom}px</span>
+                  </div>
+                  <div className="glace-slider-wrapper">
+                    <input
+                      type="range"
+                      min="0"
+                      max="150"
+                      step="2"
+                      value={currentMarginBottom}
+                      onChange={(e) => updateSettings({ margin_bottom: Number(e.target.value) })}
+                      className="glace-range-slider"
+                      style={{
+                        background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                          (currentMarginBottom / 150) * 100
+                        }%, rgba(255, 255, 255, 0.12) ${
+                          (currentMarginBottom / 150) * 100
+                        }%, rgba(255, 255, 255, 0.12) 100%)`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Left Margin */}
+                <div className="geometry-slider-card">
+                  <div className="geometry-slider-header">
+                    <div className="geometry-meta">
+                      <div className="geometry-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span className="geometry-title">Left Margin (Sidebar / Gap)</span>
+                        <span className="geometry-desc">Reserved space on the left screen edge</span>
+                      </div>
+                    </div>
+                    <span className="geometry-val-badge">{currentMarginLeft}px</span>
+                  </div>
+                  <div className="glace-slider-wrapper">
+                    <input
+                      type="range"
+                      min="0"
+                      max="200"
+                      step="4"
+                      value={currentMarginLeft}
+                      onChange={(e) => updateSettings({ margin_left: Number(e.target.value) })}
+                      className="glace-range-slider"
+                      style={{
+                        background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                          (currentMarginLeft / 200) * 100
+                        }%, rgba(255, 255, 255, 0.12) ${
+                          (currentMarginLeft / 200) * 100
+                        }%, rgba(255, 255, 255, 0.12) 100%)`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Right Margin */}
+                <div className="geometry-slider-card">
+                  <div className="geometry-slider-header">
+                    <div className="geometry-meta">
+                      <div className="geometry-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span className="geometry-title">Right Margin (Sidebar / Gap)</span>
+                        <span className="geometry-desc">Reserved space on the right screen edge</span>
+                      </div>
+                    </div>
+                    <span className="geometry-val-badge">{currentMarginRight}px</span>
+                  </div>
+                  <div className="glace-slider-wrapper">
+                    <input
+                      type="range"
+                      min="0"
+                      max="200"
+                      step="4"
+                      value={currentMarginRight}
+                      onChange={(e) => updateSettings({ margin_right: Number(e.target.value) })}
+                      className="glace-range-slider"
+                      style={{
+                        background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                          (currentMarginRight / 200) * 100
+                        }%, rgba(255, 255, 255, 0.12) ${
+                          (currentMarginRight / 200) * 100
+                        }%, rgba(255, 255, 255, 0.12) 100%)`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Margin Presets & Live Visual Monitor */}
+              <div className="geometry-presets-row" style={{ marginTop: "8px" }}>
+                {[
+                  { label: "Recommended (32/48)", top: 32, bottom: 48, left: 0, right: 0 },
+                  { label: "Bespoke Gaps (44/56/16/16)", top: 44, bottom: 56, left: 16, right: 16 },
+                  { label: "Wide Sidebars (40/50/60/60)", top: 40, bottom: 50, left: 60, right: 60 },
+                  { label: "Zero Margins (0/0)", top: 0, bottom: 0, left: 0, right: 0 },
+                ].map((p) => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    className="geometry-preset-chip"
+                    onClick={() => updateSettings({ margin_top: p.top, margin_bottom: p.bottom, margin_left: p.left, margin_right: p.right })}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Live Desktop Monitor Preview */}
+              <div className="margin-live-monitor-box">
+                <div className="geometry-preview-label">Live Active App Workspace Diagram</div>
+                <div className="margin-screen-monitor-frame">
+                  {/* Top Notch Inset Bar */}
+                  {currentMarginTop > 0 && (
+                    <div
+                      className="margin-inset-indicator margin-inset-indicator--top"
+                      style={{ height: `${Math.max(8, Math.round((currentMarginTop / 150) * 28))}px` }}
                     >
-                      <span className="layout-choice-title">{pos.title}</span>
-                      <span className="layout-choice-sub">{pos.sub}</span>
-                    </button>
-                  );
-                })}
+                      <span>Top Reserved: {currentMarginTop}px</span>
+                    </div>
+                  )}
+
+                  {/* Middle Row with Left, App Workspace, and Right */}
+                  <div className="margin-monitor-middle-row">
+                    {currentMarginLeft > 0 && (
+                      <div
+                        className="margin-inset-indicator margin-inset-indicator--left"
+                        style={{ width: `${Math.max(12, Math.round((currentMarginLeft / 200) * 45))}px` }}
+                      >
+                        <span>{currentMarginLeft}px</span>
+                      </div>
+                    )}
+
+                    <div className="margin-active-app-workspace">
+                      <div className="margin-app-mock-window">
+                        <div className="margin-mock-titlebar">
+                          <div className="margin-mock-dots">
+                            <span /><span /><span />
+                          </div>
+                          <span className="margin-mock-title">Active App / Browser / Editor</span>
+                        </div>
+                        <div className="margin-mock-body">
+                          <span>Maximized Windows restricted inside this area</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {currentMarginRight > 0 && (
+                      <div
+                        className="margin-inset-indicator margin-inset-indicator--right"
+                        style={{ width: `${Math.max(12, Math.round((currentMarginRight / 200) * 45))}px` }}
+                      >
+                        <span>{currentMarginRight}px</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom Dock Inset Bar */}
+                  {currentMarginBottom > 0 && (
+                    <div
+                      className="margin-inset-indicator margin-inset-indicator--bottom"
+                      style={{ height: `${Math.max(8, Math.round((currentMarginBottom / 150) * 28))}px` }}
+                    >
+                      <span>Bottom Dock: {currentMarginBottom}px</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Media Player Active Location Preference */}
@@ -452,7 +800,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                   return (
                     <div
                       key={loc.id}
-                      className={`sysmon-mode-card icon-hover ${
+                      className={`sysmon-mode-card ${
                         isSelected ? "sysmon-mode-card--active" : ""
                       }`}
                       onClick={() => setMediaLocation(loc.id)}
@@ -495,7 +843,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                   return (
                     <div
                       key={w.id}
-                      className="widget-row-card icon-hover"
+                      className="widget-row-card"
                       onClick={() => {
                         if (w.id === "media") {
                           setMediaLocation(currentMediaLocation === "taskbar" ? "notch" : "taskbar");
@@ -529,7 +877,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 System Startup
               </span>
               <div
-                className="widget-row-card icon-hover"
+                className="widget-row-card"
                 onClick={() => updateSettings({ autostart: !currentAutostart })}
               >
                 <div className="widget-row-meta">
@@ -549,7 +897,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               <span className="settings-block-label">Dynamic Island (Top Notch Hub)</span>
               <div className="widget-items-stack">
                 <div
-                  className="widget-row-card icon-hover"
+                  className="widget-row-card"
                   onClick={() => updateSettings({ enable_dynamic_island: !islandEnabled })}
                 >
                   <div className="widget-row-meta">
@@ -564,7 +912,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 {islandEnabled && (
                   <>
                     <div
-                      className="widget-row-card icon-hover"
+                      className="widget-row-card"
                       onClick={() => setMediaLocation(currentMediaLocation === "notch" ? "taskbar" : "notch")}
                     >
                       <div className="widget-row-meta">
@@ -581,7 +929,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                     </div>
 
                     <div
-                      className="widget-row-card icon-hover"
+                      className="widget-row-card"
                       onClick={() => updateSettings({ island_show_hardware: !islandShowHardware })}
                     >
                       <div className="widget-row-meta">
@@ -594,7 +942,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                     </div>
 
                     <div
-                      className="widget-row-card icon-hover"
+                      className="widget-row-card"
                       onClick={() => updateSettings({ island_show_battery: !islandShowBattery })}
                     >
                       <div className="widget-row-meta">
@@ -603,6 +951,87 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                       </div>
                       <div className={`switch-pill ${islandShowBattery ? "switch-pill--on" : ""}`}>
                         <div className="switch-thumb" />
+                      </div>
+                    </div>
+
+                    {/* Window Overlap & Top Margin Clearance */}
+                    <span className="settings-block-label" style={{ marginTop: "14px" }}>
+                      Notch Screen Clearance & Window Overlap
+                    </span>
+
+                    <div
+                      className="widget-row-card"
+                      onClick={() => updateSettings({ margin_top: currentMarginTop === 0 ? 32 : 0 })}
+                    >
+                      <div className="widget-row-meta">
+                        <span className="widget-row-name">Allow Windows to Overlap Notch</span>
+                        <span className="widget-row-desc">
+                          {currentMarginTop === 0
+                            ? "Overlap Active: Maximized windows fill the entire screen behind the notch"
+                            : "Clearance Active: Desktop reserved so maximized windows start below the notch"}
+                        </span>
+                      </div>
+                      <div className={`switch-pill ${currentMarginTop === 0 ? "switch-pill--on" : ""}`}>
+                        <div className="switch-thumb" />
+                      </div>
+                    </div>
+
+                    <div className="geometry-slider-card" style={{ marginTop: "6px" }}>
+                      <div className="geometry-slider-header">
+                        <div className="geometry-meta">
+                          <div className="geometry-icon">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="18 15 12 9 6 15" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="geometry-title">Top Screen Margin Offset</span>
+                            <span className="geometry-desc">
+                              {currentMarginTop === 0
+                                ? "0px — Full overlay (Windows maximize underneath)"
+                                : `${currentMarginTop}px — Windows restricted below notch`}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="geometry-val-badge">{currentMarginTop}px</span>
+                      </div>
+                      <div className="glace-slider-wrapper">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="2"
+                          value={currentMarginTop}
+                          onChange={(e) => updateSettings({ margin_top: Number(e.target.value) })}
+                          className="glace-range-slider"
+                          style={{
+                            background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                              (currentMarginTop / 100) * 100
+                            }%, rgba(255, 255, 255, 0.12) ${
+                              (currentMarginTop / 100) * 100
+                            }%, rgba(255, 255, 255, 0.12) 100%)`,
+                          }}
+                        />
+                      </div>
+
+                      <div className="geometry-presets-row" style={{ marginTop: "10px" }}>
+                        {[
+                          { val: 0, label: "0px (Overlap)" },
+                          { val: 28, label: "28px (Flush)" },
+                          { val: 32, label: "32px (Default)" },
+                          { val: 48, label: "48px (macOS Top)" },
+                        ].map((p) => (
+                          <button
+                            key={p.val}
+                            type="button"
+                            className={`geometry-preset-chip ${
+                              currentMarginTop === p.val ? "geometry-preset-chip--active" : ""
+                            }`}
+                            onClick={() => updateSettings({ margin_top: p.val })}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </>
@@ -624,7 +1053,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                   return (
                     <div
                       key={m.id}
-                      className={`sysmon-mode-card icon-hover ${
+                      className={`sysmon-mode-card ${
                         isSelected ? "sysmon-mode-card--active" : ""
                       }`}
                       onClick={() => setSysMonMode(m.id)}
@@ -665,7 +1094,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                   return (
                     <div
                       key={item.id}
-                      className="widget-row-card icon-hover"
+                      className="widget-row-card"
                       onClick={() => toggleTrayItem(item.id)}
                     >
                       <div className="widget-row-meta">
@@ -703,7 +1132,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                     className="pinned-styled-input"
                   />
                 </div>
-                <button type="submit" className="pinned-submit-btn icon-hover">
+                <button type="submit" className="pinned-submit-btn">
                   + Pin to Dock
                 </button>
               </form>
@@ -714,7 +1143,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
 
               <div className="pinned-items-list">
                 {pinnedApps.map((app) => (
-                  <div key={app.id} className="pinned-card-item icon-hover">
+                  <div key={app.id} className="pinned-card-item">
                     <div className="pinned-card-left">
                       {app.icon_b64 ? (
                         <img src={app.icon_b64} alt="" className="pinned-card-icon" />
@@ -731,7 +1160,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                       </div>
                     </div>
                     <button
-                      className="pinned-card-unpin icon-hover"
+                      className="pinned-card-unpin"
                       onClick={() => handleUnpinApp(app.id)}
                       title="Unpin application"
                     >
@@ -784,7 +1213,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               </div>
 
               <button
-                className="settings-danger-reset icon-hover"
+                className="settings-danger-reset"
                 onClick={() =>
                   updateSettings({
                     theme_id: "obsidian",
