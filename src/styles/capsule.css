@@ -1539,9 +1539,9 @@ html, body {
 
 .media-capsule {
   cursor: pointer;
-  padding: 0 12px;
+  padding: 0 10px;
   min-width: 170px;
-  max-width: 260px;
+  max-width: 270px;
   overflow: hidden;
 }
 
@@ -1550,6 +1550,25 @@ html, body {
   align-items: center;
   gap: 8px;
   width: 100%;
+}
+
+.media-album-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.media-album-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .media-equalizer {
@@ -1562,10 +1581,11 @@ html, body {
 
 .eq-bar {
   width: 2.5px;
-  background: var(--glace-accent);
+  background: var(--wave-gradient, var(--glace-accent));
+  box-shadow: 0 0 4px var(--wave-glow, transparent);
   border-radius: 1px;
   height: 3px;
-  transition: height 0.2s ease;
+  transition: height 0.2s ease, background 0.6s ease;
 }
 
 .media-equalizer--playing .eq-bar-1 {
@@ -1643,7 +1663,7 @@ html, body {
 }
 
 .media-btn--play {
-  color: var(--glace-accent);
+  color: var(--wave-color, var(--glace-accent));
 }
 
 .media-progress-bar {
@@ -1657,7 +1677,7 @@ html, body {
 
 .media-progress-fill {
   height: 100%;
-  background: var(--glace-accent);
+  background: var(--wave-color, var(--glace-accent));
   transition: width 0.3s linear;
 }
 

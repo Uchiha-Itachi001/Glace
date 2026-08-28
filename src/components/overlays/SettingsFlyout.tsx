@@ -134,7 +134,6 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const currentMediaLocation = settings?.media_location || "notch";
   const currentAutostart = settings?.autostart ?? false;
   const islandEnabled = settings?.enable_dynamic_island ?? true;
-  const islandShowMedia = currentMediaLocation === "notch" && (settings?.island_show_media ?? true);
   const islandShowHardware = settings?.island_show_hardware ?? true;
   const islandShowBattery = settings?.island_show_battery ?? true;
   const currentMarginTop = settings?.margin_top ?? 32;

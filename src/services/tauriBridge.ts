@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { WindowInfo, TrayIcon, SystemMetrics, Settings, PinnedApp, BluetoothDevice } from "../types";
+import { WindowInfo, TrayIcon, SystemMetrics, Settings, PinnedApp, BluetoothDevice, MediaSessionInfo } from "../types";
 
 export const tauriBridge = {
   // Window controls

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useSettings } from "../../stores/settingsStore";
-import { useSystemMetrics } from "../../hooks/useSystemMetrics";
 import { useBluetooth } from "../../hooks/useBluetooth";
 import { tauriBridge } from "../../services/tauriBridge";
 import { windowExpansion } from "../../services/windowExpansion";
 import { MediaSessionInfo } from "../../types";
+import { albumArtService, TrackColorTheme } from "../../services/albumArtService";
 
 const DEMO_TRACKS = [
   {
@@ -29,44 +29,21 @@ export const DynamicIsland: React.FC = () => {
   const isIslandEnabled = settings?.enable_dynamic_island ?? true;
   const showMedia = isIslandEnabled && (settings?.media_location ?? "notch") === "notch" && (settings?.island_show_media ?? true);
   const showBluetooth = isIslandEnabled && (settings?.island_show_bluetooth ?? true);
-  const showHardware = isIslandEnabled && (settings?.island_show_hardware ?? true);
-  const showBattery = isIslandEnabled && (settings?.island_show_battery ?? true);
 
-  const metrics = useSystemMetrics(isIslandEnabled && (showHardware || showBattery));
   const bluetooth = useBluetooth();
 
   const [expandedType, setExpandedType] = useState<"media" | "bluetooth" | null>(null);
   const [splitViewMode, setSplitViewMode] = useState<"media_main" | "bt_main">("media_main");
   const [isPlaying, setIsPlaying] = useState(true);
   const [isShuffle, setIsShuffle] = useState(false);
-  const [isRepeat, setIsRepeat] = useState(false);
   const [trackIndex, setTrackIndex] = useState(0);
   const [currentSec, setCurrentSec] = useState(65);
-  const [timeStr, setTimeStr] = useState("");
   const [liveMedia, setLiveMedia] = useState<MediaSessionInfo | null>(null);
-  const collapseTimeoutRef = useRef<number | null>(null);
+  const [dynamicTheme, setDynamicTheme] = useState<TrackColorTheme | null>(null);
 
   const currentTrack = DEMO_TRACKS[trackIndex];
   const { activeDevice: activeBtDevice, isConnected: isBtConnected } = bluetooth;
   const btBatteryPct = activeBtDevice?.battery_percent ?? 80;
-
-  // Real-time Clock Ticker (Only runs if dynamic island is enabled)
-  useEffect(() => {
-    if (!isIslandEnabled) return;
-    const updateTime = () => {
-      const now = new Date();
-      setTimeStr(
-        now.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        })
-      );
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 10000);
-    return () => clearInterval(interval);
-  }, [isIslandEnabled]);
 
   // Auto-Detect Windows Global System Media Transport (Only polls when showMedia is active)
   useEffect(() => {
@@ -80,10 +57,23 @@ export const DynamicIsland: React.FC = () => {
         const session = await tauriBridge.getMediaSessionInfo();
         if (isMounted) {
           if (session && (session.title?.trim() || session.artist?.trim())) {
-            setLiveMedia(session);
+            let art = session.album_art_base64;
+            if (!art) {
+              art = albumArtService.getCached(session.title, session.artist) || undefined;
+              if (!art) {
+                albumArtService.fetchAlbumArt(session.title, session.artist).then((fetchedArt) => {
+                  if (fetchedArt && isMounted) {
+                    setLiveMedia((prev) => (prev && prev.title === session.title ? { ...prev, album_art_base64: fetchedArt } : prev));
+                  }
+                });
+              }
+            }
+            setLiveMedia({ ...session, album_art_base64: art });
             if (session.current_sec > 0) {
               setCurrentSec(session.current_sec);
             }
+          } else {
+            setLiveMedia(null);
           }
         }
       } catch (err) {
@@ -97,6 +87,25 @@ export const DynamicIsland: React.FC = () => {
       clearInterval(interval);
     };
   }, [showMedia]);
+
+  // Extract vibrant theme colors from album artwork
+  useEffect(() => {
+    const artUrl = liveMedia?.album_art_base64;
+    if (!artUrl) {
+      setDynamicTheme(null);
+      return;
+    }
+    const cached = albumArtService.getColorCached(artUrl);
+    if (cached) {
+      setDynamicTheme(cached);
+      return;
+    }
+    albumArtService.extractDominantColor(artUrl).then((theme) => {
+      if (theme) {
+        setDynamicTheme(theme);
+      }
+    });
+  }, [liveMedia?.album_art_base64]);
 
   const activeIsPlaying = liveMedia ? liveMedia.is_playing : isPlaying;
 
@@ -124,7 +133,6 @@ export const DynamicIsland: React.FC = () => {
   if (!isIslandEnabled || (!hasMediaSession && !isMultiActivity && expandedType === null)) {
     return null;
   }
-
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -217,12 +225,15 @@ export const DynamicIsland: React.FC = () => {
     const hue = Math.abs(hash) % 360;
     return {
       waveColor: `hsl(${hue}, 88%, 58%)`,
+      waveGradient: `hsl(${hue}, 88%, 58%)`,
+      waveGradientTop: `hsl(${hue}, 88%, 68%)`,
+      waveGradientBottom: `hsl(${hue}, 88%, 48%)`,
       glowColor: `hsla(${hue}, 88%, 58%, 0.45)`,
     };
   };
 
-  const trackTheme = getTrackColor(activeTitle, activeArtist);
-  const batteryPct = metrics?.battery_percent ?? 100;
+  const fallbackTheme = getTrackColor(activeTitle, activeArtist);
+  const trackTheme = dynamicTheme || fallbackTheme;
 
   // Circular ring calculation for Image 1: 42px SVG (radius 17)
   const ringRadius = 17;
@@ -234,7 +245,6 @@ export const DynamicIsland: React.FC = () => {
   const miniCircumference = 2 * Math.PI * miniRadius;
   const miniOffset = miniCircumference - (btBatteryPct / 100) * miniCircumference;
 
-
   return (
     <>
       {/* Backdrop for click-outside collapse */}
@@ -243,7 +253,7 @@ export const DynamicIsland: React.FC = () => {
       )}
 
       <div className="dynamic-notch-wrapper">
-        {/* ─── CASE A: EXPANDED BLUETOOTH CARD (Exact Match to User Reference Image 1) ─── */}
+        {/* ─── CASE A: EXPANDED BLUETOOTH CARD ─── */}
         {expandedType === "bluetooth" && (
           <div
             className="dynamic-notch dynamic-notch--bluetooth-expanded"
@@ -267,9 +277,7 @@ export const DynamicIsland: React.FC = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  {/* Bluetooth Main Symbol */}
                   <polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5" />
-                  {/* Subtle Audio Antenna Indicator Bars */}
                   <line x1="1" y1="12" x2="4" y2="12" stroke="#94a3b8" strokeWidth="2" />
                   <line x1="20" y1="12" x2="23" y2="12" stroke="#94a3b8" strokeWidth="2" />
                 </svg>
@@ -286,7 +294,6 @@ export const DynamicIsland: React.FC = () => {
               {/* Right: Circular Ring Battery Meter */}
               <div className="notch-bt-battery-ring-container">
                 <svg className="notch-bt-ring-svg" width="42" height="42" viewBox="0 0 42 42">
-                  {/* Background Track Circle */}
                   <circle
                     cx="21"
                     cy="21"
@@ -295,7 +302,6 @@ export const DynamicIsland: React.FC = () => {
                     stroke="rgba(255, 255, 255, 0.12)"
                     strokeWidth="3.2"
                   />
-                  {/* Glowing Green Progress Arc */}
                   <circle
                     cx="21"
                     cy="21"
@@ -311,12 +317,11 @@ export const DynamicIsland: React.FC = () => {
                 </svg>
                 <span className="notch-bt-ring-text">{btBatteryPct}%</span>
               </div>
-
             </div>
           </div>
         )}
 
-        {/* ─── CASE B: EXPANDED MEDIA CARD (Full Player with Scrubber & 5 Controls) ─── */}
+        {/* ─── CASE B: EXPANDED MEDIA CARD ─── */}
         {expandedType === "media" && (
           <div
             className="dynamic-notch dynamic-notch--expanded"
@@ -324,6 +329,9 @@ export const DynamicIsland: React.FC = () => {
             onWheel={handleWheel}
             style={{
               ["--wave-color" as any]: trackTheme.waveColor,
+              ["--wave-gradient" as any]: trackTheme.waveGradient,
+              ["--wave-gradient-top" as any]: trackTheme.waveGradientTop,
+              ["--wave-gradient-bottom" as any]: trackTheme.waveGradientBottom,
               ["--wave-glow" as any]: trackTheme.glowColor,
             }}
           >
@@ -355,6 +363,7 @@ export const DynamicIsland: React.FC = () => {
 
                 <div className="notch-card-wave-right">
                   <div className={`notch-equalizer-wave ${!activeIsPlaying ? "notch-equalizer-wave--paused" : ""}`}>
+                    <span className="notch-wave-bar" />
                     <span className="notch-wave-bar" />
                     <span className="notch-wave-bar" />
                     <span className="notch-wave-bar" />
@@ -439,10 +448,10 @@ export const DynamicIsland: React.FC = () => {
           </div>
         )}
 
-        {/* ─── CASE C: MULTI-ACTIVITY SPLIT NOTCH (Matches User Reference Images) ─── */}
+        {/* ─── CASE C: MULTI-ACTIVITY SPLIT NOTCH ─── */}
         {expandedType === null && isMultiActivity && (
           <div className="notch-split-container">
-            {/* 1. Main Left Pill (Clicking expands currently active feature) */}
+            {/* 1. Main Left Pill */}
             <div
               className={`dynamic-notch notch-split-main ${
                 splitViewMode === "media_main" ? "notch-split-main--media" : "notch-split-main--bluetooth"
@@ -451,6 +460,9 @@ export const DynamicIsland: React.FC = () => {
               onWheel={handleWheel}
               style={{
                 ["--wave-color" as any]: trackTheme.waveColor,
+                ["--wave-gradient" as any]: trackTheme.waveGradient,
+                ["--wave-gradient-top" as any]: trackTheme.waveGradientTop,
+                ["--wave-gradient-bottom" as any]: trackTheme.waveGradientBottom,
                 ["--wave-glow" as any]: trackTheme.glowColor,
               }}
               title={
@@ -464,7 +476,7 @@ export const DynamicIsland: React.FC = () => {
               {/* Right Concave Wing Ear */}
               <div className="notch-ear notch-ear--right" />
 
-              {/* Sub-State: Media on Main Pill (Reference Image 1 in user prompt) */}
+              {/* Sub-State: Media on Main Pill */}
               {splitViewMode === "media_main" ? (
                 <div className="notch-split-media-layout">
                   <div className="notch-album-thumb">
@@ -486,7 +498,7 @@ export const DynamicIsland: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                /* Sub-State: Bluetooth on Main Pill (Reference Image 2 in user prompt) */
+                /* Sub-State: Bluetooth on Main Pill */
                 <div className="notch-split-bt-layout">
                   <div className="notch-split-bt-icon">
                     <svg
@@ -535,7 +547,7 @@ export const DynamicIsland: React.FC = () => {
               )}
             </div>
 
-            {/* 2. Detached Secondary Right Pill (Clicking SWAPS places with main section) */}
+            {/* 2. Detached Secondary Right Pill */}
             <div
               className="dynamic-notch notch-split-secondary"
               onClick={handleSecondaryPillClick}
@@ -550,7 +562,6 @@ export const DynamicIsland: React.FC = () => {
               {/* Right Concave Wing Ear */}
               <div className="notch-ear notch-ear--right" />
 
-              {/* In Image 1: Secondary pill shows Mini Green Battery Ring */}
               {splitViewMode === "media_main" ? (
                 <div className="notch-mini-battery-ring">
                   <svg width="13" height="13" viewBox="0 0 13 13">
@@ -577,7 +588,6 @@ export const DynamicIsland: React.FC = () => {
                   </svg>
                 </div>
               ) : (
-                /* In Image 2: Secondary pill shows Mini Album Art */
                 <div className="notch-album-thumb notch-album-thumb--mini">
                   {liveMedia?.album_art_base64 ? (
                     <img src={liveMedia.album_art_base64} alt="Album Art" />
@@ -593,7 +603,7 @@ export const DynamicIsland: React.FC = () => {
           </div>
         )}
 
-        {/* ─── CASE D: SINGLE ACTIVITY NOTCH (Media Active / Paused) ─── */}
+        {/* ─── CASE D: SINGLE ACTIVITY NOTCH ─── */}
         {expandedType === null && !isMultiActivity && hasMediaSession && (
           <div
             className="dynamic-notch dynamic-notch--activity"
@@ -601,6 +611,9 @@ export const DynamicIsland: React.FC = () => {
             onWheel={handleWheel}
             style={{
               ["--wave-color" as any]: trackTheme.waveColor,
+              ["--wave-gradient" as any]: trackTheme.waveGradient,
+              ["--wave-gradient-top" as any]: trackTheme.waveGradientTop,
+              ["--wave-gradient-bottom" as any]: trackTheme.waveGradientBottom,
               ["--wave-glow" as any]: trackTheme.glowColor,
             }}
           >
@@ -639,9 +652,7 @@ export const DynamicIsland: React.FC = () => {
             </div>
           </div>
         )}
-
       </div>
     </>
   );
 };
-

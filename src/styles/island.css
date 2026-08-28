@@ -5,6 +5,7 @@
   top: 0;
   left: 50%;
   transform: translateX(-50%);
+  transform-origin: top center !important;
   z-index: 9990;
   display: flex;
   align-items: flex-start;
@@ -73,6 +74,7 @@
 .dynamic-notch {
   position: relative;
   top: 0;
+  transform-origin: top center !important;
   background: #000000;
   color: #ffffff;
   border: none !important;
@@ -95,6 +97,16 @@
               border-radius var(--glace-duration-base) var(--glace-ease-spring),
               padding var(--glace-duration-base) var(--glace-ease-spring),
               transform var(--glace-duration-fast) var(--glace-ease-spring) !important;
+}
+
+.dynamic-notch,
+.dynamic-notch--compact,
+.dynamic-notch--activity,
+.dynamic-notch--expanded,
+.dynamic-notch--bluetooth-expanded,
+.notch-split-main,
+.notch-split-secondary {
+  transform-origin: top center !important;
 }
 
 /* Fluid Subtle Height Growth on Hover — Zero Shadows, Zero Detached Gap */
@@ -715,33 +727,33 @@
 
 @keyframes notch-activate-bounce {
   0% {
-    transform: scaleX(0.72) scaleY(0.65) translateY(-4px);
+    transform: scaleX(0.72) scaleY(0.7);
     opacity: 0.4;
   }
   60% {
-    transform: scaleX(1.06) scaleY(1.12) translateY(2px);
+    transform: scaleX(1.05) scaleY(1.08);
     opacity: 1;
   }
   82% {
-    transform: scaleX(0.97) scaleY(0.96) translateY(-1px);
+    transform: scaleX(0.98) scaleY(0.97);
   }
   100% {
-    transform: scaleX(1) scaleY(1) translateY(0);
+    transform: scaleX(1) scaleY(1);
     opacity: 1;
   }
 }
 
 @keyframes notch-card-expand {
   0% {
-    transform: scale(0.85) translateY(-8px);
+    transform: scaleX(0.85) scaleY(0.65);
     opacity: 0.2;
   }
   65% {
-    transform: scale(1.03) translateY(2px);
+    transform: scaleX(1.02) scaleY(1.04);
     opacity: 1;
   }
   100% {
-    transform: scale(1) translateY(0);
+    transform: scaleX(1) scaleY(1);
     opacity: 1;
   }
 }

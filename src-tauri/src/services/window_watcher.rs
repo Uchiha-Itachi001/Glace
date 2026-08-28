@@ -776,6 +776,7 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
         let class_len = GetClassNameW(fg, &mut class_buf);
         if class_len > 0 {
             let class_name = String::from_utf16_lossy(&class_buf[..class_len as usize]);
+            let class_lower = class_name.to_lowercase();
             if class_name == "Progman"
                 || class_name == "WorkerW"
                 || class_name == "Shell_TrayWnd"
@@ -784,8 +785,53 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
                 || class_name == "XamlExplorerHostIslandWindow"
                 || class_name == "MultitaskingViewFrame"
                 || class_name == "Shell_LightDismissOverlayWindow"
+                || class_lower.contains("snipping")
+                || class_lower.contains("clipping")
+                || class_lower.contains("screensketch")
+                || class_lower.contains("directui")
+                || class_lower.contains("overlay")
             {
                 return false;
+            }
+        }
+
+        // Query the executable name of the foreground window to ignore screenshot & system tools
+        if let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, fg_pid) {
+            if !process.0.is_null() {
+                let mut path_buf = [0u16; 512];
+                let len = K32GetModuleFileNameExW(Some(process), None, &mut path_buf);
+                let _ = windows::Win32::Foundation::CloseHandle(process);
+                if len > 0 {
+                    let full_path = String::from_utf16_lossy(&path_buf[..len as usize]);
+                    let exe_name = std::path::Path::new(&full_path)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+
+                    if exe_name == "screenclippinghost.exe"
+                        || exe_name == "snippingtool.exe"
+                        || exe_name == "screensketch.exe"
+                        || exe_name == "snippingtoolapp.exe"
+                        || exe_name == "explorer.exe"
+                        || exe_name == "searchhost.exe"
+                        || exe_name == "startmenuexperiencehost.exe"
+                        || exe_name == "shellexperiencehost.exe"
+                        || exe_name == "lockapp.exe"
+                        || exe_name == "gamebar.exe"
+                        || exe_name == "gamebarftserver.exe"
+                        || exe_name == "bcastdvr.exe"
+                        || exe_name == "textinputhost.exe"
+                        || exe_name == "taskmgr.exe"
+                        || exe_name == "snipaste.exe"
+                        || exe_name == "sharex.exe"
+                        || exe_name == "lightshot.exe"
+                        || exe_name == "flameshot.exe"
+                        || exe_name == "greenshot.exe"
+                    {
+                        return false;
+                    }
+                }
             }
         }
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { MediaTrack, MediaSessionInfo } from "../../types";
 import { tauriBridge } from "../../services/tauriBridge";
 import { useSettings } from "../../stores/settingsStore";
+import { albumArtService, TrackColorTheme } from "../../services/albumArtService";
 
 const DEMO_PLAYLIST: MediaTrack[] = [
   {
@@ -31,6 +32,7 @@ export const MediaCapsule: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
   const [liveSession, setLiveSession] = useState<MediaSessionInfo | null>(null);
+  const [dynamicColor, setDynamicColor] = useState<TrackColorTheme | null>(null);
 
   const fallbackTrack = DEMO_PLAYLIST[trackIndex];
 
@@ -42,12 +44,25 @@ export const MediaCapsule: React.FC = () => {
       try {
         const session = await tauriBridge.getMediaSessionInfo();
         if (isMounted) {
-          setLiveSession(session);
           if (session) {
+            let art = session.album_art_base64;
+            if (!art) {
+              art = albumArtService.getCached(session.title, session.artist) || undefined;
+              if (!art) {
+                albumArtService.fetchAlbumArt(session.title, session.artist).then((fetchedArt) => {
+                  if (fetchedArt && isMounted) {
+                    setLiveSession((prev) => (prev && prev.title === session.title ? { ...prev, album_art_base64: fetchedArt } : prev));
+                  }
+                });
+              }
+            }
+            setLiveSession({ ...session, album_art_base64: art });
             setIsPlaying(session.is_playing);
             if (session.duration_sec > 0) {
               setProgress(Math.min(100, Math.round((session.current_sec * 100) / session.duration_sec)));
             }
+          } else {
+            setLiveSession(null);
           }
         }
       } catch {
@@ -63,6 +78,24 @@ export const MediaCapsule: React.FC = () => {
     };
   }, [isMediaBarEnabled]);
 
+  // Extract vibrant theme colors from album art
+  useEffect(() => {
+    const artUrl = liveSession?.album_art_base64;
+    if (!artUrl) {
+      setDynamicColor(null);
+      return;
+    }
+    const cached = albumArtService.getColorCached(artUrl);
+    if (cached) {
+      setDynamicColor(cached);
+      return;
+    }
+    albumArtService.extractDominantColor(artUrl).then((color) => {
+      if (color) {
+        setDynamicColor(color);
+      }
+    });
+  }, [liveSession?.album_art_base64]);
 
   const handleTogglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -90,23 +123,44 @@ export const MediaCapsule: React.FC = () => {
       className={`capsule capsule--compact media-capsule ${
         showControls ? "media-capsule--expanded" : ""
       }`}
+      style={{
+        ["--wave-color" as any]: dynamicColor?.waveColor,
+        ["--wave-gradient" as any]: dynamicColor?.waveGradient,
+        ["--wave-glow" as any]: dynamicColor?.glowColor,
+      }}
       onClick={() => setShowControls(!showControls)}
       title="Media Player"
     >
       <div className="media-content">
-        {/* Animated Equalizer Waveform */}
-        <div className={`media-equalizer ${isPlaying ? "media-equalizer--playing" : ""}`}>
-          <span className="eq-bar eq-bar-1" />
-          <span className="eq-bar eq-bar-2" />
-          <span className="eq-bar eq-bar-3" />
-          <span className="eq-bar eq-bar-4" />
-        </div>
+        {/* Album Artwork Thumbnail */}
+        {liveSession?.album_art_base64 ? (
+          <div className="media-album-thumb">
+            <img src={liveSession.album_art_base64} alt="Album Art" />
+          </div>
+        ) : (
+          /* Animated Equalizer Waveform */
+          <div className={`media-equalizer ${isPlaying ? "media-equalizer--playing" : ""}`}>
+            <span className="eq-bar eq-bar-1" />
+            <span className="eq-bar eq-bar-2" />
+            <span className="eq-bar eq-bar-3" />
+            <span className="eq-bar eq-bar-4" />
+          </div>
+        )}
 
         {/* Track Details */}
         <div className="media-info">
           <span className="media-title">{displayTitle}</span>
           <span className="media-artist">{displayArtist}</span>
         </div>
+
+        {/* Mini Waveform next to track details if album thumbnail is displayed */}
+        {Boolean(liveSession?.album_art_base64) && (
+          <div className={`media-equalizer ${isPlaying ? "media-equalizer--playing" : ""}`}>
+            <span className="eq-bar eq-bar-1" />
+            <span className="eq-bar eq-bar-2" />
+            <span className="eq-bar eq-bar-3" />
+          </div>
+        )}
 
         {/* Quick Media Controls */}
         <div className="media-controls" onClick={(e) => e.stopPropagation()}>
@@ -158,3 +212,4 @@ export const MediaCapsule: React.FC = () => {
     </div>
   );
 };
+
