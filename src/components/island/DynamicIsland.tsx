@@ -511,7 +511,7 @@ export const DynamicIsland: React.FC = () => {
                   </div>
 
                   <div className="notch-split-bt-name">
-                    {activeBtDevice?.name || "realme Buds ..."}
+                    {activeBtDevice?.name || "Bluetooth Device"}
                   </div>
 
                   <div className="notch-mini-battery-ring">
