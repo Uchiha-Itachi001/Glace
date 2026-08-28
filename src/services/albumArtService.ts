@@ -159,15 +159,15 @@ export async function extractDominantColor(imageUrl: string): Promise<TrackColor
         const finalG = boost(chosen.g);
         const finalB = boost(chosen.b);
 
-        // Upper color: brighter, high-energy lighter tint for upper part of waveform bar
-        const topR = Math.min(255, Math.round(finalR * 1.28 + 20));
-        const topG = Math.min(255, Math.round(finalG * 1.2 + 15));
-        const topB = Math.min(255, Math.round(finalB * 1.15 + 10));
+        // Upper color: luminous bright highlight (frosted light tint)
+        const topR = Math.min(255, Math.round(finalR * 0.40 + 255 * 0.60));
+        const topG = Math.min(255, Math.round(finalG * 0.40 + 255 * 0.60));
+        const topB = Math.min(255, Math.round(finalB * 0.40 + 255 * 0.60));
 
-        // Lower color: deeper, richly saturated tone for lower part of waveform bar
-        const botR = Math.max(15, Math.round(finalR * 0.82));
-        const botG = Math.max(15, Math.round(finalG * 0.82));
-        const botB = Math.max(15, Math.round(finalB * 0.82));
+        // Lower color: deep rich saturated tone
+        const botR = Math.max(15, Math.round(finalR * 0.88));
+        const botG = Math.max(15, Math.round(finalG * 0.88));
+        const botB = Math.max(15, Math.round(finalB * 0.88));
 
         const waveGradientTop = `rgb(${topR}, ${topG}, ${topB})`;
         const waveGradientBottom = `rgb(${botR}, ${botG}, ${botB})`;

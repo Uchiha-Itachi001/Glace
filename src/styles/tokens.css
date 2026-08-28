@@ -66,3 +66,11 @@
   --glace-duration-base:  240ms;
   --glace-duration-slow:  400ms;
 }
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus:not(:focus-visible) {
+  outline: none;
+}

@@ -133,19 +133,15 @@ export const MediaCapsule: React.FC = () => {
     >
       <div className="media-content">
         {/* Album Artwork Thumbnail */}
-        {liveSession?.album_art_base64 ? (
-          <div className="media-album-thumb">
-            <img src={liveSession.album_art_base64} alt="Album Art" />
-          </div>
-        ) : (
-          /* Animated Equalizer Waveform */
-          <div className={`media-equalizer ${isPlaying ? "media-equalizer--playing" : ""}`}>
-            <span className="eq-bar eq-bar-1" />
-            <span className="eq-bar eq-bar-2" />
-            <span className="eq-bar eq-bar-3" />
-            <span className="eq-bar eq-bar-4" />
-          </div>
-        )}
+        <div className="media-album-thumb">
+          <img
+            src={liveSession?.album_art_base64 || "/albumcover-placeholder.png"}
+            alt="Album Art"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/albumcover-placeholder.png";
+            }}
+          />
+        </div>
 
         {/* Track Details */}
         <div className="media-info">
@@ -153,14 +149,12 @@ export const MediaCapsule: React.FC = () => {
           <span className="media-artist">{displayArtist}</span>
         </div>
 
-        {/* Mini Waveform next to track details if album thumbnail is displayed */}
-        {Boolean(liveSession?.album_art_base64) && (
-          <div className={`media-equalizer ${isPlaying ? "media-equalizer--playing" : ""}`}>
-            <span className="eq-bar eq-bar-1" />
-            <span className="eq-bar eq-bar-2" />
-            <span className="eq-bar eq-bar-3" />
-          </div>
-        )}
+        {/* Mini Waveform next to track details */}
+        <div className={`media-equalizer ${isPlaying ? "media-equalizer--playing" : ""}`}>
+          <span className="eq-bar eq-bar-1" />
+          <span className="eq-bar eq-bar-2" />
+          <span className="eq-bar eq-bar-3" />
+        </div>
 
         {/* Quick Media Controls */}
         <div className="media-controls" onClick={(e) => e.stopPropagation()}>

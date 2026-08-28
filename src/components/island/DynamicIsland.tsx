@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSettings } from "../../stores/settingsStore";
 import { useBluetooth } from "../../hooks/useBluetooth";
+import { useSystemMetrics } from "../../hooks/useSystemMetrics";
 import { tauriBridge } from "../../services/tauriBridge";
 import { windowExpansion } from "../../services/windowExpansion";
 import { MediaSessionInfo } from "../../types";
@@ -31,6 +32,21 @@ export const DynamicIsland: React.FC = () => {
   const showBluetooth = isIslandEnabled && (settings?.island_show_bluetooth ?? true);
 
   const bluetooth = useBluetooth();
+  const systemMetrics = useSystemMetrics(isIslandEnabled);
+  const batteryPercent = systemMetrics?.battery_percent ?? 100;
+
+  const [currentTime, setCurrentTime] = useState<string>(() => {
+    const now = new Date();
+    return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [expandedType, setExpandedType] = useState<"media" | "bluetooth" | null>(null);
   const [splitViewMode, setSplitViewMode] = useState<"media_main" | "bt_main">("media_main");
@@ -130,7 +146,7 @@ export const DynamicIsland: React.FC = () => {
   // Multi-activity is active when media session exists AND a real bluetooth device is connected!
   const isMultiActivity = hasMediaSession && showBluetooth && isBtConnected && activeBtDevice !== null;
 
-  if (!isIslandEnabled || (!hasMediaSession && !isMultiActivity && expandedType === null)) {
+  if (!isIslandEnabled) {
     return null;
   }
 
@@ -223,11 +239,13 @@ export const DynamicIsland: React.FC = () => {
       hash |= 0;
     }
     const hue = Math.abs(hash) % 360;
+    const topColor = `hsl(${hue}, 90%, 82%)`;
+    const botColor = `hsl(${hue}, 85%, 46%)`;
     return {
       waveColor: `hsl(${hue}, 88%, 58%)`,
-      waveGradient: `hsl(${hue}, 88%, 58%)`,
-      waveGradientTop: `hsl(${hue}, 88%, 68%)`,
-      waveGradientBottom: `hsl(${hue}, 88%, 48%)`,
+      waveGradient: `linear-gradient(180deg, ${topColor} 0%, ${botColor} 100%)`,
+      waveGradientTop: topColor,
+      waveGradientBottom: botColor,
       glowColor: `hsla(${hue}, 88%, 58%, 0.45)`,
     };
   };
@@ -244,6 +262,17 @@ export const DynamicIsland: React.FC = () => {
   const miniRadius = 4.2;
   const miniCircumference = 2 * Math.PI * miniRadius;
   const miniOffset = miniCircumference - (btBatteryPct / 100) * miniCircumference;
+
+  const renderLightBorder = () => (
+    <div className="notch-light-border" aria-hidden="true">
+      <div className="notch-stream-half notch-stream--left">
+        <div className="notch-stream-comet" />
+      </div>
+      <div className="notch-stream-half notch-stream--right">
+        <div className="notch-stream-comet" />
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -263,6 +292,8 @@ export const DynamicIsland: React.FC = () => {
             <div className="notch-ear notch-ear--left" />
             {/* Right Concave Wing Ear */}
             <div className="notch-ear notch-ear--right" />
+            {/* Moving Light Border Beam */}
+            {renderLightBorder()}
 
             <div className="notch-bluetooth-expanded-card">
               {/* Left Badge: Dark Circle with Bluetooth Emblem & Side Bars */}
@@ -339,21 +370,21 @@ export const DynamicIsland: React.FC = () => {
             <div className="notch-ear notch-ear--left" />
             {/* Right Concave Wing Ear */}
             <div className="notch-ear notch-ear--right" />
+            {/* Moving Light Border Beam */}
+            {renderLightBorder()}
 
             <div className="notch-expanded-card">
               {/* Row 1: Album Art + Track Info + Top-Right Waveform */}
               <div className="notch-card-top-row">
                 <div className="notch-card-media-left">
                   <div className="notch-card-art">
-                    {liveMedia?.album_art_base64 ? (
-                      <img src={liveMedia.album_art_base64} alt="Album Art" />
-                    ) : (
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="#ffffff">
-                        <path d="M9 18V5l12-2v13" />
-                        <circle cx="6" cy="18" r="3" />
-                        <circle cx="18" cy="16" r="3" />
-                      </svg>
-                    )}
+                    <img
+                      src={liveMedia?.album_art_base64 || "/albumcover-placeholder.png"}
+                      alt="Album Art"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/albumcover-placeholder.png";
+                      }}
+                    />
                   </div>
                   <div className="notch-card-text">
                     <span className="notch-card-title">{activeTitle}</span>
@@ -384,7 +415,7 @@ export const DynamicIsland: React.FC = () => {
                 <span className="notch-time-label">{formatTime(activeDuration)}</span>
               </div>
 
-              {/* Row 3: 5 Evenly Distributed Playback Controls */}
+              {/* Row 3: 5 Playback Controls (Evenly Clustered & Enlarged) */}
               <div className="notch-card-controls-row">
                 {/* 1. Shuffle */}
                 <button
@@ -392,7 +423,7 @@ export const DynamicIsland: React.FC = () => {
                   onClick={() => setIsShuffle(!isShuffle)}
                   title="Shuffle"
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="16 3 21 3 21 8" />
                     <line x1="4" y1="20" x2="21" y2="3" />
                     <polyline points="21 16 21 21 16 21" />
@@ -403,9 +434,8 @@ export const DynamicIsland: React.FC = () => {
 
                 {/* 2. Previous Track */}
                 <button className="notch-btn-icon" onClick={handlePrevTrack} title="Previous">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                    <path d="M23.84,6.47l.05,11.53c0,1.07-1.45,1.68-2.45,1.02l-8.86-5.79c-.8-.52-.8-1.53,0-2.05l8.81-5.74c1-.65,2.46-.04,2.46,1.03Z" />
-                    <path d="M11.93,6.47l.05,11.53c0,1.07-1.45,1.68-2.45,1.02L.67,13.23c-.8-.52-.8-1.53,0-2.05l8.81-5.74c1-.65,2.46-.04,2.46,1.03Z" />
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                    <path d="M22 5.5a1.2 1.2 0 0 0-1.85-.98L13.3 9.7a1.2 1.2 0 0 0 0 1.96l6.85 5.18A1.2 1.2 0 0 0 22 15.86V5.5zm-11 0a1.2 1.2 0 0 0-1.85-.98L2.3 9.7a1.2 1.2 0 0 0 0 1.96l6.85 5.18A1.2 1.2 0 0 0 11 15.86V5.5z" />
                   </svg>
                 </button>
 
@@ -416,31 +446,33 @@ export const DynamicIsland: React.FC = () => {
                   title={activeIsPlaying ? "Pause" : "Play"}
                 >
                   {activeIsPlaying ? (
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                      <rect x="5" y="3" width="5" height="18" rx="1.5" />
-                      <rect x="14" y="3" width="5" height="18" rx="1.5" />
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                      <rect x="5.5" y="3.5" width="4.5" height="17" rx="1.8" />
+                      <rect x="14" y="3.5" width="4.5" height="17" rx="1.8" />
                     </svg>
                   ) : (
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                      <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                      <path d="M6 4.5a1.5 1.5 0 0 1 2.3-1.28l12 7.5a1.5 1.5 0 0 1 0 2.56l-12 7.5A1.5 1.5 0 0 1 6 19.5V4.5z" />
                     </svg>
                   )}
                 </button>
 
                 {/* 4. Next Track */}
                 <button className="notch-btn-icon" onClick={handleNextTrack} title="Next">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                    <path d="M.12,17.5l-.05-11.11c0-1.03,1.45-1.61,2.45-.98l8.86,5.58c.8.5.8,1.48,0,1.98l-8.81,5.53c-1,.63-2.46.04-2.46-.99Z" />
-                    <path d="M12.03,17.5l-.05-11.11c0-1.03,1.45-1.61,2.45-.98l8.86,5.58c.8.5.8,1.48,0,1.98l-8.81,5.53c-1,.63-2.46.04-2.46-.99Z" />
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                    <path d="M2 5.5a1.2 1.2 0 0 1 1.85-.98L10.7 9.7a1.2 1.2 0 0 1 0 1.96l-6.85 5.18A1.2 1.2 0 0 1 2 15.86V5.5zm11 0a1.2 1.2 0 0 1 1.85-.98L21.7 9.7a1.2 1.2 0 0 1 0 1.96l-6.85 5.18A1.2 1.2 0 0 1 13 15.86V5.5z" />
                   </svg>
                 </button>
 
                 {/* 5. Switch / Collapse */}
                 <button className="notch-btn-icon" onClick={handleCollapse} title="Queue">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <rect x="3" y="6" width="18" height="2" rx="1" />
-                    <rect x="3" y="11" width="18" height="2" rx="1" />
-                    <rect x="3" y="16" width="18" height="2" rx="1" />
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                    <circle cx="4.5" cy="6" r="1.5" />
+                    <rect x="8.5" y="4.75" width="12" height="2.5" rx="1.25" />
+                    <circle cx="4.5" cy="12" r="1.5" />
+                    <rect x="8.5" y="10.75" width="12" height="2.5" rx="1.25" />
+                    <circle cx="4.5" cy="18" r="1.5" />
+                    <rect x="8.5" y="16.75" width="12" height="2.5" rx="1.25" />
                   </svg>
                 </button>
               </div>
@@ -475,19 +507,20 @@ export const DynamicIsland: React.FC = () => {
               <div className="notch-ear notch-ear--left" />
               {/* Right Concave Wing Ear */}
               <div className="notch-ear notch-ear--right" />
+              {/* Moving Light Border Beam */}
+              {renderLightBorder()}
 
               {/* Sub-State: Media on Main Pill */}
               {splitViewMode === "media_main" ? (
                 <div className="notch-split-media-layout">
                   <div className="notch-album-thumb">
-                    {liveMedia?.album_art_base64 ? (
-                      <img src={liveMedia.album_art_base64} alt="Album Art" />
-                    ) : (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff">
-                        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    )}
+                    <img
+                      src={liveMedia?.album_art_base64 || "/albumcover-placeholder.png"}
+                      alt="Album Art"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/albumcover-placeholder.png";
+                      }}
+                    />
                   </div>
 
                   <div className={`notch-equalizer-wave ${!activeIsPlaying ? "notch-equalizer-wave--paused" : ""}`}>
@@ -561,6 +594,8 @@ export const DynamicIsland: React.FC = () => {
               <div className="notch-ear notch-ear--left" />
               {/* Right Concave Wing Ear */}
               <div className="notch-ear notch-ear--right" />
+              {/* Moving Light Border Beam */}
+              {renderLightBorder()}
 
               {splitViewMode === "media_main" ? (
                 <div className="notch-mini-battery-ring">
@@ -589,14 +624,13 @@ export const DynamicIsland: React.FC = () => {
                 </div>
               ) : (
                 <div className="notch-album-thumb notch-album-thumb--mini">
-                  {liveMedia?.album_art_base64 ? (
-                    <img src={liveMedia.album_art_base64} alt="Album Art" />
-                  ) : (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#ffffff">
-                      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
+                  <img
+                    src={liveMedia?.album_art_base64 || "/albumcover-placeholder.png"}
+                    alt="Album Art"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/albumcover-placeholder.png";
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -621,19 +655,20 @@ export const DynamicIsland: React.FC = () => {
             <div className="notch-ear notch-ear--left" />
             {/* Right Concave Wing Ear */}
             <div className="notch-ear notch-ear--right" />
+            {/* Moving Light Border Beam */}
+            {renderLightBorder()}
 
             {/* Sub-State: Media Single Activity */}
             <div className="notch-activity-layout">
               <div className="notch-activity-left">
                 <div className="notch-album-thumb">
-                  {liveMedia?.album_art_base64 ? (
-                    <img src={liveMedia.album_art_base64} alt="Album Art" />
-                  ) : (
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff">
-                      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
+                  <img
+                    src={liveMedia?.album_art_base64 || "/albumcover-placeholder.png"}
+                    alt="Album Art"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/albumcover-placeholder.png";
+                    }}
+                  />
                 </div>
               </div>
 
@@ -648,6 +683,33 @@ export const DynamicIsland: React.FC = () => {
                   <span className="notch-wave-bar" />
                   <span className="notch-wave-bar" />
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── CASE E: INACTIVE / IDLE COMPACT NOTCH ─── */}
+        {expandedType === null && !isMultiActivity && !hasMediaSession && (
+          <div
+            className="dynamic-notch dynamic-notch--compact"
+            style={{
+              ["--wave-color" as any]: "#38bdf8",
+              ["--wave-glow" as any]: "rgba(56, 189, 248, 0.45)",
+            }}
+          >
+            {/* Left Concave Wing Ear */}
+            <div className="notch-ear notch-ear--left" />
+            {/* Right Concave Wing Ear */}
+            <div className="notch-ear notch-ear--right" />
+            {/* Moving Light Border Beam */}
+            {renderLightBorder()}
+
+            <div className="notch-compact-layout">
+              <div className="notch-compact-left">
+                <span className="notch-compact-time">{currentTime}</span>
+              </div>
+              <div className="notch-compact-right">
+                <span>{batteryPercent}%</span>
               </div>
             </div>
           </div>

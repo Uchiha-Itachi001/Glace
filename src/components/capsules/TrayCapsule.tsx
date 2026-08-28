@@ -3,10 +3,13 @@ import { tauriBridge } from "../../services/tauriBridge";
 import { useFlyout } from "../../stores/flyoutStore";
 import { useSettings, DEFAULT_TRAY_ITEMS } from "../../stores/settingsStore";
 import { useSystemMetrics } from "../../hooks/useSystemMetrics";
+import { useNetworkStatus } from "../../hooks/useNetworkStatus";
+import { WifiIcon } from "../common/WifiIcon";
 
 export const TrayCapsule: React.FC = () => {
   const { activeFlyout, toggleFlyout } = useFlyout();
   const { settings } = useSettings();
+  const { networkState } = useNetworkStatus();
 
   const trayItems = settings?.tray_items || DEFAULT_TRAY_ITEMS;
   const isItemVisible = (id: string) => trayItems.includes(id);
@@ -64,6 +67,13 @@ export const TrayCapsule: React.FC = () => {
 
   const fillWidth = Math.max(2, Math.min(15, (batteryPercent / 100) * 15));
 
+  const wifiTitle =
+    networkState === "connected"
+      ? "Internet Access: Connected"
+      : networkState === "connecting"
+      ? "Wi-Fi: Connecting..."
+      : "No Internet Access: Disconnected";
+
   return (
     <div className="capsule capsule--compact tray-capsule">
       <div className="tray-list">
@@ -104,7 +114,7 @@ export const TrayCapsule: React.FC = () => {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2.5"
+              strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
@@ -114,39 +124,54 @@ export const TrayCapsule: React.FC = () => {
         )}
 
         {/* Windows 11 Touch Keyboard Button */}
-        {isItemVisible("keyboard") && (
+        {isItemVisible("touch_keyboard") && (
           <div
             className="tray-tool-btn icon-hover"
             onClick={handleKeyboardClick}
             title="Touch Keyboard"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="20" height="14" x="2" y="5" rx="2" />
-              <line x1="6" x2="6.01" y1="9" y2="9" strokeWidth="2.5" />
-              <line x1="10" x2="10.01" y1="9" y2="9" strokeWidth="2.5" />
-              <line x1="14" x2="14.01" y1="9" y2="9" strokeWidth="2.5" />
-              <line x1="18" x2="18.01" y1="9" y2="9" strokeWidth="2.5" />
-              <line x1="8" x2="16" y1="15" y2="15" strokeWidth="2" />
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="2" y="4" width="20" height="16" rx="2.5" />
+              <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M18 12h.01M8 16h8" />
             </svg>
           </div>
         )}
 
-        {/* Windows 11 Screen / Copilot / Widgets Button */}
+        {/* Windows 11 Widgets Panel Button */}
         {isItemVisible("widgets") && (
           <div
             className="tray-tool-btn icon-hover"
             onClick={handleWidgetsClick}
-            title="Widgets & Copilot (Win + W)"
+            title="Widgets (Win + W)"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="18" height="14" x="3" y="5" rx="2" />
-              <line x1="3" x2="21" y1="12" y2="12" />
-              <line x1="12" x2="12" y1="12" y2="19" />
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="7" height="9" rx="1.5" />
+              <rect x="14" y="3" width="7" height="5" rx="1.5" />
+              <rect x="14" y="12" width="7" height="9" rx="1.5" />
+              <rect x="3" y="16" width="7" height="5" rx="1.5" />
             </svg>
           </div>
         )}
 
-        {/* Windows 11 Input Language Switcher */}
+        {/* Windows 11 Active Input Language Badge */}
         {isItemVisible("language") && (
           <div
             className="tray-lang-pill icon-hover"
@@ -163,16 +188,11 @@ export const TrayCapsule: React.FC = () => {
           <div
             className="tray-system-indicators icon-hover"
             onClick={handleQuickSettingsClick}
-            title={`Network, Sound, Battery (${batteryPercent}%${isCharging ? ", Charging" : ""}) - Win + A`}
+            title={`Network, Sound, Battery (${batteryPercent}%${isCharging ? ", Charging" : ""}) - Click for Control Center`}
           >
-            {/* Windows 11 Fluent Wi-Fi */}
-            <div className="fluent-indicator-icon" title="Internet Access">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-                <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-                <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-                <circle cx="12" cy="20" r="1.2" fill="currentColor" />
-              </svg>
+            {/* Windows 11 Fluent Dynamic Wi-Fi (Connected / Connecting / Disconnected) */}
+            <div className="fluent-indicator-icon" title={wifiTitle}>
+              <WifiIcon state={networkState} size={15} />
             </div>
 
             {/* Windows 11 Fluent Volume */}

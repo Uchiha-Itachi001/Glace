@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { SystemMetrics } from "../../types";
+import { useNetworkStatus } from "../../hooks/useNetworkStatus";
+import { WifiIcon } from "../common/WifiIcon";
 
 interface QuickSettingsFlyoutProps {
   systemStatus: SystemMetrics | null;
@@ -10,12 +12,25 @@ export const QuickSettingsFlyout: React.FC<QuickSettingsFlyoutProps> = ({
   systemStatus,
   onClose,
 }) => {
+  const { networkState, setNetworkState } = useNetworkStatus();
   const [volume, setVolume] = useState<number>(75);
   const [brightness, setBrightness] = useState<number>(85);
-  const [wifiEnabled, setWifiEnabled] = useState<boolean>(true);
   const [bluetoothEnabled, setBluetoothEnabled] = useState<boolean>(true);
   const [dndEnabled, setDndEnabled] = useState<boolean>(false);
   const [nightLight, setNightLight] = useState<boolean>(false);
+
+  const handleWifiToggle = () => {
+    if (networkState === "connected") {
+      setNetworkState("disconnected");
+    } else if (networkState === "disconnected") {
+      setNetworkState("connecting");
+      setTimeout(() => {
+        setNetworkState("connected");
+      }, 1200);
+    } else {
+      setNetworkState("connected");
+    }
+  };
 
   return (
     <div className="quick-settings-flyout flyout-enter" onClick={(e) => e.stopPropagation()}>
@@ -29,20 +44,22 @@ export const QuickSettingsFlyout: React.FC<QuickSettingsFlyoutProps> = ({
       {/* Quick Toggle Tiles */}
       <div className="qs-tiles-grid">
         <div
-          className={`qs-tile ${wifiEnabled ? "qs-tile--active" : ""}`}
-          onClick={() => setWifiEnabled(!wifiEnabled)}
+          className={`qs-tile ${networkState !== "disconnected" ? "qs-tile--active" : ""}`}
+          onClick={handleWifiToggle}
+          title="Click to cycle Wi-Fi state (Connected / Connecting / Disconnected)"
         >
           <div className="qs-tile-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-              <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-              <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-              <line x1="12" y1="20" x2="12.01" y2="20" />
-            </svg>
+            <WifiIcon state={networkState} size={18} />
           </div>
           <div className="qs-tile-labels">
             <span className="qs-tile-name">Wi-Fi</span>
-            <span className="qs-tile-sub">{wifiEnabled ? "Connected" : "Off"}</span>
+            <span className="qs-tile-sub">
+              {networkState === "connected"
+                ? "Connected"
+                : networkState === "connecting"
+                ? "Connecting..."
+                : "Disconnected"}
+            </span>
           </div>
         </div>
 

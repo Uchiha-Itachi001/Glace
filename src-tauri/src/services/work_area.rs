@@ -299,12 +299,12 @@ pub fn update_window_region(
             let is_macos_mode = settings.bar_position == "macos" || settings.bar_position == "top";
 
             let rgn_top = if is_macos_mode {
-                CreateRectRgn(0, 0, monitor_w, 36)
+                CreateRectRgn(0, 0, monitor_w, 48)
             } else if settings.enable_dynamic_island {
-                let notch_w = 420;
+                let notch_w = 460;
                 let notch_left = ((monitor_w - notch_w) / 2).max(0);
                 let notch_right = (notch_left + notch_w).min(monitor_w);
-                CreateRectRgn(notch_left, 0, notch_right, 36)
+                CreateRectRgn(notch_left, 0, notch_right, 54)
             } else {
                 CreateRectRgn(0, 0, 0, 0)
             };
