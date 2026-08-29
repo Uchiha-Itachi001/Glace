@@ -223,26 +223,14 @@ pub(crate) fn hicon_to_base64_png(hicon: HICON) -> Option<String> {
 
 fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
     unsafe {
-        let cache_key = if !exe_path.is_empty() {
-            exe_path
-        } else {
-            exe_name
+        let is_browser = {
+            let n = exe_name.to_lowercase();
+            n.contains("msedge") || n.contains("chrome") || n.contains("brave") || n.contains("opera") || n.contains("vivaldi")
         };
 
-        // 1. Fast-path: Check in-memory icon cache first (avoids Win32 IPC & GDI rasterization on 99% of calls)
-        if !cache_key.is_empty() {
-            if let Ok(guard) = ICON_CACHE.lock() {
-                if let Some(cache) = guard.as_ref() {
-                    if let Some(cached) = cache.get(cache_key) {
-                        return cached.clone();
-                    }
-                }
-            }
-        }
-
+        // 1. For browsers/PWAs, ALWAYS query live HWND icon first (captures PWA icons: Manus, DeepSeek, Claude, YouTube Music, WhatsApp, etc.)
         let mut found_b64: Option<String> = None;
 
-        // 2. Query live HWND for its specific icon (crucial for PWAs like YouTube Music, Notion, Discord)
         if !hwnd.0.is_null() {
             for icon_type in [1usize, 2, 0] {
                 let mut result: usize = 0;
@@ -282,13 +270,24 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
         }
 
         if let Some(b64) = found_b64 {
-            if !cache_key.is_empty() {
-                if let Ok(mut guard) = ICON_CACHE.lock() {
-                    let cache = guard.get_or_insert_with(HashMap::new);
-                    cache.insert(cache_key.to_string(), b64.clone());
+            return b64;
+        }
+
+        // 2. Fast-path: Check in-memory icon cache for standard non-browser applications
+        let cache_key = if !exe_path.is_empty() {
+            exe_path
+        } else {
+            exe_name
+        };
+
+        if !is_browser && !cache_key.is_empty() {
+            if let Ok(guard) = ICON_CACHE.lock() {
+                if let Some(cache) = guard.as_ref() {
+                    if let Some(cached) = cache.get(cache_key) {
+                        return cached.clone();
+                    }
                 }
             }
-            return b64;
         }
 
         // 3. Fallback: Extract from executable file path
@@ -336,7 +335,7 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
 
         let b64_final = found_b64.unwrap_or_default();
 
-        if !b64_final.is_empty() && !cache_key.is_empty() {
+        if !is_browser && !b64_final.is_empty() && !cache_key.is_empty() {
             if let Ok(mut guard) = ICON_CACHE.lock() {
                 let cache = guard.get_or_insert_with(HashMap::new);
                 cache.insert(cache_key.to_string(), b64_final.clone());

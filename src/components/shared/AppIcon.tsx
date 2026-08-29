@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { DockAppItem } from "../../types";
 import { WindowContextMenu } from "./WindowContextMenu";
 import { tauriBridge } from "../../services/tauriBridge";
@@ -11,10 +11,9 @@ interface AppIconProps {
   onUnpin?: (id: string) => void;
   isHovered?: boolean;
   isContextMenuOpen?: boolean;
-  isAnyContextMenuOpen?: boolean;
-  onHoverStart?: () => void;
-  onHoverEnd?: () => void;
-  onOpenContextMenu?: () => void;
+  onHoverStart?: (id: string) => void;
+  onHoverEnd?: (id: string) => void;
+  onOpenContextMenu?: (id: string) => void;
   onCloseContextMenu?: () => void;
 }
 
@@ -27,7 +26,6 @@ export const AppIcon = React.memo<AppIconProps>(
     onUnpin,
     isHovered = false,
     isContextMenuOpen = false,
-    isAnyContextMenuOpen = false,
     onHoverStart,
     onHoverEnd,
     onOpenContextMenu,
@@ -51,36 +49,36 @@ export const AppIcon = React.memo<AppIconProps>(
 
     const hasMultipleWindows = windowList.length > 1;
 
-    const handleMouseEnter = () => {
-      if (onHoverStart) onHoverStart();
-    };
+    const handleMouseEnter = useCallback(() => {
+      if (onHoverStart) onHoverStart(app.id);
+    }, [onHoverStart, app.id]);
 
-    const handleMouseLeave = () => {
-      if (onHoverEnd) onHoverEnd();
-    };
+    const handleMouseLeave = useCallback(() => {
+      if (onHoverEnd) onHoverEnd(app.id);
+    }, [onHoverEnd, app.id]);
 
-    const handleClick = (e: React.MouseEvent) => {
+    const handleClick = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
       onClick(app);
-    };
+    }, [onClick, app]);
 
-    const handleWindowCardClick = (e: React.MouseEvent, hwnd: number) => {
+    const handleWindowCardClick = useCallback((e: React.MouseEvent, hwnd: number) => {
       e.stopPropagation();
       tauriBridge.focusWindow(hwnd).catch(console.error);
-    };
+    }, []);
 
-    const handleCloseWindow = (e: React.MouseEvent, hwnd: number) => {
+    const handleCloseWindow = useCallback((e: React.MouseEvent, hwnd: number) => {
       e.stopPropagation();
       tauriBridge.closeWindow(hwnd).catch(console.error);
-    };
+    }, []);
 
-    const handleContextMenu = (e: React.MouseEvent) => {
+    const handleContextMenu = useCallback((e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       if (onOpenContextMenu) {
-        onOpenContextMenu();
+        onOpenContextMenu(app.id);
       }
-    };
+    }, [onOpenContextMenu, app.id]);
 
     return (
       <div
@@ -141,8 +139,8 @@ export const AppIcon = React.memo<AppIconProps>(
           <div className="open-indicator" />
         ) : null}
 
-        {/* Hover Previews & Tooltips (Suppressed if any context menu is open) */}
-        {isHovered && !isAnyContextMenuOpen && (
+        {/* Hover Previews & Tooltips (Suppressed if context menu is open on this item) */}
+        {isHovered && !isContextMenuOpen && (
           <div
             className="fluent-dock-preview-container"
             onClick={(e) => e.stopPropagation()}
@@ -212,7 +210,6 @@ export const AppIcon = React.memo<AppIconProps>(
       prev.app.id === next.app.id &&
       prev.isHovered === next.isHovered &&
       prev.isContextMenuOpen === next.isContextMenuOpen &&
-      prev.isAnyContextMenuOpen === next.isAnyContextMenuOpen &&
       prev.app.is_focused === next.app.is_focused &&
       prev.app.is_minimized === next.app.is_minimized &&
       prev.app.is_running === next.app.is_running &&

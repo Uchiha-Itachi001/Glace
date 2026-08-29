@@ -155,7 +155,7 @@ html, body {
   box-shadow: var(--glace-shadow-hover);
 }
 
-.capsule:active {
+.capsule--compact:active {
   transform: scale(0.98) !important;
 }
 
@@ -450,7 +450,13 @@ html, body {
   padding: 0 8px;
   overflow: visible !important;
   z-index: 100;
-  transition: all var(--glace-duration-base) var(--glace-ease-spring) !important;
+  transform: none !important;
+  transition: background 0.15s ease, border-color 0.15s ease !important;
+}
+
+.apps-capsule:hover,
+.apps-capsule:active {
+  transform: none !important;
 }
 
 .apps-list {
@@ -495,7 +501,7 @@ html, body {
   color: var(--glace-text-secondary);
   cursor: pointer;
   width: 32px !important;
-  height: 36px;
+  height: 32px;
   border-radius: 6px;
   transition: all 0.15s ease;
 }
@@ -515,8 +521,8 @@ html, body {
 
 .apps-overflow-badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 1px;
+  right: 1px;
   font-size: 7.5px;
   font-weight: 700;
   padding: 0 3px;
@@ -528,10 +534,10 @@ html, body {
 
 .apps-overflow-flyout {
   position: absolute;
-  bottom: 54px;
+  bottom: 48px;
   right: 0;
   min-width: 240px;
-  max-width: 340px;
+  max-width: 360px;
   background: var(--glace-bg-surface, rgba(14, 18, 28, 0.96));
   backdrop-filter: var(--glace-blur);
   -webkit-backdrop-filter: var(--glace-blur);
@@ -542,6 +548,11 @@ html, body {
   z-index: 1000;
   cursor: default;
   pointer-events: auto;
+}
+
+.bar-align--right .apps-overflow-flyout {
+  left: 0;
+  right: auto;
 }
 
 .apps-overflow-header {
@@ -594,24 +605,23 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 36px;
-  width: 40px;
+  height: 32px;
+  width: 36px;
   cursor: pointer;
   border-radius: 6px;
-  animation: app-icon-spring-in var(--glace-duration-base) var(--glace-ease-spring) backwards;
-  animation-delay: calc(var(--item-index, 0) * 35ms);
-  transition: background 0.12s ease, transform var(--glace-duration-fast) var(--glace-ease-spring) !important;
+  transition: background 0.15s ease !important;
+  transform: none !important;
   overflow: visible !important;
 }
 
 .app-icon-container:hover {
   background: rgba(255, 255, 255, 0.08);
-  transform: scale(1.08) translateY(-2px);
+  transform: none !important;
 }
 
 .app-icon-container:active {
   background: rgba(255, 255, 255, 0.14);
-  transform: scale(0.94) translateY(0);
+  transform: none !important;
 }
 
 /* Multi-Instance Stacked Tile Plates */
@@ -653,17 +663,34 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   position: relative;
   z-index: 1;
+  transition: transform 0.22s var(--glace-ease-spring) !important;
+  animation: app-icon-spring-in 0.44s var(--glace-ease-spring) backwards;
+  animation-delay: calc(var(--item-index, 0) * 35ms);
+}
+
+.app-icon-container:hover .app-icon-body {
+  transform: translateY(-2px) scale(1.12);
+}
+
+.app-icon-container:active .app-icon-body {
+  transform: translateY(0) scale(0.90);
 }
 
 .app-icon-img {
   width: 24px;
   height: 24px;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
+  image-rendering: -webkit-optimize-contrast;
+  display: block;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+  user-select: none;
+  pointer-events: none;
 }
 
 .app-icon-fallback {
@@ -683,17 +710,6 @@ html, body {
 /* Focus & State Indicators */
 .app-icon--focused {
   background: rgba(255, 255, 255, 0.1);
-}
-
-.app-icon--focused .app-icon-img,
-.app-icon--focused .app-icon-fallback {
-  animation: app-focus-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-@keyframes app-focus-pop {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.18) translateY(-2px); }
-  100% { transform: scale(1) translateY(0); }
 }
 
 .app-icon--focused:hover {

@@ -1,30 +1,186 @@
 use std::fs;
 use std::path::PathBuf;
 use windows::core::{Interface, PCWSTR};
-use windows::Win32::System::Com::{
-    CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
-    IPersistFile, STGM_READ,
+use windows::Win32::Foundation::SIZE;
+use windows::Win32::Graphics::Gdi::{
+    CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC,
+    BITMAP, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP,
 };
-use windows::Win32::UI::Shell::{IShellLinkW, ShellLink, SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
+use windows::Win32::System::Com::StructuredStorage::CreateStreamOnHGlobal;
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER,
+    COINIT_APARTMENTTHREADED, IPersistFile, IPersistStream, STGM_READ,
+};
+use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+use windows::Win32::System::Registry::{
+    RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ, REG_BINARY,
+};
+use windows::Win32::UI::Shell::{
+    IShellItemImageFactory, IShellLinkW, ShellLink, SHCreateItemFromParsingName,
+    SHGetFileInfoW, SHGetNameFromIDList, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON,
+    SIGDN_DESKTOPABSOLUTEPARSING, SIGDN_NORMALDISPLAY, SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY,
+};
 use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
 
 use crate::config::settings;
 use crate::models::types::PinnedApp;
 use crate::services::window_watcher::hicon_to_base64_png;
 
+/// Converts an HBITMAP (32-bit ARGB/DIB) from Windows Shell into a base64 PNG data URI
+pub fn hbitmap_to_base64_png(hbitmap: HBITMAP) -> Option<String> {
+    if hbitmap.0.is_null() {
+        return None;
+    }
+    unsafe {
+        let mut bm = BITMAP::default();
+        let ret = GetObjectW(
+            hbitmap.into(),
+            std::mem::size_of::<BITMAP>() as i32,
+            Some(&mut bm as *mut _ as *mut _),
+        );
+        if ret == 0 || bm.bmWidth <= 0 || bm.bmHeight <= 0 {
+            return None;
+        }
+
+        let width = bm.bmWidth as u32;
+        let height = bm.bmHeight as u32;
+        let mut rgba_pixels = vec![0u8; (width * height * 4) as usize];
+
+        // 1. Direct DIBSection buffer copy if bmBits is available
+        if !bm.bmBits.is_null() && bm.bmBitsPixel == 32 {
+            let src_ptr = bm.bmBits as *const u8;
+            let pitch = if bm.bmWidthBytes > 0 {
+                bm.bmWidthBytes as usize
+            } else {
+                (width * 4) as usize
+            };
+            let mut has_non_zero_alpha = false;
+
+            for y in 0..height {
+                // In DIBSection bottom-up order, row 0 is bottom line
+                let src_y = (height - 1 - y) as usize;
+                let src_row = src_ptr.add(src_y * pitch);
+                let dst_offset = (y as usize * width as usize * 4) as usize;
+                let dst_row = &mut rgba_pixels[dst_offset..dst_offset + (width as usize * 4)];
+
+                for x in 0..width as usize {
+                    let b = *src_row.add(x * 4);
+                    let g = *src_row.add(x * 4 + 1);
+                    let r = *src_row.add(x * 4 + 2);
+                    let a = *src_row.add(x * 4 + 3);
+
+                    if a > 0 {
+                        has_non_zero_alpha = true;
+                    }
+
+                    dst_row[x * 4] = r;
+                    dst_row[x * 4 + 1] = g;
+                    dst_row[x * 4 + 2] = b;
+                    dst_row[x * 4 + 3] = a;
+                }
+            }
+
+            // If alpha channel was entirely 0 (standard for 24-bit GDI bitmaps), make all non-black pixels opaque
+            if !has_non_zero_alpha {
+                for px in rgba_pixels.chunks_exact_mut(4) {
+                    if px[0] != 0 || px[1] != 0 || px[2] != 0 {
+                        px[3] = 255;
+                    }
+                }
+            }
+        } else {
+            // Fallback to GetDIBits using a valid Screen DC
+            let hdc_screen = GetDC(None);
+            if hdc_screen.0.is_null() {
+                return None;
+            }
+            let mem_dc = CreateCompatibleDC(Some(hdc_screen));
+            let _ = ReleaseDC(None, hdc_screen);
+            if mem_dc.0.is_null() {
+                return None;
+            }
+
+            let mut bmi = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: width as i32,
+                    biHeight: -(height as i32), // top-down DIB
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: BI_RGB.0,
+                    biSizeImage: (width * height * 4) as u32,
+                    biXPelsPerMeter: 0,
+                    biYPelsPerMeter: 0,
+                    biClrUsed: 0,
+                    biClrImportant: 0,
+                },
+                bmiColors: [windows::Win32::Graphics::Gdi::RGBQUAD::default()],
+            };
+
+            let lines = GetDIBits(
+                mem_dc,
+                hbitmap,
+                0,
+                height,
+                Some(rgba_pixels.as_mut_ptr() as *mut _),
+                &mut bmi,
+                DIB_RGB_COLORS,
+            );
+            let _ = DeleteDC(mem_dc);
+
+            if lines == 0 {
+                return None;
+            }
+
+            let mut has_alpha = false;
+            for px in rgba_pixels.chunks_exact(4) {
+                if px[3] != 0 {
+                    has_alpha = true;
+                    break;
+                }
+            }
+
+            for px in rgba_pixels.chunks_exact_mut(4) {
+                px.swap(0, 2); // B <-> R
+                if !has_alpha && (px[0] != 0 || px[1] != 0 || px[2] != 0) {
+                    px[3] = 255;
+                }
+            }
+        }
+
+        let img_buf = image::RgbaImage::from_raw(width, height, rgba_pixels)?;
+        let mut png_bytes: Vec<u8> = Vec::new();
+        let encoder = image::codecs::png::PngEncoder::new(&mut png_bytes);
+        img_buf.write_with_encoder(encoder).ok()?;
+
+        use base64::Engine;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
+        Some(format!("data:image/png;base64,{}", b64))
+    }
+}
+
 /// Resolves a .lnk shortcut file to its real target path (e.g. C:\...\brave.exe)
 pub fn resolve_shortcut_target(lnk_path: &str) -> Option<String> {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-        let shell_link: Result<IShellLinkW, _> = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER);
+        let shell_link: Result<IShellLinkW, _> =
+            CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER);
         if let Ok(link) = shell_link {
             if let Ok(persist_file) = link.cast::<IPersistFile>() {
-                let lnk_path_w: Vec<u16> = lnk_path.encode_utf16().chain(std::iter::once(0)).collect();
-                if persist_file.Load(PCWSTR(lnk_path_w.as_ptr()), STGM_READ).is_ok() {
+                let lnk_path_w: Vec<u16> =
+                    lnk_path.encode_utf16().chain(std::iter::once(0)).collect();
+                if persist_file
+                    .Load(PCWSTR(lnk_path_w.as_ptr()), STGM_READ)
+                    .is_ok()
+                {
                     let mut path_buf = [0u16; 1024];
-                    let mut find_data = windows::Win32::Storage::FileSystem::WIN32_FIND_DATAW::default();
+                    let mut find_data =
+                        windows::Win32::Storage::FileSystem::WIN32_FIND_DATAW::default();
                     if link.GetPath(&mut path_buf, &mut find_data, 0).is_ok() {
-                        let len = path_buf.iter().position(|&c| c == 0).unwrap_or(path_buf.len());
+                        let len = path_buf
+                            .iter()
+                            .position(|&c| c == 0)
+                            .unwrap_or(path_buf.len());
                         let target = String::from_utf16_lossy(&path_buf[..len]);
                         if !target.is_empty() && PathBuf::from(&target).exists() {
                             return Some(target);
@@ -37,9 +193,66 @@ pub fn resolve_shortcut_target(lnk_path: &str) -> Option<String> {
     None
 }
 
-/// Extract high-res icon from a .lnk or .exe file path and encode as transparent base64 PNG
+/// Extract high-res icon from any shell path, .lnk, .exe, or shell:AppsFolder AUMID
+pub fn extract_icon_from_shell_target(target: &str) -> String {
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+
+        // 1. Try IShellItemImageFactory on the target path directly (works for AUMIDs and .lnk files)
+        let target_w: Vec<u16> = target.encode_utf16().chain(std::iter::once(0)).collect();
+        let factory_res: Result<IShellItemImageFactory, _> =
+            SHCreateItemFromParsingName(PCWSTR(target_w.as_ptr()), None);
+        if let Ok(factory) = factory_res {
+            let size = SIZE {
+                cx: 128,
+                cy: 128,
+            };
+            // Try SIIGBF_ICONONLY first to get authentic crisp icon
+            let hbitmap_res = factory
+                .GetImage(size, SIIGBF_ICONONLY)
+                .or_else(|_| factory.GetImage(size, SIIGBF_BIGGERSIZEOK));
+
+            if let Ok(hbitmap) = hbitmap_res {
+                if !hbitmap.0.is_null() {
+                    let b64 = hbitmap_to_base64_png(hbitmap);
+                    let _ = DeleteObject(hbitmap.into());
+                    if let Some(png) = b64 {
+                        return png;
+                    }
+                }
+            }
+        }
+
+        // 2. If it's a .lnk file, try extracting from the resolved target executable
+        if target.to_lowercase().ends_with(".lnk") {
+            if let Some(resolved) = resolve_shortcut_target(target) {
+                if !resolved.is_empty() && !resolved.eq_ignore_ascii_case(target) {
+                    let res_w: Vec<u16> = resolved.encode_utf16().chain(std::iter::once(0)).collect();
+                    let factory_res: Result<IShellItemImageFactory, _> =
+                        SHCreateItemFromParsingName(PCWSTR(res_w.as_ptr()), None);
+                    if let Ok(factory) = factory_res {
+                        let size = SIZE { cx: 128, cy: 128 };
+                        if let Ok(hbitmap) = factory.GetImage(size, SIIGBF_BIGGERSIZEOK) {
+                            if !hbitmap.0.is_null() {
+                                let b64 = hbitmap_to_base64_png(hbitmap);
+                                let _ = DeleteObject(hbitmap.into());
+                                if let Some(png) = b64 {
+                                    return png;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Fallback to SHGetFileInfoW
+        extract_icon_from_path(target)
+    }
+}
+
+/// Extract icon from a path using SHGetFileInfoW fallback
 pub fn extract_icon_from_path(path: &str) -> String {
-    // If it's a .lnk file, try to resolve the actual executable target to avoid the shortcut arrow badge
     let target_path = if path.to_lowercase().ends_with(".lnk") {
         resolve_shortcut_target(path).unwrap_or_else(|| path.to_string())
     } else {
@@ -67,52 +280,242 @@ pub fn extract_icon_from_path(path: &str) -> String {
     String::new()
 }
 
-/// Infers the expected .exe process name from the shortcut title or file name
-fn infer_exe_name_from_title(title: &str) -> String {
-    let lower = title.to_lowercase();
-    if lower.contains("chrome") {
-        "chrome.exe".into()
-    } else if lower.contains("edge") {
-        "msedge.exe".into()
-    } else if lower.contains("brave") {
-        "brave.exe".into()
-    } else if lower.contains("code - insiders") {
-        "Code - Insiders.exe".into()
-    } else if lower.contains("code") || lower.contains("vs code") || lower.contains("visual studio code") {
-        "Code.exe".into()
-    } else if lower.contains("telegram") {
-        "Telegram.exe".into()
-    } else if lower.contains("android studio") {
-        "studio64.exe".into()
-    } else if lower.contains("antigravity") {
-        "Antigravity.exe".into()
-    } else if lower.contains("terminal") {
-        "WindowsTerminal.exe".into()
-    } else if lower.contains("explorer") || lower.contains("files") {
-        "explorer.exe".into()
-    } else if lower.contains("youtube music") {
-        "YouTube Music.exe".into()
-    } else if lower.contains("spotify") {
-        "Spotify.exe".into()
-    } else if lower.contains("discord") {
-        "Discord.exe".into()
-    } else if lower.contains("slack") {
-        "slack.exe".into()
-    } else if lower.contains("perplexity") {
-        "Perplexity.exe".into()
-    } else if lower.contains("notepad") {
-        "notepad.exe".into()
-    } else if lower.contains("calculator") {
-        "CalculatorApp.exe".into()
-    } else if lower.contains("task manager") {
-        "Taskmgr.exe".into()
+/// Dynamically extracts the executable file name or AUMID from the target path or title
+pub fn extract_exe_name(target_or_path: &str, title: &str) -> String {
+    // 1. If it's a .lnk file, resolve the real target executable path
+    let resolved = if target_or_path.to_lowercase().ends_with(".lnk") {
+        resolve_shortcut_target(target_or_path).unwrap_or_else(|| target_or_path.to_string())
     } else {
-        format!("{}.exe", title.replace(' ', ""))
+        target_or_path.to_string()
+    };
+
+    // 2. If it points to an actual file on disk with an executable extension
+    if let Some(file_name) = PathBuf::from(&resolved).file_name().and_then(|n| n.to_str()) {
+        if file_name.to_lowercase().ends_with(".exe") {
+            return file_name.to_string();
+        }
     }
+
+    // 3. If it's an AUMID / Packaged App (e.g. "gemini.google.com-112B99EB_vn3jms8s81tkg!App")
+    if resolved.contains('!') {
+        let clean = resolved.trim_start_matches("shell:AppsFolder\\");
+        return clean.to_string();
+    }
+
+    // 4. Default dynamic fallback
+    format!("{}.exe", title.replace(' ', ""))
 }
 
-/// Scans the native Windows Taskbar user-pinned shortcuts directory
-pub fn scan_windows_taskbar_pins() -> Vec<PinnedApp> {
+/// Reads the native Taskband binary stream from HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband
+fn read_taskband_binary() -> Option<Vec<u8>> {
+    unsafe {
+        let subkey: Vec<u16> = "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Taskband\0"
+            .encode_utf16()
+            .collect();
+        let mut hkey = HKEY::default();
+        if RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            PCWSTR(subkey.as_ptr()),
+            Some(0),
+            KEY_READ,
+            &mut hkey,
+        )
+        .is_err()
+        {
+            return None;
+        }
+
+        // Try FavoritesResolve first, fallback to Favorites
+        for val_name_str in ["FavoritesResolve\0", "Favorites\0"] {
+            let val_name: Vec<u16> = val_name_str.encode_utf16().collect();
+            let mut data_type = REG_BINARY;
+            let mut data_size: u32 = 0;
+            if RegQueryValueExW(
+                hkey,
+                PCWSTR(val_name.as_ptr()),
+                None,
+                Some(&mut data_type),
+                None,
+                Some(&mut data_size),
+            )
+            .is_ok()
+                && data_size > 4
+            {
+                let mut buffer = vec![0u8; data_size as usize];
+                if RegQueryValueExW(
+                    hkey,
+                    PCWSTR(val_name.as_ptr()),
+                    None,
+                    Some(&mut data_type),
+                    Some(buffer.as_mut_ptr()),
+                    Some(&mut data_size),
+                )
+                .is_ok()
+                {
+                    let _ = RegCloseKey(hkey);
+                    return Some(buffer);
+                }
+            }
+        }
+        let _ = RegCloseKey(hkey);
+    }
+    None
+}
+
+/// Parses the native Windows Taskband binary stream into ordered PinnedApp objects
+pub fn parse_taskband_pins(buffer: &[u8]) -> Vec<PinnedApp> {
+    let mut pinned = Vec::new();
+    let mut pos = 0;
+
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+
+        while pos + 4 <= buffer.len() {
+            let chunk_len = u32::from_le_bytes(buffer[pos..pos + 4].try_into().unwrap_or([0; 4])) as usize;
+            if chunk_len == 0 || pos + 4 + chunk_len > buffer.len() {
+                break;
+            }
+
+            let chunk_data = &buffer[pos + 4..pos + 4 + chunk_len];
+
+            // Allocate HGLOBAL and copy chunk data into it
+            if let Ok(hglobal) = GlobalAlloc(GMEM_MOVEABLE, chunk_len) {
+                let p_mem = GlobalLock(hglobal);
+                if !p_mem.is_null() {
+                    std::ptr::copy_nonoverlapping(chunk_data.as_ptr(), p_mem as *mut u8, chunk_len);
+                    let _ = GlobalUnlock(hglobal);
+
+                    if let Ok(stream) = CreateStreamOnHGlobal(hglobal, true) {
+                        let link_res: Result<IShellLinkW, _> =
+                            CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER);
+                        if let Ok(link) = link_res {
+                            if let Ok(p_stream) = link.cast::<IPersistStream>() {
+                                if p_stream.Load(&stream).is_ok() {
+                                    let mut path_buf = [0u16; 1024];
+                                    let mut find_data =
+                                        windows::Win32::Storage::FileSystem::WIN32_FIND_DATAW::default();
+                                    let _ = link.GetPath(&mut path_buf, &mut find_data, 0);
+                                    let path_len = path_buf
+                                        .iter()
+                                        .position(|&c| c == 0)
+                                        .unwrap_or(path_buf.len());
+                                    let raw_path = String::from_utf16_lossy(&path_buf[..path_len]);
+
+                                    let mut display_name = String::new();
+                                    let mut parsing_name = String::new();
+
+                                    if let Ok(pidl) = link.GetIDList() {
+                                        if !pidl.is_null() {
+                                            if let Ok(disp_ptr) = SHGetNameFromIDList(
+                                                pidl,
+                                                SIGDN_NORMALDISPLAY,
+                                            ) {
+                                                if !disp_ptr.0.is_null() {
+                                                    display_name = disp_ptr.to_string().unwrap_or_default();
+                                                    windows::Win32::System::Com::CoTaskMemFree(Some(
+                                                        disp_ptr.0 as *const _,
+                                                    ));
+                                                }
+                                            }
+
+                                            if let Ok(parse_ptr) = SHGetNameFromIDList(
+                                                pidl,
+                                                SIGDN_DESKTOPABSOLUTEPARSING,
+                                            ) {
+                                                if !parse_ptr.0.is_null() {
+                                                    parsing_name =
+                                                        parse_ptr.to_string().unwrap_or_default();
+                                                    windows::Win32::System::Com::CoTaskMemFree(Some(
+                                                        parse_ptr.0 as *const _,
+                                                    ));
+                                                }
+                                            }
+
+                                            windows::Win32::System::Com::CoTaskMemFree(Some(
+                                                pidl as *const _,
+                                            ));
+                                        }
+                                    }
+
+                                    // Determine title, target, launch command and icon
+                                    let mut title = display_name;
+                                    let is_aumid = parsing_name.contains('!')
+                                        || (!parsing_name.contains('\\')
+                                            && !parsing_name.ends_with(".lnk")
+                                            && !parsing_name.is_empty());
+
+                                    let launch_target = if is_aumid {
+                                        if parsing_name.starts_with("shell:AppsFolder\\") {
+                                            parsing_name.clone()
+                                        } else {
+                                            format!("shell:AppsFolder\\{}", parsing_name)
+                                        }
+                                    } else if !raw_path.is_empty() {
+                                        raw_path.clone()
+                                    } else if !parsing_name.is_empty() {
+                                        parsing_name.clone()
+                                    } else {
+                                        String::new()
+                                    };
+
+                                    if title.is_empty() {
+                                        if let Some(stem) = PathBuf::from(&launch_target)
+                                            .file_stem()
+                                            .map(|s| s.to_string_lossy().to_string())
+                                        {
+                                            title = stem;
+                                        } else {
+                                            title = "App".into();
+                                        }
+                                    }
+
+                                    // Clean any weird prefix characters from display title
+                                    title = title.trim_start_matches(|c: char| !c.is_alphanumeric()).to_string();
+
+                                    // Extract icon from the original .lnk path or launch target directly
+                                    let icon_b64 = if !raw_path.is_empty() && PathBuf::from(&raw_path).exists() {
+                                        let icon = extract_icon_from_shell_target(&raw_path);
+                                        if !icon.is_empty() {
+                                            icon
+                                        } else {
+                                            extract_icon_from_shell_target(&launch_target)
+                                        }
+                                    } else {
+                                        extract_icon_from_shell_target(&launch_target)
+                                    };
+
+                                    let exe = extract_exe_name(&launch_target, &title);
+                                    let id = title
+                                        .to_lowercase()
+                                        .chars()
+                                        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+                                        .collect::<String>();
+
+                                    if !title.is_empty() && !launch_target.is_empty() {
+                                        pinned.push(PinnedApp {
+                                            id,
+                                            title,
+                                            exe,
+                                            lnk_path: launch_target,
+                                            icon_b64,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            pos += 4 + chunk_len;
+        }
+    }
+
+    pinned
+}
+
+/// Scans the native Windows Taskbar user-pinned shortcuts directory as supplemental source
+pub fn scan_windows_taskbar_dir() -> Vec<PinnedApp> {
     let mut pinned = Vec::new();
     let app_data = std::env::var("APPDATA").unwrap_or_default();
     if app_data.is_empty() {
@@ -142,8 +545,8 @@ pub fn scan_windows_taskbar_pins() -> Vec<PinnedApp> {
                         }
 
                         let lnk_path = path.to_string_lossy().to_string();
-                        let icon_b64 = extract_icon_from_path(&lnk_path);
-                        let exe = infer_exe_name_from_title(&file_stem);
+                        let icon_b64 = extract_icon_from_shell_target(&lnk_path);
+                        let exe = extract_exe_name(&lnk_path, &file_stem);
                         let id = file_stem
                             .to_lowercase()
                             .chars()
@@ -166,54 +569,73 @@ pub fn scan_windows_taskbar_pins() -> Vec<PinnedApp> {
     pinned
 }
 
-/// Returns the currently active list of pinned apps.
-/// Always re-scans Windows TaskBar pins so newly pinned apps appear automatically.
+/// Discovers all native Windows Taskbar pinned apps and merges supplemental shortcuts
+pub fn scan_windows_taskbar_pins() -> Vec<PinnedApp> {
+    // Primary: Taskband binary stream from HKCU
+    let bin = read_taskband_binary();
+    let mut primary_pins = bin.map(|b| parse_taskband_pins(&b)).unwrap_or_default();
+
+    // Secondary: User Pinned\TaskBar shortcuts directory
+    let supplemental_pins = scan_windows_taskbar_dir();
+
+    // If primary registry stream was found, merge any missing supplemental pins
+    if !primary_pins.is_empty() {
+        for supp in supplemental_pins {
+            let already_present = primary_pins.iter().any(|p| {
+                p.id == supp.id
+                    || (!p.exe.is_empty() && p.exe.eq_ignore_ascii_case(&supp.exe))
+                    || p.title.eq_ignore_ascii_case(&supp.title)
+            });
+            if !already_present {
+                primary_pins.push(supp);
+            }
+        }
+        primary_pins
+    } else {
+        supplemental_pins
+    }
+}
+
+/// Retrieves the current pinned applications
 pub fn get_pinned_apps() -> Vec<PinnedApp> {
     let mut cfg = settings::load();
 
-    // Always re-scan native Windows TaskBar pins
+    // Scan native Windows TaskBar pins
     let mut scanned = scan_windows_taskbar_pins();
 
-    // Merge: for each Windows pin, check if we have a saved user customization
-    // (user may have re-ordered or added extra icon_b64 override)
+    // Only fallback to saved icon if freshly scanned icon is empty
     for scanned_app in &mut scanned {
-        if let Some(saved) = cfg
-            .pinned_apps
-            .iter()
-            .find(|p| p.id == scanned_app.id || p.exe.eq_ignore_ascii_case(&scanned_app.exe))
-        {
-            // Preserve custom icon override if any
-            if !saved.icon_b64.is_empty() && !saved.icon_b64.starts_with("data:image/png") {
-                // saved icon was old BMP, prefer freshly scanned PNG
-            } else if !saved.icon_b64.is_empty() {
-                scanned_app.icon_b64 = saved.icon_b64.clone();
+        if scanned_app.icon_b64.is_empty() {
+            if let Some(saved) = cfg.pinned_apps.iter().find(|p| p.id == scanned_app.id) {
+                if !saved.icon_b64.is_empty() && saved.icon_b64.starts_with("data:image/png") {
+                    scanned_app.icon_b64 = saved.icon_b64.clone();
+                }
             }
         }
     }
 
-    // Append any extra user-added pins that aren't Windows shortcuts
+    // Append any custom user-added pins that aren't Windows shortcuts
     for saved in &cfg.pinned_apps {
         let already_present = scanned.iter().any(|s| {
-            s.id == saved.id || s.exe.eq_ignore_ascii_case(&saved.exe)
+            s.id == saved.id
+                || (!saved.lnk_path.is_empty() && s.lnk_path.eq_ignore_ascii_case(&saved.lnk_path))
         });
         if !already_present {
             scanned.push(saved.clone());
         }
     }
 
-    // Persist the merged list
+    // Persist the updated list
     cfg.pinned_apps = scanned.clone();
     settings::save(&cfg);
 
     scanned
 }
 
-
 /// Pins an application to Glace taskbar
 pub fn pin_app(app: PinnedApp) -> Result<(), String> {
     let mut cfg = settings::load();
-    // Check if already pinned by id or exe
-    if let Some(existing) = cfg.pinned_apps.iter_mut().find(|p| p.id == app.id || (!app.exe.is_empty() && p.exe.eq_ignore_ascii_case(&app.exe))) {
+    if let Some(existing) = cfg.pinned_apps.iter_mut().find(|p| p.id == app.id) {
         *existing = app;
     } else {
         cfg.pinned_apps.push(app);
@@ -231,3 +653,27 @@ pub fn unpin_app(id_or_exe: &str) -> Result<(), String> {
     settings::save(&cfg);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_taskbar_pins_extraction() {
+        let pins = scan_windows_taskbar_pins();
+        println!("Found {} pinned apps from device:", pins.len());
+        for (i, pin) in pins.iter().enumerate() {
+            println!(
+                "  [{}] Title: '{}', Id: '{}', Exe: '{}', LnkPath: '{}', HasIcon: {}",
+                i,
+                pin.title,
+                pin.id,
+                pin.exe,
+                pin.lnk_path,
+                !pin.icon_b64.is_empty()
+            );
+        }
+        assert!(!pins.is_empty(), "Should find native pinned apps on device");
+    }
+}
+

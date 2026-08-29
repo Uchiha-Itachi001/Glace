@@ -138,31 +138,6 @@ export const TrayCapsule: React.FC = () => {
           </div>
         )}
 
-        {/* Windows 11 Widgets Panel Button */}
-        {isItemVisible("widgets") && (
-          <div
-            className="tray-tool-btn icon-hover"
-            onClick={handleWidgetsClick}
-            title="Widgets (Win + W)"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="7" height="9" rx="1.5" />
-              <rect x="14" y="3" width="7" height="5" rx="1.5" />
-              <rect x="14" y="12" width="7" height="9" rx="1.5" />
-              <rect x="3" y="16" width="7" height="5" rx="1.5" />
-            </svg>
-          </div>
-        )}
-
         {/* Windows 11 Active Input Language Badge */}
         {isItemVisible("language") && (
           <div
@@ -225,6 +200,31 @@ export const TrayCapsule: React.FC = () => {
                 </svg>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Windows 11 Widgets / Layout Panel Button (Rightmost) */}
+        {isItemVisible("widgets") && (
+          <div
+            className="tray-tool-btn icon-hover"
+            onClick={handleWidgetsClick}
+            title="Widgets & Layout (Win + W)"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="7" height="9" rx="1.5" />
+              <rect x="14" y="3" width="7" height="5" rx="1.5" />
+              <rect x="14" y="12" width="7" height="9" rx="1.5" />
+              <rect x="3" y="16" width="7" height="5" rx="1.5" />
+            </svg>
           </div>
         )}
       </div>

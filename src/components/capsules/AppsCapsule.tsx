@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useApps } from "../../hooks/useApps";
 import { useSettings } from "../../stores/settingsStore";
 import { AppIcon } from "../shared/AppIcon";
@@ -11,58 +11,168 @@ export const AppsCapsule: React.FC = () => {
   const [activeContextMenuAppId, setActiveContextMenuAppId] = useState<string | null>(null);
   const [hoveredAppId, setHoveredAppId] = useState<string | null>(null);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
-  const [maxVisibleApps, setMaxVisibleApps] = useState<number>(10);
+  const [maxVisibleApps, setMaxVisibleApps] = useState<number>(() => dockApps.length || 20);
   const collapseTimeoutRef = useRef<number | null>(null);
 
-  // Dynamically compute how many app icons fit without overlapping right widgets
+  // Dynamic Real-Time Section Collision Engine
   useEffect(() => {
-    const updateMaxApps = () => {
-      const screenW = window.innerWidth || 1920;
-      const isMediaInTaskbar = settings?.media_location === "taskbar";
-      const mediaW = isMediaInTaskbar ? 220 : 0;
-      const startW = (settings?.enabled_widgets || []).includes("start") ? 46 : 0;
+    const computeCollisionFreeCapacity = () => {
+      const taskbarEl = document.getElementById("taskbar-bar");
+      const statusClusterEl = document.getElementById("taskbar-status-cluster");
+      const appsClusterEl = document.getElementById("taskbar-apps-cluster");
 
-      // Approximate space taken by right widgets (Sysmon ~130px, Tray ~160px, Clock ~110px)
-      let rightW = 0;
-      const enabled = settings?.enabled_widgets || ["start", "apps", "sysmon", "tray", "clock"];
-      if (enabled.includes("sysmon")) rightW += 135;
-      if (enabled.includes("tray")) rightW += 165;
-      if (enabled.includes("clock")) rightW += 115;
-      if (rightW === 0) rightW = 80;
-
+      const screenW = window.innerWidth || (taskbarEl ? taskbarEl.clientWidth : 1920);
       const barAlign = settings?.bar_alignment || "center";
-      let availableW = screenW - rightW - startW - mediaW - 60;
+      const isMac = settings?.bar_position === "macos" || settings?.bar_position === "top";
 
-      if (barAlign === "center") {
-        // In center alignment, center area cannot exceed: screenW - 2 * (rightW + margin)
-        // This ensures the centered apps cluster NEVER touches or collides with the right section!
-        const maxCenterW = Math.max(200, screenW - 2 * (rightW + 36));
-        availableW = Math.min(availableW, maxCenterW - startW - mediaW);
+      // If in macOS mode, dock is centered alone at the bottom with 100% full screen width available
+      if (isMac) {
+        const availableW = screenW - 80;
+        const iconW = 40;
+        setMaxVisibleApps(Math.max(3, Math.floor(availableW / iconW)));
+        return;
       }
 
-      const iconW = 44; // 40px icon + 4px gap
-      // Subtract space for the overflow ellipsis button if needed
-      const calculatedMax = Math.max(2, Math.floor((availableW - 36) / iconW));
-      setMaxVisibleApps(calculatedMax);
+      // 1. Measure left-side capsule content boundary (SysMon or rightmost left-side capsule)
+      let leftBound = 16;
+      const leftCapsules = document.querySelectorAll(".taskbar-left .capsule");
+      if (leftCapsules.length > 0) {
+        const rightPositions = Array.from(leftCapsules)
+          .map((el) => el.getBoundingClientRect().right)
+          .filter((pos) => pos > 0 && pos < screenW);
+        if (rightPositions.length > 0) {
+          leftBound = Math.max(...rightPositions);
+        }
+      }
+
+      // 2. Measure right-side capsule content boundary (leftmost edge of Tray/Clock)
+      let rightBound = screenW - 16;
+      const rightCapsules = document.querySelectorAll(".taskbar-right .capsule, .taskbar-status-cluster .capsule");
+      if (rightCapsules.length > 0) {
+        const leftPositions = Array.from(rightCapsules)
+          .map((el) => el.getBoundingClientRect().left)
+          .filter((pos) => pos > 0 && pos < screenW);
+        if (leftPositions.length > 0) {
+          rightBound = Math.min(...leftPositions);
+        }
+      } else {
+        let statusW = 0;
+        const enabled = settings?.enabled_widgets || ["start", "apps", "sysmon", "tray", "clock"];
+        if (enabled.includes("tray")) {
+          const count = (settings?.tray_items || []).length || 5;
+          statusW += Math.max(120, count * 36 + 16);
+        }
+        if (enabled.includes("clock")) {
+          statusW += 115;
+        }
+        rightBound = screenW - statusW - 16;
+      }
+
+      // 3. Measure Start button & Media width inside the apps cluster
+      let nonAppsW = 0;
+      if (appsClusterEl) {
+        const startEl = appsClusterEl.querySelector(".start-capsule");
+        const mediaEl = appsClusterEl.querySelector(".media-capsule");
+        if (startEl) nonAppsW += startEl.getBoundingClientRect().width + 8;
+        if (mediaEl) nonAppsW += mediaEl.getBoundingClientRect().width + 8;
+      } else {
+        if ((settings?.enabled_widgets || []).includes("start")) nonAppsW += 48 + 8;
+        if (settings?.media_location === "taskbar") nonAppsW += 220 + 8;
+      }
+
+      // Safety buffer gap between sections (24px)
+      const safetyGap = 24;
+      let maxAllowedAppsWidth = 0;
+
+      if (barAlign === "left") {
+        const appsClusterLeft = appsClusterEl ? appsClusterEl.getBoundingClientRect().left : 10;
+        const availableSpace = Math.max(80, rightBound - appsClusterLeft - nonAppsW - safetyGap);
+        maxAllowedAppsWidth = availableSpace;
+      } else if (barAlign === "center") {
+        // In center alignment, calculate true symmetric space from center to leftBound and rightBound
+        const centerMid = screenW / 2;
+        const leftClearance = centerMid - leftBound - (safetyGap / 2);
+        const rightClearance = rightBound - centerMid - (safetyGap / 2);
+        const halfCenter = Math.max(120, Math.min(leftClearance, rightClearance));
+        const maxTotalCenterW = halfCenter * 2;
+        maxAllowedAppsWidth = Math.max(80, maxTotalCenterW - nonAppsW);
+      } else {
+        // Right alignment: Status is on left, apps docked on right
+        const availableSpace = Math.max(80, (screenW - 10) - leftBound - nonAppsW - safetyGap);
+        maxAllowedAppsWidth = availableSpace;
+      }
+
+      const iconW = 40; // 36px icon + 4px gap
+      const totalNeededWidth = dockApps.length * iconW + 16;
+
+      // If all dock apps fit inside the available space without collision, show ALL of them!
+      if (totalNeededWidth <= maxAllowedAppsWidth) {
+        setMaxVisibleApps(dockApps.length);
+      } else {
+        // When space is constrained, reserve 44px for the overflow ellipsis button
+        const fittingApps = Math.max(2, Math.floor((maxAllowedAppsWidth - 44) / iconW));
+        setMaxVisibleApps(fittingApps);
+      }
     };
 
-    updateMaxApps();
-    window.addEventListener("resize", updateMaxApps);
-    return () => window.removeEventListener("resize", updateMaxApps);
-  }, [settings?.media_location, settings?.enabled_widgets, settings?.bar_alignment]);
+    // Run measurement with requestAnimationFrame
+    const rafId = requestAnimationFrame(computeCollisionFreeCapacity);
+
+    // Dynamic resize & DOM observer
+    window.addEventListener("resize", computeCollisionFreeCapacity);
+    const observer = new ResizeObserver(computeCollisionFreeCapacity);
+
+    const taskbarEl = document.getElementById("taskbar-bar");
+    const statusEl = document.getElementById("taskbar-status-cluster");
+    if (taskbarEl) observer.observe(taskbarEl);
+    if (statusEl) observer.observe(statusEl);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", computeCollisionFreeCapacity);
+      observer.disconnect();
+    };
+  }, [
+    dockApps.length,
+    settings?.bar_alignment,
+    settings?.bar_position,
+    settings?.media_location,
+    settings?.enabled_widgets,
+    settings?.sysmon_mode,
+    settings?.tray_items,
+  ]);
+
+  const isRightAlign = settings?.bar_alignment === "right";
+
+  // Reorder apps based on alignment:
+  // - Left & Center: First pinned app (e.g. Store) on left, subsequent apps flow right
+  // - Right align: First pinned app (e.g. Store) on right (next to Start button), subsequent apps and new running apps flow left
+  const orderedApps = useMemo(() => {
+    if (isRightAlign) {
+      return [...dockApps].reverse();
+    }
+    return dockApps;
+  }, [dockApps, isRightAlign]);
 
   // Split apps into visible vs overflow
   const { visibleApps, overflowApps } = useMemo(() => {
-    if (dockApps.length <= maxVisibleApps) {
-      return { visibleApps: dockApps, overflowApps: [] };
+    if (orderedApps.length <= maxVisibleApps) {
+      return { visibleApps: orderedApps, overflowApps: [] };
+    }
+    if (isRightAlign) {
+      // In right align, visible apps are the rightmost ones (closest to Start button)
+      return {
+        visibleApps: orderedApps.slice(orderedApps.length - maxVisibleApps),
+        overflowApps: orderedApps.slice(0, orderedApps.length - maxVisibleApps),
+      };
     }
     return {
-      visibleApps: dockApps.slice(0, maxVisibleApps),
-      overflowApps: dockApps.slice(maxVisibleApps),
+      visibleApps: orderedApps.slice(0, maxVisibleApps),
+      overflowApps: orderedApps.slice(maxVisibleApps),
     };
-  }, [dockApps, maxVisibleApps]);
+  }, [orderedApps, maxVisibleApps, isRightAlign]);
 
-  const handleIconMouseEnter = (appId: string) => {
+  const handleIconMouseEnter = useCallback((appId: string) => {
     if (collapseTimeoutRef.current) {
       clearTimeout(collapseTimeoutRef.current);
       collapseTimeoutRef.current = null;
@@ -73,86 +183,148 @@ export const AppsCapsule: React.FC = () => {
       windowExpansion.release("apps-context");
     }
     windowExpansion.request("apps-hover", activeContextMenuAppId ? 360 : 220);
-  };
+  }, [activeContextMenuAppId]);
 
-  const handleIconMouseLeave = (appId: string) => {
+  const handleIconMouseLeave = useCallback((appId: string) => {
     if (collapseTimeoutRef.current) clearTimeout(collapseTimeoutRef.current);
     collapseTimeoutRef.current = window.setTimeout(() => {
       setHoveredAppId((current) => (current === appId ? null : current));
       windowExpansion.release("apps-hover");
     }, 180);
-  };
+  }, []);
 
-  const handleOpenContextMenu = (appId: string) => {
+  const handleOpenContextMenu = useCallback((appId: string) => {
     if (collapseTimeoutRef.current) {
       clearTimeout(collapseTimeoutRef.current);
       collapseTimeoutRef.current = null;
     }
     setActiveContextMenuAppId(appId);
     windowExpansion.request("apps-context", 360);
-  };
+  }, []);
 
-  const handleCloseContextMenu = () => {
+  const handleCloseContextMenu = useCallback(() => {
     setActiveContextMenuAppId(null);
     windowExpansion.release("apps-context");
-  };
+  }, []);
 
-  const handleIconClick = (app: Parameters<typeof launchOrFocus>[0]) => {
+  const handleIconClick = useCallback((app: Parameters<typeof launchOrFocus>[0]) => {
     setActiveContextMenuAppId(null);
     setIsOverflowOpen(false);
     windowExpansion.release("apps-context");
     windowExpansion.release("apps-overflow");
     windowExpansion.release("apps-hover");
     launchOrFocus(app);
-  };
+  }, [launchOrFocus]);
 
-  const toggleOverflow = (e: React.MouseEvent) => {
+  const toggleOverflow = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    const nextState = !isOverflowOpen;
-    setIsOverflowOpen(nextState);
-    if (nextState) {
-      windowExpansion.request("apps-overflow", 320);
-    } else {
-      windowExpansion.release("apps-overflow");
-    }
-  };
+    setIsOverflowOpen((prev) => {
+      const nextState = !prev;
+      if (nextState) {
+        windowExpansion.request("apps-overflow", 320);
+      } else {
+        windowExpansion.release("apps-overflow");
+      }
+      return nextState;
+    });
+  }, []);
 
   return (
-    <>
-      {/* Context Menu Backdrop */}
-      {activeContextMenuAppId !== null && (
-        <div
-          className="jumplist-backdrop"
-          onClick={handleCloseContextMenu}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            handleCloseContextMenu();
-          }}
-        />
-      )}
-
-      {/* Overflow Flyout Backdrop */}
-      {isOverflowOpen && (
-        <div
-          className="jumplist-backdrop"
-          onClick={() => {
-            setIsOverflowOpen(false);
-            windowExpansion.release("apps-overflow");
-          }}
-        />
-      )}
-
-      <div className="capsule apps-capsule">
-        <div className="apps-list">
-          {loading && dockApps.length === 0 ? (
-            <div className="apps-skeleton-list">
-              <div className="app-icon-skeleton" />
-              <div className="app-icon-skeleton" />
-              <div className="app-icon-skeleton" />
-              <div className="app-icon-skeleton" />
+    <div className="capsule apps-capsule">
+      <div className="apps-list">
+        {/* Ellipsis Overflow Button on LEFT when in right alignment */}
+        {isRightAlign && overflowApps.length > 0 && (
+          <div
+            className={`apps-overflow-btn icon-hover ${
+              isOverflowOpen ? "apps-overflow-btn--active" : ""
+            }`}
+            onClick={toggleOverflow}
+            title={`Show ${overflowApps.length} more running applications`}
+          >
+            <div className="apps-overflow-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="5" cy="12" r="2.2" />
+                <circle cx="12" cy="12" r="2.2" />
+                <circle cx="19" cy="12" r="2.2" />
+              </svg>
             </div>
-          ) : (
-            visibleApps.map((app, index) => (
+            <span className="apps-overflow-badge">+{overflowApps.length}</span>
+          </div>
+        )}
+
+        {loading && dockApps.length === 0 ? (
+          <div className="apps-skeleton-list">
+            <div className="app-icon-skeleton" />
+            <div className="app-icon-skeleton" />
+            <div className="app-icon-skeleton" />
+            <div className="app-icon-skeleton" />
+          </div>
+        ) : (
+          visibleApps.map((app, index) => (
+            <AppIcon
+              key={app.id}
+              app={app}
+              index={index}
+              onClick={handleIconClick}
+              onPin={pinApp}
+              onUnpin={unpinApp}
+              isHovered={hoveredAppId === app.id}
+              isContextMenuOpen={activeContextMenuAppId === app.id}
+              onHoverStart={handleIconMouseEnter}
+              onHoverEnd={handleIconMouseLeave}
+              onOpenContextMenu={handleOpenContextMenu}
+              onCloseContextMenu={handleCloseContextMenu}
+            />
+          ))
+        )}
+
+        {/* Ellipsis Overflow Button on RIGHT when in left/center alignment */}
+        {!isRightAlign && overflowApps.length > 0 && (
+          <div
+            className={`apps-overflow-btn icon-hover ${
+              isOverflowOpen ? "apps-overflow-btn--active" : ""
+            }`}
+            onClick={toggleOverflow}
+            title={`Show ${overflowApps.length} more running applications`}
+          >
+            <div className="apps-overflow-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="5" cy="12" r="2.2" />
+                <circle cx="12" cy="12" r="2.2" />
+                <circle cx="19" cy="12" r="2.2" />
+              </svg>
+            </div>
+            <span className="apps-overflow-badge">+{overflowApps.length}</span>
+          </div>
+        )}
+
+        {!loading && dockApps.length === 0 && (
+          <div className="apps-empty">No apps pinned</div>
+        )}
+      </div>
+
+      {/* Overflow Apps Flyout */}
+      {isOverflowOpen && overflowApps.length > 0 && (
+        <div
+          className="apps-overflow-flyout flyout-enter"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="apps-overflow-header">
+            <span className="apps-overflow-title">
+              More Apps ({overflowApps.length})
+            </span>
+            <button
+              className="apps-overflow-close"
+              onClick={() => {
+                setIsOverflowOpen(false);
+                windowExpansion.release("apps-overflow");
+              }}
+            >
+              ✕
+            </button>
+          </div>
+          <div className="apps-overflow-grid">
+            {overflowApps.map((app, index) => (
               <AppIcon
                 key={app.id}
                 app={app}
@@ -162,82 +334,15 @@ export const AppsCapsule: React.FC = () => {
                 onUnpin={unpinApp}
                 isHovered={hoveredAppId === app.id}
                 isContextMenuOpen={activeContextMenuAppId === app.id}
-                isAnyContextMenuOpen={activeContextMenuAppId !== null}
-                onHoverStart={() => handleIconMouseEnter(app.id)}
-                onHoverEnd={() => handleIconMouseLeave(app.id)}
-                onOpenContextMenu={() => handleOpenContextMenu(app.id)}
+                onHoverStart={handleIconMouseEnter}
+                onHoverEnd={handleIconMouseLeave}
+                onOpenContextMenu={handleOpenContextMenu}
                 onCloseContextMenu={handleCloseContextMenu}
               />
-            ))
-          )}
-
-          {/* Ellipsis Overflow Button when apps exceed space */}
-          {overflowApps.length > 0 && (
-            <div
-              className={`apps-overflow-btn icon-hover ${
-                isOverflowOpen ? "apps-overflow-btn--active" : ""
-              }`}
-              onClick={toggleOverflow}
-              title={`Show ${overflowApps.length} more running applications`}
-            >
-              <div className="apps-overflow-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="5" cy="12" r="2.2" />
-                  <circle cx="12" cy="12" r="2.2" />
-                  <circle cx="19" cy="12" r="2.2" />
-                </svg>
-              </div>
-              <span className="apps-overflow-badge">+{overflowApps.length}</span>
-            </div>
-          )}
-
-          {!loading && dockApps.length === 0 && (
-            <div className="apps-empty">No apps pinned</div>
-          )}
-        </div>
-
-        {/* Overflow Apps Flyout */}
-        {isOverflowOpen && overflowApps.length > 0 && (
-          <div
-            className="apps-overflow-flyout flyout-enter"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="apps-overflow-header">
-              <span className="apps-overflow-title">
-                More Apps ({overflowApps.length})
-              </span>
-              <button
-                className="apps-overflow-close"
-                onClick={() => {
-                  setIsOverflowOpen(false);
-                  windowExpansion.release("apps-overflow");
-                }}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="apps-overflow-grid">
-              {overflowApps.map((app, index) => (
-                <AppIcon
-                  key={app.id}
-                  app={app}
-                  index={index}
-                  onClick={handleIconClick}
-                  onPin={pinApp}
-                  onUnpin={unpinApp}
-                  isHovered={hoveredAppId === app.id}
-                  isContextMenuOpen={activeContextMenuAppId === app.id}
-                  isAnyContextMenuOpen={activeContextMenuAppId !== null}
-                  onHoverStart={() => handleIconMouseEnter(app.id)}
-                  onHoverEnd={() => handleIconMouseLeave(app.id)}
-                  onOpenContextMenu={() => handleOpenContextMenu(app.id)}
-                  onCloseContextMenu={handleCloseContextMenu}
-                />
-              ))}
-            </div>
+            ))}
           </div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+    </div>
   );
 };
