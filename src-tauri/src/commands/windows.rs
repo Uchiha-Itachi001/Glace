@@ -69,7 +69,6 @@ pub fn set_window_height(
 // The preview card shows the app icon fallback instead.
 #[tauri::command]
 pub fn get_window_thumbnail(_hwnd: u64) -> Option<String> {
-    // TODO: implement via Windows.Graphics.Capture WinRT API when available
     None
 }
 

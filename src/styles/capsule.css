@@ -624,39 +624,45 @@ html, body {
   transform: none !important;
 }
 
-/* Multi-Instance Stacked Tile Plates */
-.app-icon--stacked {
-  margin-right: 4px;
+/* Multi-Instance Stacked Tile Representation */
+.app-icon--has-multiple {
+  position: relative;
 }
 
-.app-icon--stacked::after {
-  content: "";
+/* Sleek Modern Multi-Instance Count Badge (Top-Left Position to avoid notification overlap) */
+.app-icon-multi-badge {
   position: absolute;
-  top: 3px;
-  right: -3px;
-  bottom: 3px;
-  width: 8px;
-  border-radius: 0 6px 6px 0;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-left: none;
+  top: -3px;
+  left: -3px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: rgba(10, 14, 24, 0.94);
+  border: 1px solid var(--glace-border-focus, rgba(255, 255, 255, 0.3));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), 0 0 8px var(--glace-accent-glow, rgba(16, 185, 129, 0.3));
+  color: var(--glace-accent, #38bdf8);
+  font-size: 8px;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  z-index: 3;
   pointer-events: none;
-  z-index: 0;
+  animation: app-badge-pop 0.25s var(--glace-ease-spring);
 }
 
-.app-icon--stacked::before {
-  content: "";
-  position: absolute;
-  top: 5px;
-  right: -6px;
-  bottom: 5px;
-  width: 6px;
-  border-radius: 0 5px 5px 0;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-left: none;
-  pointer-events: none;
-  z-index: -1;
+@keyframes app-badge-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .app-icon-body {
@@ -724,6 +730,7 @@ html, body {
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.55);
   z-index: 2;
+  transition: all 0.2s var(--glace-ease-spring);
 }
 
 .active-indicator {
@@ -735,114 +742,149 @@ html, body {
   background: var(--glace-accent);
   box-shadow: 0 0 8px var(--glace-accent-glow);
   z-index: 2;
+  transition: all 0.2s var(--glace-ease-spring);
 }
 
-/* Multi-instance stacked dots row */
-.stacked-indicators-row {
-  position: absolute;
-  bottom: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  z-index: 2;
-}
-
-.stacked-dot {
-  height: 3px;
-  border-radius: 2px;
-  transition: all 0.15s ease;
-}
-
-.stacked-dot--focused {
-  width: 10px;
-  background: var(--glace-accent);
-  box-shadow: 0 0 6px var(--glace-accent-glow);
-}
-
-.stacked-dot--open {
-  width: 5px;
-  background: rgba(255, 255, 255, 0.55);
-}
-
-/* ─── Fluent Hover Flyout & Tooltips ────────────────────────────────── */
+/* ─── Fluent Hover Window Previews & Tooltips ──────────────────────── */
 .fluent-dock-preview-container {
   position: absolute;
   bottom: 46px;
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 1000;
   pointer-events: auto;
-  animation: fluentFlyoutFade 0.12s ease-out;
+  animation: fluentFlyoutFade 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 
 @keyframes fluentFlyoutFade {
   from {
     opacity: 0;
-    transform: translate(-50%, 4px);
+    transform: translateY(6px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .fluent-simple-tooltip {
-  background: rgba(18, 20, 28, 0.92);
+  background: rgba(14, 18, 28, 0.94);
+  background-image: var(--glace-glass-gradient);
   backdrop-filter: var(--glace-blur);
   -webkit-backdrop-filter: var(--glace-blur);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--glace-border);
   border-radius: 8px;
-  padding: 4px 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 5px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 1px rgba(255, 255, 255, 0.2);
   white-space: nowrap;
   pointer-events: none;
 }
 
 .fluent-simple-tooltip-text {
   font-size: 11.5px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--glace-text-primary, #ffffff);
   letter-spacing: 0.2px;
 }
 
 .fluent-window-cards-row {
   display: flex;
+  align-items: stretch;
   gap: 8px;
-  background: rgba(20, 24, 34, 0.96);
+  background: rgba(12, 16, 26, 0.94);
+  background-image: var(--glace-glass-gradient);
   backdrop-filter: var(--glace-blur);
   -webkit-backdrop-filter: var(--glace-blur);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  border: 1px solid var(--glace-border);
+  border-radius: 14px;
   padding: 8px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 1px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.8), 0 0 1px rgba(255, 255, 255, 0.25);
+  max-width: calc(100vw - 32px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  box-sizing: border-box;
+}
+
+/* Sleek custom scrollbar for 4+ open windows */
+.fluent-window-cards-row::-webkit-scrollbar {
+  height: 4px;
+}
+
+.fluent-window-cards-row::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fluent-window-cards-row::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.fluent-window-cards-row::-webkit-scrollbar-thumb:hover {
+  background: var(--glace-accent);
 }
 
 .fluent-window-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  width: 200px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 8px;
+  gap: 8px;
+  width: 180px;
+  min-width: 180px;
+  background: rgba(20, 24, 36, 0.95);
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 9px;
   cursor: pointer;
   box-sizing: border-box;
-  transition: all 0.14s ease;
+  transition: transform 0.25s var(--glace-ease-spring), opacity 0.2s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  animation: fluentCardShift 0.25s var(--glace-ease-spring);
+}
+
+@keyframes fluentCardShift {
+  0% {
+    transform: translateX(8px);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .fluent-window-card:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.22);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  background: rgba(26, 32, 48, 0.98);
+  border-color: rgba(255, 255, 255, 0.32);
+  transform: translateY(-4px) scale(1.025);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.fluent-window-card:active {
+  transform: translateY(-1px) scale(0.97);
+  transition-duration: 0.08s;
 }
 
 .fluent-window-card--focused {
-  border-color: var(--glace-accent);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 12px var(--glace-accent-glow);
+  border-color: var(--glace-accent) !important;
+  background: rgba(24, 30, 46, 0.98);
+  box-shadow: 0 0 18px var(--glace-accent-glow, rgba(16, 185, 129, 0.35)), 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: fluentCardShuffle 0.32s var(--glace-ease-spring);
+  z-index: 2;
+}
+
+@keyframes fluentCardShuffle {
+  0% {
+    transform: translateY(-8px) scale(0.94);
+    opacity: 0.75;
+  }
+  60% {
+    transform: translateY(2px) scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 .fluent-card-header {
@@ -850,6 +892,7 @@ html, body {
   align-items: center;
   gap: 6px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .fluent-card-icon {
@@ -857,25 +900,27 @@ html, body {
   height: 16px;
   object-fit: contain;
   flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
 }
 
 .fluent-card-icon-fallback {
   width: 16px;
   height: 16px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
   flex-shrink: 0;
 }
 
 .fluent-card-title {
   flex: 1;
   font-size: 11.5px;
-  font-weight: 500;
+  font-weight: 600;
   color: #ffffff;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: left;
+  letter-spacing: 0.1px;
 }
 
 .fluent-card-close-btn {
@@ -887,60 +932,122 @@ html, body {
   border-radius: 4px;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: all 0.12s ease;
   flex-shrink: 0;
+  padding: 0;
 }
 
 .fluent-card-close-btn:hover {
-  background: rgba(239, 68, 68, 0.85);
+  background: rgba(239, 68, 68, 0.9);
   color: #ffffff;
+  transform: scale(1.12);
 }
 
-.fluent-card-thumbnail-container {
-  position: relative;
-  width: 100%;
-  height: 115px;
-  border-radius: 6px;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+.fluent-card-body {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
   box-sizing: border-box;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.fluent-card-thumbnail-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.fluent-window-card:hover .fluent-card-body {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
-.fluent-card-thumbnail-fallback {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.35));
-}
-
-.fluent-card-thumbnail-fallback-icon {
+.fluent-card-icon-container {
   width: 32px;
   height: 32px;
-  object-fit: contain;
-  opacity: 0.85;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 7px;
+  flex-shrink: 0;
+  transition: transform 0.2s var(--glace-ease-spring);
 }
 
-.fluent-card-thumbnail-fallback-svg {
+.fluent-window-card:hover .fluent-card-icon-container {
+  transform: scale(1.08);
+}
+
+.fluent-card-body-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+.fluent-card-body-icon-svg {
   color: var(--glace-text-muted);
-  opacity: 0.6;
+  opacity: 0.8;
+}
+
+.fluent-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.fluent-card-meta-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.fluent-card-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--glace-text-muted);
+  letter-spacing: 0.2px;
+}
+
+.fluent-card-status-badge--active {
+  color: var(--glace-accent, #10b981);
+}
+
+.fluent-card-status-badge--minimized {
+  color: #94a3b8;
+}
+
+.fluent-card-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.fluent-card-status-badge--active .fluent-card-status-dot {
+  animation: fluentDotLive 1.8s ease-in-out infinite;
+}
+
+@keyframes fluentDotLive {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 6px var(--glace-accent-glow, rgba(16, 185, 129, 0.8));
+  }
+  50% {
+    transform: scale(1.35);
+    box-shadow: 0 0 12px var(--glace-accent-glow, rgba(16, 185, 129, 1));
+  }
 }
 
 .app-icon--idle {

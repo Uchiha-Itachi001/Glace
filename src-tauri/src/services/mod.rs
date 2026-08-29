@@ -4,4 +4,5 @@ pub mod tray_host;
 pub mod pinned_apps;
 pub mod media_host;
 pub mod bluetooth;
+pub mod flyout_tracker;
 

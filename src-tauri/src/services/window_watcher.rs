@@ -67,17 +67,42 @@ pub fn is_taskbar_window(hwnd: HWND, current_pid: u32) -> bool {
             return false;
         }
 
+        let mut class_buf = [0u16; 256];
+        let class_len = GetClassNameW(hwnd, &mut class_buf);
+        let class_name = if class_len > 0 {
+            String::from_utf16_lossy(&class_buf[..class_len as usize])
+        } else {
+            String::new()
+        };
+
+        // System shell & background windows that should never be in taskbar
+        if class_name == "Progman"
+            || class_name == "WorkerW"
+            || class_name == "Shell_TrayWnd"
+            || class_name == "Shell_SecondaryTrayWnd"
+        {
+            return false;
+        }
+
+        // Top-level desktop windows like File Explorer (CabinetWClass, ExplorerFrame)
+        let is_known_app_class = class_name == "CabinetWClass"
+            || class_name == "ExplorerFrame"
+            || class_name == "CASCADIA_HOSTING_WINDOW_CLASS"
+            || class_name == "ApplicationFrameWindow";
+
         let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE) as u32;
         let is_tool_window = (ex_style & WS_EX_TOOLWINDOW.0) != 0;
         let is_app_window = (ex_style & WS_EX_APPWINDOW.0) != 0;
 
-        if is_tool_window && !is_app_window {
+        if is_tool_window && !is_app_window && !is_known_app_class {
             return false;
         }
 
-        if let Ok(owner) = GetWindow(hwnd, GW_OWNER) {
-            if !owner.0.is_null() && !is_app_window {
-                return false;
+        if !is_known_app_class {
+            if let Ok(owner) = GetWindow(hwnd, GW_OWNER) {
+                if !owner.0.is_null() && !is_app_window {
+                    return false;
+                }
             }
         }
 
@@ -90,20 +115,6 @@ pub fn is_taskbar_window(hwnd: HWND, current_pid: u32) -> bool {
         );
         if cloaked != 0 {
             return false;
-        }
-
-        let mut class_buf = [0u16; 256];
-        let class_len = GetClassNameW(hwnd, &mut class_buf);
-        if class_len > 0 {
-            let class_name = String::from_utf16_lossy(&class_buf[..class_len as usize]);
-            if class_name == "Progman"
-                || class_name == "WorkerW"
-                || class_name == "Shell_TrayWnd"
-                || class_name == "Shell_SecondaryTrayWnd"
-                || class_name == "Windows.UI.Core.CoreWindow"
-            {
-                return false;
-            }
         }
 
         true
@@ -219,7 +230,6 @@ pub(crate) fn hicon_to_base64_png(hicon: HICON) -> Option<String> {
         result
     }
 }
-
 
 fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
     unsafe {
@@ -565,6 +575,50 @@ pub fn terminate_window_process(hwnd_val: u64) {
             let mut pid = 0u32;
             GetWindowThreadProcessId(hwnd, Some(&mut pid));
             if pid != 0 {
+                // Check process name to protect critical Windows system processes
+                let is_critical_process = if let Ok(process) =
+                    OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+                {
+                    if !process.0.is_null() {
+                        let mut path_buf = [0u16; 1024];
+                        let len = K32GetModuleFileNameExW(Some(process), None, &mut path_buf);
+                        let _ = windows::Win32::Foundation::CloseHandle(process);
+                        if len > 0 {
+                            let full_path = String::from_utf16_lossy(&path_buf[..len as usize]);
+                            let exe_name = std::path::Path::new(&full_path)
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("")
+                                .to_lowercase();
+                            matches!(
+                                exe_name.as_str(),
+                                "explorer.exe"
+                                    | "dwm.exe"
+                                    | "csrss.exe"
+                                    | "lsass.exe"
+                                    | "services.exe"
+                                    | "winlogon.exe"
+                                    | "svchost.exe"
+                                    | "startmenuexperiencehost.exe"
+                                    | "shellexperiencehost.exe"
+                                    | "searchhost.exe"
+                            )
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
+
+                // NEVER terminate Windows Explorer shell or system processes — close the single window gracefully
+                if is_critical_process {
+                    let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+                    return;
+                }
+
                 if let Ok(process) = OpenProcess(PROCESS_TERMINATE, false, pid) {
                     if !process.0.is_null() {
                         let _ = TerminateProcess(process, 1);
@@ -703,7 +757,7 @@ pub fn snap_window(hwnd_val: u64, position: &str) {
 
 unsafe extern "system" fn win_event_proc(
     _h_win_event_hook: HWINEVENTHOOK,
-    _event: u32,
+    event: u32,
     hwnd: HWND,
     id_object: i32,
     id_child: i32,
@@ -721,6 +775,8 @@ unsafe extern "system" fn win_event_proc(
     if hwnd.0.is_null() {
         return;
     }
+
+    crate::services::flyout_tracker::on_win_event(event, hwnd);
 
     if let Ok(guard) = EVENT_SENDER.lock() {
         if let Some(tx) = guard.as_ref() {

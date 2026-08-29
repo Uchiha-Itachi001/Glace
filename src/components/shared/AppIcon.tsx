@@ -1,6 +1,7 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
 import { DockAppItem } from "../../types";
 import { WindowContextMenu } from "./WindowContextMenu";
+import { WindowPreviewCard } from "./WindowPreviewCard";
 import { tauriBridge } from "../../services/tauriBridge";
 
 interface AppIconProps {
@@ -31,6 +32,9 @@ export const AppIcon = React.memo<AppIconProps>(
     onOpenContextMenu,
     onCloseContextMenu,
   }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [previewStyle, setPreviewStyle] = useState<React.CSSProperties>({});
+
     const windowList =
       app.windows && app.windows.length > 0
         ? app.windows
@@ -49,6 +53,42 @@ export const AppIcon = React.memo<AppIconProps>(
 
     const hasMultipleWindows = windowList.length > 1;
 
+    const sortedWindows = useMemo(() => {
+      if (!hasMultipleWindows) return windowList;
+      const focusedWin = windowList.find((w) => w.is_focused);
+      if (!focusedWin) return windowList;
+      return [focusedWin, ...windowList.filter((w) => w.hwnd !== focusedWin.hwnd)];
+    }, [windowList, hasMultipleWindows]);
+
+    // Viewport Boundary Clamping & Anti-Cutout Calculation
+    useEffect(() => {
+      if (isHovered && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const screenW = window.innerWidth || document.documentElement.clientWidth;
+
+        const cardCount = windowList.length > 0 ? windowList.length : 1;
+        const estimatedCardW = 200;
+        const totalEstimatedW = hasMultipleWindows
+          ? Math.min(cardCount * (estimatedCardW + 8) + 16, screenW - 32)
+          : Math.min(220, screenW - 32);
+
+        const iconCenterX = rect.left + rect.width / 2;
+        const idealLeft = iconCenterX - totalEstimatedW / 2;
+
+        // Clamp between 16px from left screen edge and (screenW - totalEstimatedW - 16px) from right screen edge
+        const clampedLeft = Math.max(16, Math.min(idealLeft, screenW - totalEstimatedW - 16));
+        const relativeLeft = clampedLeft - rect.left;
+
+        setPreviewStyle({
+          left: `${relativeLeft}px`,
+          transform: "none",
+          maxWidth: `calc(100vw - 32px)`,
+        });
+      } else {
+        setPreviewStyle({});
+      }
+    }, [isHovered, windowList.length, hasMultipleWindows]);
+
     const handleMouseEnter = useCallback(() => {
       if (onHoverStart) onHoverStart(app.id);
     }, [onHoverStart, app.id]);
@@ -57,35 +97,40 @@ export const AppIcon = React.memo<AppIconProps>(
       if (onHoverEnd) onHoverEnd(app.id);
     }, [onHoverEnd, app.id]);
 
-    const handleClick = useCallback((e: React.MouseEvent) => {
-      e.stopPropagation();
-      onClick(app);
-    }, [onClick, app]);
+    const handleClick = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onClick(app);
+      },
+      [onClick, app]
+    );
 
-    const handleWindowCardClick = useCallback((e: React.MouseEvent, hwnd: number) => {
-      e.stopPropagation();
+    const handleWindowCardClick = useCallback((hwnd: number) => {
       tauriBridge.focusWindow(hwnd).catch(console.error);
     }, []);
 
-    const handleCloseWindow = useCallback((e: React.MouseEvent, hwnd: number) => {
-      e.stopPropagation();
+    const handleCloseWindow = useCallback((hwnd: number) => {
       tauriBridge.closeWindow(hwnd).catch(console.error);
     }, []);
 
-    const handleContextMenu = useCallback((e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (onOpenContextMenu) {
-        onOpenContextMenu(app.id);
-      }
-    }, [onOpenContextMenu, app.id]);
+    const handleContextMenu = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (onOpenContextMenu) {
+          onOpenContextMenu(app.id);
+        }
+      },
+      [onOpenContextMenu, app.id]
+    );
 
     return (
       <div
+        ref={containerRef}
         className={`app-icon-container ${app.is_focused ? "app-icon--focused" : ""} ${
           app.is_minimized ? "app-icon--minimized" : ""
         } ${!app.is_running ? "app-icon--idle" : "app-icon--running"} ${
-          hasMultipleWindows ? "app-icon--stacked" : ""
+          hasMultipleWindows ? "app-icon--has-multiple" : ""
         }`}
         style={{ "--item-index": index } as React.CSSProperties}
         onClick={handleClick}
@@ -119,70 +164,38 @@ export const AppIcon = React.memo<AppIconProps>(
               </svg>
             </div>
           )}
+
+          {/* Clean Modern Multi-Window Badge */}
+          {hasMultipleWindows && (
+            <div className="app-icon-multi-badge" title={`${windowList.length} open windows`}>
+              {windowList.length}
+            </div>
+          )}
         </div>
 
-        {/* Focus & Running Indicator Pills */}
-        {hasMultipleWindows ? (
-          <div className="stacked-indicators-row">
-            {windowList.map((win, idx) => (
-              <div
-                key={win.hwnd || idx}
-                className={`stacked-dot ${
-                  win.is_focused ? "stacked-dot--focused" : "stacked-dot--open"
-                }`}
-              />
-            ))}
-          </div>
-        ) : app.is_focused ? (
+        {/* Single Clean Focus & Running Indicator Pill */}
+        {app.is_focused ? (
           <div className="active-indicator" />
         ) : app.is_running ? (
           <div className="open-indicator" />
         ) : null}
 
-        {/* Hover Previews & Tooltips (Suppressed if context menu is open on this item) */}
+        {/* Hover Window Previews & Tooltips with Anti-Cutoff Clamping */}
         {isHovered && !isContextMenuOpen && (
           <div
             className="fluent-dock-preview-container"
+            style={previewStyle}
             onClick={(e) => e.stopPropagation()}
           >
             {hasMultipleWindows ? (
               <div className="fluent-window-cards-row">
-                {windowList.map((win) => (
-                  <div
+                {sortedWindows.map((win) => (
+                  <WindowPreviewCard
                     key={win.hwnd}
-                    className={`fluent-window-card ${
-                      win.is_focused ? "fluent-window-card--focused" : ""
-                    }`}
-                    onClick={(e) => handleWindowCardClick(e, win.hwnd)}
-                  >
-                    <div className="fluent-card-header">
-                      {win.icon_b64 ? (
-                        <img src={win.icon_b64} alt="" className="fluent-card-icon" />
-                      ) : (
-                        <div className="fluent-card-icon-fallback" />
-                      )}
-                      <span className="fluent-card-title">{win.title}</span>
-                      <button
-                        className="fluent-card-close-btn"
-                        title="Close window"
-                        onClick={(e) => handleCloseWindow(e, win.hwnd)}
-                      >
-                        <svg
-                          width="10"
-                          height="10"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <line x1="18" y1="6" x2="6" y2="18" />
-                          <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
+                    win={win}
+                    onFocus={handleWindowCardClick}
+                    onClose={handleCloseWindow}
+                  />
                 ))}
               </div>
             ) : (
@@ -220,4 +233,3 @@ export const AppIcon = React.memo<AppIconProps>(
     );
   }
 );
-

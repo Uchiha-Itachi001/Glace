@@ -154,22 +154,57 @@ export const AppsCapsule: React.FC = () => {
     return dockApps;
   }, [dockApps, isRightAlign]);
 
-  // Split apps into visible vs overflow
+  // Split apps into visible vs overflow, dynamically prioritizing focused apps into the visible bar
   const { visibleApps, overflowApps } = useMemo(() => {
     if (orderedApps.length <= maxVisibleApps) {
       return { visibleApps: orderedApps, overflowApps: [] };
     }
+
     if (isRightAlign) {
       // In right align, visible apps are the rightmost ones (closest to Start button)
-      return {
-        visibleApps: orderedApps.slice(orderedApps.length - maxVisibleApps),
-        overflowApps: orderedApps.slice(0, orderedApps.length - maxVisibleApps),
-      };
+      const rawVisible = orderedApps.slice(orderedApps.length - maxVisibleApps);
+      const rawOverflow = orderedApps.slice(0, orderedApps.length - maxVisibleApps);
+
+      // If the active/focused app is hidden inside overflow, swap it with the last most visible app
+      const activeIdxInOverflow = rawOverflow.findIndex((app) => app.is_focused);
+      if (activeIdxInOverflow !== -1 && rawVisible.length > 0) {
+        const activeApp = rawOverflow[activeIdxInOverflow];
+        // In right align, the last most app from the app section (closest to overflow btn) is at index 0
+        const displacedApp = rawVisible[0];
+
+        const visible = [...rawVisible];
+        visible[0] = activeApp;
+
+        const overflow = [...rawOverflow];
+        overflow[activeIdxInOverflow] = displacedApp;
+
+        return { visibleApps: visible, overflowApps: overflow };
+      }
+
+      return { visibleApps: rawVisible, overflowApps: rawOverflow };
     }
-    return {
-      visibleApps: orderedApps.slice(0, maxVisibleApps),
-      overflowApps: orderedApps.slice(maxVisibleApps),
-    };
+
+    // Left & Center alignment
+    const rawVisible = orderedApps.slice(0, maxVisibleApps);
+    const rawOverflow = orderedApps.slice(maxVisibleApps);
+
+    // If the active/focused app is hidden inside overflow, swap it with the last most visible app
+    const activeIdxInOverflow = rawOverflow.findIndex((app) => app.is_focused);
+    if (activeIdxInOverflow !== -1 && rawVisible.length > 0) {
+      const activeApp = rawOverflow[activeIdxInOverflow];
+      // In left/center, the last most app from the visible section is at the end
+      const displacedApp = rawVisible[rawVisible.length - 1];
+
+      const visible = [...rawVisible];
+      visible[visible.length - 1] = activeApp;
+
+      const overflow = [...rawOverflow];
+      overflow[activeIdxInOverflow] = displacedApp;
+
+      return { visibleApps: visible, overflowApps: overflow };
+    }
+
+    return { visibleApps: rawVisible, overflowApps: rawOverflow };
   }, [orderedApps, maxVisibleApps, isRightAlign]);
 
   const handleIconMouseEnter = useCallback((appId: string) => {
@@ -182,7 +217,7 @@ export const AppsCapsule: React.FC = () => {
       setActiveContextMenuAppId(null);
       windowExpansion.release("apps-context");
     }
-    windowExpansion.request("apps-hover", activeContextMenuAppId ? 360 : 220);
+    windowExpansion.request("apps-hover", activeContextMenuAppId ? 360 : 280);
   }, [activeContextMenuAppId]);
 
   const handleIconMouseLeave = useCallback((appId: string) => {
@@ -228,6 +263,41 @@ export const AppsCapsule: React.FC = () => {
       return nextState;
     });
   }, []);
+
+  // Close overflow flyout when clicking outside
+  useEffect(() => {
+    if (!isOverflowOpen) return;
+
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      // Ignore clicks inside the overflow flyout itself, the overflow button, or an active jumplist context menu
+      if (
+        target.closest(".apps-overflow-flyout") ||
+        target.closest(".apps-overflow-btn") ||
+        target.closest(".fluent-jumplist")
+      ) {
+        return;
+      }
+
+      setIsOverflowOpen(false);
+      windowExpansion.release("apps-overflow");
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isOverflowOpen]);
+
+  // Auto-close overflow flyout if apps fit into the dock (e.g. apps closed or space expanded)
+  useEffect(() => {
+    if (isOverflowOpen && overflowApps.length === 0) {
+      setIsOverflowOpen(false);
+      windowExpansion.release("apps-overflow");
+    }
+  }, [isOverflowOpen, overflowApps.length]);
 
   return (
     <div className="capsule apps-capsule">

@@ -10,123 +10,105 @@ function normalizeName(name: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
-export function isPwaWindow(win: WindowInfo): boolean {
-  const exe = (win.exe || "").toLowerCase();
-  const isBrowser = /msedge|chrome|brave|opera|vivaldi/i.test(exe);
-  if (!isBrowser) return false;
-
-  const titleNorm = normalizeName(win.title || "");
-  if (!titleNorm) return false;
-
-  // Standard browser windows always contain the browser branding in their title (e.g. "microsoftedge", "edge", "googlechrome", "chrome", "brave", "opera", "vivaldi")
-  if (exe.includes("msedge") && (titleNorm.includes("microsoftedge") || titleNorm.includes("edge"))) {
-    return false;
-  }
-  if (exe.includes("chrome") && (titleNorm.includes("googlechrome") || titleNorm.includes("chrome"))) {
-    return false;
-  }
-  if (exe.includes("brave") && titleNorm.includes("brave")) {
-    return false;
-  }
-  if (exe.includes("opera") && titleNorm.includes("opera")) {
-    return false;
-  }
-  if (exe.includes("vivaldi") && titleNorm.includes("vivaldi")) {
-    return false;
-  }
-
-  // Standalone installed PWA / Web App windows (Manus, Claude, DeepSeek, YouTube Music, WhatsApp, etc.) have no browser branding in their title
-  return true;
-}
-
 /**
  * Dynamically computes a match confidence score between a running window and a pinned app.
- * Completely automated: zero hardcoded application names.
+ * Ensures the main browser always claims all normal browser windows unless a dedicated PWA shortcut specifically matches.
  */
-function computeWindowMatchScore(win: WindowInfo, pinned: PinnedApp): number {
+function computeWindowMatchScore(
+  win: WindowInfo,
+  pinned: PinnedApp,
+  allPinned: PinnedApp[]
+): number {
   if (!win.exe && !win.title) return 0;
 
   const winExeNorm = normalizeName(win.exe || "");
   const winTitleNorm = normalizeName(win.title || "");
   const pinnedExeNorm = normalizeName(pinned.exe || "");
   const pinnedTitleNorm = normalizeName(pinned.title || "");
-  const pinnedIdNorm = normalizeName(pinned.id || "");
-  const pinnedLnkNorm = normalizeName(pinned.lnk_path || "");
 
-  const winIsPwa = isPwaWindow(win);
-  const pinnedIsBrowser =
+  const targetFileName = (pinned.lnk_path || "").split(/[\\/]/).pop() || "";
+  const targetStemNorm = normalizeName(targetFileName);
+
+  const isBrowserProcess = /msedge|chrome|brave|opera|vivaldi|firefox/i.test(win.exe || "");
+  const isPinnedBrowser =
     /msedge|chrome|brave|opera|vivaldi|firefox/i.test(pinned.exe || "") &&
-    /edge|chrome|brave|opera|vivaldi|firefox|browser/i.test(pinned.title || "");
+    /edge|chrome|brave|opera|vivaldi|firefox|browser/i.test(pinned.title || targetStemNorm || "");
 
-  // If this window is a PWA (e.g. Manus, Claude, DeepSeek, YouTube Music, WhatsApp, etc.):
-  if (winIsPwa) {
-    // 1. Generic browser pinned app should NEVER claim a standalone PWA window!
-    if (pinnedIsBrowser) {
-      return 0;
-    }
-
-    // 2. Direct or substring match on PWA name gets top priority
+  // 1. Check if pinned app is a specific named PWA/shortcut (e.g. Claude, DeepSeek, YouTube Music, WhatsApp)
+  if (isBrowserProcess && !isPinnedBrowser) {
     if (pinnedTitleNorm && winTitleNorm) {
       if (winTitleNorm === pinnedTitleNorm) return 300;
       if (winTitleNorm.startsWith(pinnedTitleNorm) || pinnedTitleNorm.startsWith(winTitleNorm)) return 250;
       if (winTitleNorm.includes(pinnedTitleNorm) || pinnedTitleNorm.includes(winTitleNorm)) return 200;
     }
-
-    // 3. PWA shortcut LNK path / AppUserModelID match
-    if (pinnedLnkNorm && winTitleNorm && pinnedLnkNorm.includes(winTitleNorm)) {
+    if (
+      targetStemNorm &&
+      winTitleNorm &&
+      (targetStemNorm.includes(winTitleNorm) || winTitleNorm.includes(targetStemNorm))
+    ) {
       return 220;
     }
   }
 
-  // If window is a standard browser window (not PWA), strongly match the pinned browser item
-  if (!winIsPwa && pinnedIsBrowser) {
-    if (winExeNorm && pinnedExeNorm && winExeNorm === pinnedExeNorm) {
+  // 2. If this is the main pinned browser (e.g. Edge, Chrome, Brave) and the window belongs to this browser:
+  if (isPinnedBrowser && winExeNorm && pinnedExeNorm && winExeNorm === pinnedExeNorm) {
+    // Check if any other pinned app is a dedicated PWA matching this specific window title
+    const hasDedicatedPwaMatch = allPinned.some((p) => {
+      if (p.id === pinned.id) return false;
+      const pTitle = normalizeName(p.title || "");
+      const pTarget = normalizeName((p.lnk_path || "").split(/[\\/]/).pop() || "");
+      return (
+        (pTitle &&
+          (winTitleNorm === pTitle ||
+            winTitleNorm.startsWith(pTitle) ||
+            winTitleNorm.includes(pTitle))) ||
+        (pTarget && (pTarget.includes(winTitleNorm) || winTitleNorm.includes(pTarget)))
+      );
+    });
+
+    if (!hasDedicatedPwaMatch) {
       return 200;
     }
+    return 0;
   }
 
-  let score = 0;
-
-  // 1. Direct Executable Name Match (e.g. Code.exe == Code.exe)
-  if (winExeNorm && pinnedExeNorm && winExeNorm === pinnedExeNorm) {
-    score += 100;
-  }
-
-  // 2. Direct ID or Lnk Path match
-  if (winExeNorm && (winExeNorm === pinnedIdNorm || pinnedLnkNorm.includes(winExeNorm))) {
-    score += 80;
-  }
-
-  // 3. Exact Title match
-  if (winTitleNorm && pinnedTitleNorm && winTitleNorm === pinnedTitleNorm) {
-    score += 120;
-  }
-
-  // 4. Substring Title Match (longer, more specific titles naturally receive higher score)
-  if (winTitleNorm && pinnedTitleNorm) {
-    if (winTitleNorm.includes(pinnedTitleNorm)) {
-      score += 40 + pinnedTitleNorm.length;
-    } else if (pinnedTitleNorm.includes(winTitleNorm) && winTitleNorm.length >= 3) {
-      score += 20 + winTitleNorm.length;
-    }
-  }
-
-  // 5. AppUserModelID / Package / Domain Match (for PWAs and modern Windows packaged apps)
-  if (pinned.lnk_path && pinned.lnk_path.includes("!")) {
+  // 3. AppUserModelID / Package Match (for PWAs and modern Windows packaged UWP apps)
+  const isAumid = (pinned.lnk_path || "").includes("!");
+  if (isAumid) {
     const pkgRoot = normalizeName(
       pinned.lnk_path.replace(/^shell:AppsFolder\\/i, "").split("!")[0]
     );
     if (pkgRoot) {
-      if (winTitleNorm.includes(pkgRoot) || pkgRoot.includes(winTitleNorm)) {
-        score += 50 + Math.min(pkgRoot.length, 25);
+      if (winExeNorm && (winExeNorm.includes(pkgRoot) || pkgRoot.includes(winExeNorm))) {
+        return 200;
       }
-      if (winExeNorm.includes(pkgRoot) || pkgRoot.includes(winExeNorm)) {
-        score += 60;
+      if (winTitleNorm && (winTitleNorm.includes(pkgRoot) || pkgRoot.includes(winTitleNorm))) {
+        return 180;
       }
+    }
+    return 0;
+  }
+
+  // 4. Standard Win32 Application Matching:
+  if (winExeNorm && pinnedExeNorm) {
+    if (winExeNorm === pinnedExeNorm) {
+      return 200;
+    }
+    if (targetStemNorm && winExeNorm === targetStemNorm) {
+      return 180;
+    }
+    return 0;
+  }
+
+  // 5. Fallback for title-only items
+  if (winTitleNorm && pinnedTitleNorm) {
+    if (winTitleNorm === pinnedTitleNorm) return 120;
+    if (winTitleNorm.includes(pinnedTitleNorm) || pinnedTitleNorm.includes(winTitleNorm)) {
+      return 40;
     }
   }
 
-  return score;
+  return 0;
 }
 
 export function useApps() {
@@ -138,10 +120,7 @@ export function useApps() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
 
-    Promise.all([
-      tauriBridge.getPinnedApps(),
-      tauriBridge.getOpenWindows(),
-    ])
+    Promise.all([tauriBridge.getPinnedApps(), tauriBridge.getOpenWindows()])
       .then(([pinned, wins]) => {
         setPinnedApps(pinned);
         setWindows(wins);
@@ -175,14 +154,14 @@ export function useApps() {
 
     // 1. Process all pinned apps in order
     for (const pinned of pinnedApps) {
-      // Find all running windows where this pinned app is the HIGHEST scoring match
       const matchedWins = windows.filter((w) => {
         if (matchedHwnds.has(w.hwnd)) return false;
-        const score = computeWindowMatchScore(w, pinned);
+        const score = computeWindowMatchScore(w, pinned, pinnedApps);
         if (score < 40) return false;
 
-        // Check if any other pinned app has a strictly higher score for this window
-        const highestScore = Math.max(...pinnedApps.map((p) => computeWindowMatchScore(w, p)));
+        const highestScore = Math.max(
+          ...pinnedApps.map((p) => computeWindowMatchScore(w, p, pinnedApps))
+        );
         return score === highestScore;
       });
 
@@ -219,14 +198,12 @@ export function useApps() {
       }
     }
 
-    // 2. Process remaining running windows (group by exe/title)
+    // 2. Process remaining unpinned running windows (group by exe/title)
     const remainingWins = windows.filter((w) => !matchedHwnds.has(w.hwnd));
     const groupedByExe = new Map<string, WindowInfo[]>();
 
     for (const win of remainingWins) {
-      const key = isPwaWindow(win)
-        ? `pwa-${(win.title || "").toLowerCase().trim()}`
-        : (win.exe || win.title || `hwnd-${win.hwnd}`).toLowerCase();
+      const key = (win.exe || win.title || `hwnd-${win.hwnd}`).toLowerCase();
       const list = groupedByExe.get(key) || [];
       list.push(win);
       groupedByExe.set(key, list);
@@ -255,13 +232,22 @@ export function useApps() {
 
   const launchOrFocus = useCallback((item: DockAppItem) => {
     if (item.is_running && item.hwnd !== undefined) {
-      if (item.is_focused && !item.is_minimized) {
+      // If the app has multiple windows open, cycle between them or bring the next to front
+      if (item.windows && item.windows.length > 1) {
+        const focusedIdx = item.windows.findIndex((w) => w.is_focused);
+        if (focusedIdx !== -1) {
+          const nextIdx = (focusedIdx + 1) % item.windows.length;
+          tauriBridge.focusWindow(item.windows[nextIdx].hwnd);
+        } else {
+          tauriBridge.focusWindow(item.hwnd);
+        }
+      } else if (item.is_focused && !item.is_minimized) {
         tauriBridge.minimizeWindow(item.hwnd);
       } else {
         tauriBridge.focusWindow(item.hwnd);
       }
     } else {
-      // Launch closed app
+      // Only launch a new instance when the app is completely closed
       const cmd = item.lnk_path || item.exe || item.title;
       tauriBridge.launchApp(cmd);
     }
@@ -290,7 +276,13 @@ export function useApps() {
 
     tauriBridge.pinApp(toPin).then(() => {
       setPinnedApps((prev) => {
-        if (prev.some((p) => p.id === toPin.id || (toPin.exe && p.exe.toLowerCase() === toPin.exe.toLowerCase()))) {
+        if (
+          prev.some(
+            (p) =>
+              p.id === toPin.id ||
+              (toPin.exe && p.exe.toLowerCase() === toPin.exe.toLowerCase())
+          )
+        ) {
           return prev;
         }
         return [...prev, toPin];

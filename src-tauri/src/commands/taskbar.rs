@@ -1,4 +1,4 @@
-use crate::services::work_area;
+use crate::services::{flyout_tracker, work_area};
 use std::process::Command;
 use windows::Win32::UI::Input::KeyboardAndMouse::{keybd_event, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP};
 
@@ -12,69 +12,19 @@ pub fn restore_native_taskbar() {
     work_area::restore_native_taskbar();
 }
 
-use windows::core::PCWSTR;
-use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, IsWindowVisible};
-
-fn is_native_flyout_visible(class_name: &str) -> bool {
-    let wide: Vec<u16> = class_name.encode_utf16().chain(std::iter::once(0)).collect();
-    unsafe {
-        if let Ok(hwnd) = FindWindowW(PCWSTR(wide.as_ptr()), PCWSTR::null()) {
-            if !hwnd.0.is_null() && IsWindowVisible(hwnd).as_bool() {
-                return true;
-            }
-        }
-        false
-    }
-}
-
 #[tauri::command]
 pub fn open_start_menu() {
-    unsafe {
-        // If Start Menu or LightDismiss overlay is already visible, clicking was intended to close it
-        if is_native_flyout_visible("Windows.UI.Core.AppFrameWindow")
-            || is_native_flyout_visible("Shell_LightDismissOverlayWindow")
-        {
-            return;
-        }
-
-        // Trigger native Windows Start Menu via VK_LWIN (0x5B)
-        keybd_event(0x5B, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0x5B, 0, KEYEVENTF_KEYUP, 0);
-    }
+    flyout_tracker::toggle_start_menu();
 }
 
 #[tauri::command]
 pub fn open_quick_settings() {
-    unsafe {
-        if is_native_flyout_visible("ControlCenterWindow")
-            || is_native_flyout_visible("Shell_LightDismissOverlayWindow")
-        {
-            return;
-        }
-
-        // Trigger native Windows Quick Settings / Action Center via Win + A
-        keybd_event(0x5B, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0x41 /* 'A' */, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0x41, 0, KEYEVENTF_KEYUP, 0);
-        keybd_event(0x5B, 0, KEYEVENTF_KEYUP, 0);
-    }
+    flyout_tracker::toggle_quick_settings();
 }
 
 #[tauri::command]
 pub fn open_calendar_notifications() {
-    unsafe {
-        if is_native_flyout_visible("NotificationCenterWindow")
-            || is_native_flyout_visible("Shell_LightDismissOverlayWindow")
-        {
-            return;
-        }
-
-        // Trigger native Windows Calendar & Notification Center via Win + N
-        keybd_event(0x5B, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0x4E /* 'N' */, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0x4E, 0, KEYEVENTF_KEYUP, 0);
-        keybd_event(0x5B, 0, KEYEVENTF_KEYUP, 0);
-    }
+    flyout_tracker::toggle_calendar_notifications();
 }
 
 #[tauri::command]
@@ -90,23 +40,7 @@ pub fn open_windows_settings() {
 
 #[tauri::command]
 pub fn open_tray_overflow() {
-    unsafe {
-        if is_native_flyout_visible("TopLevelWindowForOverflowXamlIsland")
-            || is_native_flyout_visible("NotifyIconOverflowWindow")
-        {
-            return;
-        }
-
-        // Trigger native Windows Notification Area overflow via Win + B, Enter
-        keybd_event(0x5B, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0x42 /* 'B' */, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0x42, 0, KEYEVENTF_KEYUP, 0);
-        keybd_event(0x5B, 0, KEYEVENTF_KEYUP, 0);
-
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        keybd_event(0x0D /* VK_RETURN */, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0);
-    }
+    flyout_tracker::toggle_tray_overflow();
 }
 
 #[tauri::command]
@@ -122,20 +56,19 @@ pub fn toggle_input_language() {
 
 #[tauri::command]
 pub fn open_touch_keyboard() {
-    let _ = Command::new("cmd")
-        .args(["/C", "start", "", "tabtip.exe"])
-        .spawn();
+    let tabtip_path = "C:\\Program Files\\Common Files\\microsoft shared\\ink\\TabTip.exe";
+    if std::path::Path::new(tabtip_path).exists() {
+        let _ = Command::new(tabtip_path).spawn();
+    } else {
+        let _ = Command::new("cmd")
+            .args(["/C", "start", "", "tabtip.exe"])
+            .spawn();
+    }
 }
 
 #[tauri::command]
 pub fn open_widgets_panel() {
-    unsafe {
-        // Trigger native Windows Copilot / Widgets via Win + W
-        keybd_event(0x5B, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0x57 /* 'W' */, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0x57, 0, KEYEVENTF_KEYUP, 0);
-        keybd_event(0x5B, 0, KEYEVENTF_KEYUP, 0);
-    }
+    flyout_tracker::toggle_widgets_panel();
 }
 
 #[tauri::command]

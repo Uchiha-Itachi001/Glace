@@ -115,12 +115,12 @@ export const TrayCapsule: React.FC = () => {
           </div>
         )}
 
-        {/* Windows 11 Touch Keyboard Button */}
-        {isItemVisible("touch_keyboard") && (
+        {/* Windows 11 Widgets / Layout Panel Button (Placed beside keyboard & language) */}
+        {isItemVisible("widgets") && (
           <div
             className="tray-tool-btn icon-hover"
-            onClick={handleKeyboardClick}
-            title="Touch Keyboard"
+            onClick={handleWidgetsClick}
+            title="Widgets & Layout (Win + W)"
           >
             <svg
               width="14"
@@ -132,8 +132,33 @@ export const TrayCapsule: React.FC = () => {
               strokeLinecap="round"
               strokeLinejoin="round"
             >
+              <rect x="3" y="3" width="7" height="9" rx="1.5" />
+              <rect x="14" y="3" width="7" height="5" rx="1.5" />
+              <rect x="14" y="12" width="7" height="9" rx="1.5" />
+              <rect x="3" y="16" width="7" height="5" rx="1.5" />
+            </svg>
+          </div>
+        )}
+
+        {/* Windows 11 Touch Keyboard Button */}
+        {(isItemVisible("keyboard") || isItemVisible("touch_keyboard")) && (
+          <div
+            className="tray-tool-btn icon-hover"
+            onClick={handleKeyboardClick}
+            title="Touch Keyboard"
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <rect x="2" y="4" width="20" height="16" rx="2.5" />
-              <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M18 12h.01M8 16h8" />
+              <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10" />
             </svg>
           </div>
         )}
@@ -200,31 +225,6 @@ export const TrayCapsule: React.FC = () => {
                 </svg>
               </div>
             )}
-          </div>
-        )}
-
-        {/* Windows 11 Widgets / Layout Panel Button (Rightmost) */}
-        {isItemVisible("widgets") && (
-          <div
-            className="tray-tool-btn icon-hover"
-            onClick={handleWidgetsClick}
-            title="Widgets & Layout (Win + W)"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="7" height="9" rx="1.5" />
-              <rect x="14" y="3" width="7" height="5" rx="1.5" />
-              <rect x="14" y="12" width="7" height="9" rx="1.5" />
-              <rect x="3" y="16" width="7" height="5" rx="1.5" />
-            </svg>
           </div>
         )}
       </div>
