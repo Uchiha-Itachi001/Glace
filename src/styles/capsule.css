@@ -2584,6 +2584,25 @@ html, body {
   text-overflow: ellipsis;
 }
 
+.theme-pill-check {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--glace-accent, #10b981);
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.theme-pill-check svg {
+  stroke: #ffffff !important;
+  color: #ffffff !important;
+}
+
 /* Accent Color Picker */
 .accent-picker-row {
   display: flex;
@@ -2779,36 +2798,57 @@ html, body {
   transform: scale(0.95);
 }
 
-/* Preset Chips Row */
+/* Preset Chips Grid (Regulators removed) */
 .geometry-presets-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
 }
 
 .geometry-preset-chip {
-  padding: 3px 8px;
-  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 6px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--glace-text-secondary);
-  font-size: 9.5px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  gap: 2px;
 }
 
 .geometry-preset-chip:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.18);
-  color: var(--glace-text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .geometry-preset-chip--active {
-  background: var(--glace-accent-dim);
-  border-color: var(--glace-accent);
-  color: var(--glace-accent);
-  font-weight: 600;
+  background: rgba(var(--glace-accent-rgb, 16, 185, 129), 0.14);
+  border-color: var(--glace-accent, #10b981);
+  color: var(--glace-accent, #10b981);
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(var(--glace-accent-rgb, 16, 185, 129), 0.25);
+}
+
+.geometry-preset-sub {
+  font-size: 9px;
+  color: var(--glace-text-muted);
+  font-weight: 400;
+}
+
+.geometry-preset-chip--active .geometry-preset-sub {
+  color: var(--glace-accent, #10b981);
+  opacity: 0.85;
 }
 
 /* Interactive Live Preview Capsule */
@@ -3484,6 +3524,380 @@ html, body {
 
 .about-dev-link-btn svg {
   flex-shrink: 0;
+}
+
+/* ─── About Tab Live Resource & Memory Telemetry Card ─────────────────────── */
+
+.about-resource-card {
+  position: relative;
+  background: var(--glace-bg-capsule);
+  border: 1px solid var(--glace-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  backdrop-filter: blur(var(--glace-blur));
+  -webkit-backdrop-filter: blur(var(--glace-blur));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.about-resource-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.about-resource-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.about-resource-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.7);
+  animation: app-badge-pop 2s infinite ease-in-out;
+}
+
+.about-resource-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--glace-text-primary);
+  letter-spacing: 0.1px;
+}
+
+.about-resource-total-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 3px 9px;
+  border-radius: 20px;
+}
+
+.about-resource-total-val {
+  font-size: 13px;
+  font-weight: 800;
+  color: #10b981;
+  font-variant-numeric: tabular-nums;
+}
+
+.about-resource-total-lbl {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.about-resource-bar-wrap {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  box-sizing: border-box;
+}
+
+.about-resource-bar-rust {
+  height: 100%;
+  background: linear-gradient(90deg, #f97316, #ea580c);
+  transition: width 0.3s ease;
+}
+
+.about-resource-bar-webview {
+  height: 100%;
+  background: linear-gradient(90deg, #06b6d4, #38bdf8);
+  transition: width 0.3s ease;
+}
+
+.about-resource-layers {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.about-resource-layer-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.about-layer-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.about-layer-indicator--rust {
+  background: #f97316;
+}
+
+.about-layer-indicator--webview {
+  background: #06b6d4;
+}
+
+.about-layer-name {
+  color: var(--glace-text-secondary);
+}
+
+.about-layer-val {
+  color: var(--glace-text-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.about-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.about-resource-grid-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.about-grid-key {
+  font-size: 10px;
+  color: var(--glace-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+}
+
+.about-grid-val {
+  font-size: 11.5px;
+  color: var(--glace-text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.about-grid-val--highlight {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.about-resource-footnote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--glace-text-secondary);
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.about-resource-footnote svg {
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+/* ─── Performance Comparison vs Windows 11 Native Taskbar ─────────────────── */
+
+.perf-compare-card {
+  position: relative;
+  background: var(--glace-bg-capsule);
+  border: 1px solid var(--glace-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  backdrop-filter: blur(var(--glace-blur));
+  -webkit-backdrop-filter: blur(var(--glace-blur));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.perf-compare-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.perf-compare-savings-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #22c55e;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.perf-compare-percent {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.perf-bars-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.perf-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.perf-bar-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+}
+
+.perf-bar-title {
+  color: var(--glace-text-secondary);
+  font-weight: 500;
+}
+
+.perf-bar-val {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.perf-bar-val--win {
+  color: #ef4444;
+}
+
+.perf-bar-val--glace {
+  color: #10b981;
+}
+
+.perf-bar-track {
+  width: 100%;
+  height: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.perf-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.4s ease;
+}
+
+.perf-bar-fill--win {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.perf-bar-fill--glace {
+  background: linear-gradient(90deg, #10b981, #06b6d4);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.perf-compare-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--glace-text-secondary);
+  background: rgba(16, 185, 129, 0.07);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.perf-compare-summary svg {
+  color: #10b981;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.perf-compare-summary strong {
+  color: #10b981;
+}
+
+/* ─── Architectural Efficiency Pillars Grid ───────────────────────────────── */
+
+.perf-pillars-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.perf-pillar-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.perf-pillar-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.perf-pillar-icon--rust {
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  color: #f97316;
+}
+
+.perf-pillar-icon--gpu {
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  color: #06b6d4;
+}
+
+.perf-pillar-icon--gc {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+}
+
+.perf-pillar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.perf-pillar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--glace-text-primary);
+}
+
+.perf-pillar-desc {
+  margin: 0;
+  font-size: 10.5px;
+  color: var(--glace-text-muted);
+  line-height: 1.35;
 }
 
 

@@ -7,7 +7,7 @@ export const SysMonCapsule: React.FC = () => {
   const { settings, setSysMonMode } = useSettings();
   const metrics = useSystemMetrics();
 
-  const mode = settings.sysmon_mode || "cpu_ram";
+  const mode: "cpu_ram" | "network" | "both" = (settings?.sysmon_mode as "cpu_ram" | "network" | "both") || "cpu_ram";
 
   const getLoadClass = (val: number) => {
     if (val >= 85) return "sysmon-val--high";
@@ -16,8 +16,9 @@ export const SysMonCapsule: React.FC = () => {
   };
 
   const handleCycleMode = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    const nextMode =
+    const nextMode: "cpu_ram" | "network" | "both" =
       mode === "cpu_ram"
         ? "network"
         : mode === "network"

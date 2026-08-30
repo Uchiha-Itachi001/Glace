@@ -62,7 +62,7 @@ export const PLATFORM_BADGES: Record<string, string> = {
   foobar2000: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%2322C55E"/><circle cx="50" cy="50" r="26" fill="%23fff"/><path fill="%2322C55E" d="M46 36 v28 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V42 h14 v18 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V36 Z"/></svg>',
   aimp: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23EA580C"/><circle cx="50" cy="50" r="26" fill="%23fff"/><polygon points="44,40 44,60 62,50" fill="%23EA580C"/></svg>',
   musicbee: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23EAB308"/><circle cx="50" cy="50" r="26" fill="%231E293B"/><path fill="%23EAB308" d="M46 36 v28 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V42 h14 v18 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V36 Z"/></svg>',
-  "local media": 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="lmg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%236366F1"/><stop offset="100%" stop-color="%23A855F7"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(%23lmg)"/><circle cx="50" cy="50" r="26" fill="%23fff"/><path fill="%236366F1" d="M46 36 v28 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V42 h14 v18 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V36 Z"/></svg>',
+  "local media": "/albumcover-placeholder.png",
 };
 
 export function detectPlatformBadge(title: string, artist?: string): string | null {
@@ -119,7 +119,7 @@ export function detectFallbackBadge(title: string, artist?: string): string | nu
   if (combined.includes("arc")) return PLATFORM_BADGES.arc;
   if (combined.includes("vivaldi")) return PLATFORM_BADGES.vivaldi;
 
-  return PLATFORM_BADGES["local media"] || null;
+  return null;
 }
 
 function cleanQueryString(title: string, artist?: string): string {

@@ -13,6 +13,17 @@ export interface TrayIcon {
   icon_b64: string;
 }
 
+export interface AppResourceUsage {
+  rust_ram_mb: number;
+  webview_ram_mb: number;
+  total_ram_mb: number;
+  system_total_ram_mb: number;
+  system_used_ram_mb: number;
+  system_ram_percent: number;
+  system_cpu_percent: number;
+  uptime_seconds: number;
+}
+
 export interface SystemMetrics {
   ram_percent: number;
   total_ram_mb: number;

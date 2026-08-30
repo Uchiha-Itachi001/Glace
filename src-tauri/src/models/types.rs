@@ -17,6 +17,18 @@ pub struct TrayIcon {
     pub icon_b64: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AppResourceUsage {
+    pub rust_ram_mb: f64,
+    pub webview_ram_mb: f64,
+    pub total_ram_mb: f64,
+    pub system_total_ram_mb: u64,
+    pub system_used_ram_mb: u64,
+    pub system_ram_percent: u8,
+    pub system_cpu_percent: u8,
+    pub uptime_seconds: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SystemMetrics {
     pub ram_percent: u8,
@@ -78,7 +90,7 @@ pub struct BluetoothDevice {
 }
 
 fn default_margin_top() -> u32 {
-    32
+    0
 }
 
 fn default_margin_bottom() -> u32 {
@@ -100,6 +112,7 @@ pub struct Settings {
     pub bar_alignment: String,
     pub capsule_order: Vec<String>,
     pub enabled_widgets: Vec<String>,
+    #[serde(default = "default_true")]
     pub autostart: bool,
     pub monitor: String,
     #[serde(default)]
@@ -154,7 +167,7 @@ impl Default for Settings {
                 "tray".into(),
                 "clock".into(),
             ],
-            autostart: false,
+            autostart: true,
             monitor: "primary".into(),
             pinned_apps: Vec::new(),
             sysmon_mode: "cpu_ram".into(),
@@ -165,7 +178,7 @@ impl Default for Settings {
             island_show_hardware: true,
             island_show_battery: true,
             media_location: "notch".into(),
-            margin_top: 32,
+            margin_top: 0,
             margin_bottom: 48,
             margin_left: 0,
             margin_right: 0,

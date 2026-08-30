@@ -24,4 +24,7 @@ pub fn save_settings(app: tauri::AppHandle, settings: Settings) {
         Some(settings.margin_left as i32),
         Some(settings.margin_right as i32),
     );
+
+    // 4. Synchronize Windows Run registry key with startup preference
+    services::autostart::sync_autostart(settings.autostart);
 }

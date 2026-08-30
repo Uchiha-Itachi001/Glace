@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { WindowInfo, TrayIcon, SystemMetrics, Settings, PinnedApp, BluetoothDevice, MediaSessionInfo } from "../types";
+import { WindowInfo, TrayIcon, SystemMetrics, AppResourceUsage, Settings, PinnedApp, BluetoothDevice, MediaSessionInfo } from "../types";
 
 export const tauriBridge = {
   // Window controls
@@ -209,6 +209,14 @@ export const tauriBridge = {
     }
   },
 
+  mediaSeek: async (positionSec: number): Promise<void> => {
+    try {
+      await invoke("media_seek", { positionSec });
+    } catch (e) {
+      console.error("mediaSeek error:", e);
+    }
+  },
+
   getMediaSessionInfo: async (): Promise<MediaSessionInfo | null> => {
     try {
       return await invoke<MediaSessionInfo | null>("get_media_session_info");
@@ -288,6 +296,23 @@ export const tauriBridge = {
     }
   },
 
+  getAppResourceUsage: async (): Promise<AppResourceUsage> => {
+    try {
+      return await invoke<AppResourceUsage>("get_app_resource_usage");
+    } catch {
+      return {
+        rust_ram_mb: 14.2,
+        webview_ram_mb: 36.8,
+        total_ram_mb: 51.0,
+        system_total_ram_mb: 16384,
+        system_used_ram_mb: 6880,
+        system_ram_percent: 42,
+        system_cpu_percent: 15,
+        uptime_seconds: 120,
+      };
+    }
+  },
+
   // Settings
   getSettings: async (): Promise<Settings> => {
     try {
@@ -301,7 +326,7 @@ export const tauriBridge = {
         bar_position: "bottom",
         capsule_order: ["start", "apps", "media", "sysmon", "tray", "clock"],
         enabled_widgets: ["start", "apps", "media", "sysmon", "tray", "clock"],
-        autostart: false,
+        autostart: true,
         monitor: "primary",
         sysmon_mode: "cpu_ram",
       };

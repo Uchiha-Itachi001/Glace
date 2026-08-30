@@ -1,98 +1,25 @@
-import React, { useState, useEffect } from "react";
-import { MediaSessionInfo } from "../../types";
-import { tauriBridge } from "../../services/tauriBridge";
+import React, { useState } from "react";
 import { useSettings } from "../../stores/settingsStore";
-import { albumArtService, TrackColorTheme } from "../../services/albumArtService";
+import { useMediaSession } from "../../hooks/useMediaSession";
 
 export const MediaCapsule: React.FC = () => {
   const { settings } = useSettings();
   const isMediaBarEnabled = (settings?.enabled_widgets ?? []).includes("media") && settings?.media_location !== "notch";
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const {
+    liveMedia: liveSession,
+    dynamicTheme: dynamicColor,
+    isPlaying,
+    progressPercent: progress,
+    togglePlay: handleTogglePlay,
+    nextTrack: handleNext,
+    prevTrack: handlePrev,
+  } = useMediaSession(isMediaBarEnabled);
+
   const [showControls, setShowControls] = useState(false);
-  const [liveSession, setLiveSession] = useState<MediaSessionInfo | null>(null);
-  const [dynamicColor, setDynamicColor] = useState<TrackColorTheme | null>(null);
 
-  // Poll media session periodically only when media capsule is active on taskbar
-  useEffect(() => {
-    if (!isMediaBarEnabled) return;
-    let isMounted = true;
-    const fetchSession = async () => {
-      try {
-        const session = await tauriBridge.getMediaSessionInfo();
-        if (isMounted) {
-          if (session) {
-            let art = session.album_art_base64;
-            if (!art) {
-              art = albumArtService.getCached(session.title, session.artist) || undefined;
-              if (!art) {
-                albumArtService.fetchAlbumArt(session.title, session.artist).then((fetchedArt) => {
-                  if (fetchedArt && isMounted) {
-                    setLiveSession((prev) => (prev && prev.title === session.title ? { ...prev, album_art_base64: fetchedArt } : prev));
-                  }
-                });
-              }
-            }
-            setLiveSession({ ...session, album_art_base64: art });
-            setIsPlaying(session.is_playing);
-            if (session.duration_sec > 0) {
-              setProgress(Math.min(100, Math.round((session.current_sec * 100) / session.duration_sec)));
-            }
-          } else {
-            setLiveSession(null);
-          }
-        }
-      } catch {
-        // Ignore
-      }
-    };
-
-    fetchSession();
-    const timer = setInterval(fetchSession, 1500);
-    return () => {
-      isMounted = false;
-      clearInterval(timer);
-    };
-  }, [isMediaBarEnabled]);
-
-  // Extract vibrant theme colors from album art
-  useEffect(() => {
-    const artUrl = liveSession?.album_art_base64;
-    if (!artUrl) {
-      setDynamicColor(null);
-      return;
-    }
-    const cached = albumArtService.getColorCached(artUrl);
-    if (cached) {
-      setDynamicColor(cached);
-      return;
-    }
-    albumArtService.extractDominantColor(artUrl).then((color) => {
-      if (color) {
-        setDynamicColor(color);
-      }
-    });
-  }, [liveSession?.album_art_base64]);
-
-  const handleTogglePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsPlaying(!isPlaying);
-    tauriBridge.toggleMediaPlayPause().catch(console.error);
-  };
-
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    tauriBridge.mediaNextTrack().catch(console.error);
-  };
-
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    tauriBridge.mediaPrevTrack().catch(console.error);
-  };
-
-  const displayTitle = liveSession?.title || "No Media Playing";
-  const displayArtist = liveSession?.artist || "Play music or video";
+  const displayTitle = liveSession?.title?.trim() || (liveSession ? "Connecting Audio..." : "No Media Playing");
+  const displayArtist = liveSession?.artist?.trim() || (liveSession ? "Resolving Stream..." : "Play music or video");
 
   return (
     <div

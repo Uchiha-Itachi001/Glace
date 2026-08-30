@@ -229,6 +229,24 @@
 
 
 
+/* ─── Zero-GPU Idle Optimization: Pause comet light animation when compact notch is idle ─── */
+.dynamic-notch--compact .notch-stream-comet {
+  animation-play-state: paused;
+  opacity: 0;
+  filter: none;
+  transition: opacity 0.3s ease;
+}
+
+.dynamic-notch--compact:hover .notch-stream-comet,
+.dynamic-notch--activity .notch-stream-comet,
+.dynamic-notch--expanded .notch-stream-comet,
+.dynamic-notch--bluetooth-expanded .notch-stream-comet,
+.notch-split-main .notch-stream-comet,
+.notch-split-secondary .notch-stream-comet {
+  animation-play-state: running;
+  opacity: 1;
+}
+
 /* ─── Interactive Notch Hover & Active Touch Feedback ─────────────────────── */
 
 .dynamic-notch--compact:hover,
@@ -753,27 +771,39 @@
 .notch-scrubber-track {
   position: relative;
   flex: 1;
-  height: 3.5px;
-  background: #27272a;
-  border-radius: 2px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
   cursor: pointer;
+  transition: height 0.15s ease;
+}
+
+.notch-scrubber-track:hover {
+  height: 6px;
 }
 
 .notch-scrubber-fill {
   height: 100%;
   background: #ffffff;
-  border-radius: 2px;
+  border-radius: 3px;
+  transition: width 0.1s linear;
 }
 
 .notch-scrubber-thumb {
   position: absolute;
-  top: 0px;
-  width: 10px;
-  height: 3.5px;
-  border-radius: 2px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: #ffffff;
-  transform: translateX(-50%);
-  box-shadow: 0 0 3px rgba(255, 255, 255, 0.4);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+  transition: left 0.1s linear, transform 0.15s ease;
+}
+
+.notch-scrubber-track:hover .notch-scrubber-thumb {
+  transform: translate(-50%, -50%) scale(1.3);
 }
 
 /* Row 3: 5 Playback Controls (Enlarged & Tightly Clustered) */

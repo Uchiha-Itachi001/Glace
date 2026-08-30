@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
+use windows::core::BOOL;
+use windows::Win32::Foundation::{HWND, LPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{keybd_event, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP};
+use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextW, GetWindowThreadProcessId, IsWindow};
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 use windows::Media::Control::{
     GlobalSystemMediaTransportControlsSession,
@@ -186,22 +189,68 @@ fn get_friendly_source_name(app_id: &str) -> String {
     }
 }
 
-/// Win32 Local Media Player Fallback Scanner (VLC, MPC-HC, MPV, PotPlayer, foobar2000, AIMP, WMP, KMPlayer, MusicBee, GOM)
-fn scan_win32_media_players() -> Option<MediaSessionInfo> {
-    let windows = crate::services::window_watcher::enumerate_windows();
+struct LocalMediaWin {
+    exe: String,
+    title: String,
+}
 
-    for win in windows {
-        let exe_lower = win.exe.to_lowercase();
+/// Win32 Local Media Player Fallback Scanner (VLC, MPC-HC, MPV, PotPlayer, foobar2000, AIMP, WMP, KMPlayer, MusicBee, GOM)
+/// Scans all top-level windows directly so background/unfocused playback is always detected
+fn scan_win32_media_players() -> Option<MediaSessionInfo> {
+    let mut media_windows: Vec<LocalMediaWin> = Vec::new();
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        if !IsWindow(Some(hwnd)).as_bool() {
+            return BOOL(1);
+        }
+
+        let mut pid: u32 = 0;
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+        if pid == 0 {
+            return BOOL(1);
+        }
+
+        let (exe_name, _) = crate::services::window_watcher::get_window_exe_path(hwnd);
+        let exe_lower = exe_name.to_lowercase();
+
+        let is_media_app = exe_lower == "vlc.exe"
+            || exe_lower.starts_with("mpc-hc")
+            || exe_lower.starts_with("mpc-be")
+            || exe_lower.starts_with("potplayer")
+            || exe_lower == "mpv.exe"
+            || exe_lower == "foobar2000.exe"
+            || exe_lower == "aimp.exe"
+            || exe_lower == "wmplayer.exe"
+            || exe_lower == "musicbee.exe"
+            || exe_lower.starts_with("kmplayer")
+            || exe_lower.starts_with("gom");
+
+        if is_media_app {
+            let mut title_buf = [0u16; 512];
+            let len = GetWindowTextW(hwnd, &mut title_buf);
+            if len > 0 {
+                let title = String::from_utf16_lossy(&title_buf[..len as usize]);
+                let list = &mut *(lparam.0 as *mut Vec<LocalMediaWin>);
+                list.push(LocalMediaWin {
+                    exe: exe_lower,
+                    title,
+                });
+            }
+        }
+
+        BOOL(1)
+    }
+
+    unsafe {
+        let _ = EnumWindows(Some(enum_proc), LPARAM(&mut media_windows as *mut _ as isize));
+    }
+
+    for win in media_windows {
+        let exe_lower = win.exe;
         let title_raw = win.title.trim();
         if title_raw.is_empty() {
             continue;
         }
-
-        let icon_opt = if !win.icon_b64.is_empty() {
-            Some(win.icon_b64.clone())
-        } else {
-            None
-        };
 
         if exe_lower == "vlc.exe" {
             // Idle state: "VLC media player"
@@ -215,10 +264,10 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                     title,
                     artist,
                     album_title: None,
-                    is_playing: !win.is_minimized,
+                    is_playing: true,
                     duration_sec: 0,
                     current_sec: 0,
-                    album_art_base64: icon_opt,
+                    album_art_base64: None,
                 });
             }
         } else if exe_lower.starts_with("mpc-hc") || exe_lower.starts_with("mpc-be") {
@@ -238,10 +287,10 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                     title,
                     artist,
                     album_title: None,
-                    is_playing: !win.is_minimized,
+                    is_playing: true,
                     duration_sec: 0,
                     current_sec: 0,
-                    album_art_base64: icon_opt,
+                    album_art_base64: None,
                 });
             }
         } else if exe_lower.starts_with("potplayer") {
@@ -260,10 +309,10 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                     title,
                     artist,
                     album_title: None,
-                    is_playing: !win.is_minimized,
+                    is_playing: true,
                     duration_sec: 0,
                     current_sec: 0,
-                    album_art_base64: icon_opt,
+                    album_art_base64: None,
                 });
             }
         } else if exe_lower == "mpv.exe" {
@@ -280,10 +329,10 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                     title,
                     artist,
                     album_title: None,
-                    is_playing: !win.is_minimized,
+                    is_playing: true,
                     duration_sec: 0,
                     current_sec: 0,
-                    album_art_base64: icon_opt,
+                    album_art_base64: None,
                 });
             }
         } else if exe_lower == "foobar2000.exe" {
@@ -297,10 +346,10 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                     title,
                     artist,
                     album_title: None,
-                    is_playing: !win.is_minimized,
+                    is_playing: true,
                     duration_sec: 0,
                     current_sec: 0,
-                    album_art_base64: icon_opt,
+                    album_art_base64: None,
                 });
             }
         } else if exe_lower == "aimp.exe" {
@@ -314,10 +363,10 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                     title,
                     artist,
                     album_title: None,
-                    is_playing: !win.is_minimized,
+                    is_playing: true,
                     duration_sec: 0,
                     current_sec: 0,
-                    album_art_base64: icon_opt,
+                    album_art_base64: None,
                 });
             }
         } else if exe_lower == "wmplayer.exe" {
@@ -331,10 +380,10 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                     title,
                     artist,
                     album_title: None,
-                    is_playing: !win.is_minimized,
+                    is_playing: true,
                     duration_sec: 0,
                     current_sec: 0,
-                    album_art_base64: icon_opt,
+                    album_art_base64: None,
                 });
             }
         } else if exe_lower == "musicbee.exe" {
@@ -348,10 +397,10 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                     title,
                     artist,
                     album_title: None,
-                    is_playing: !win.is_minimized,
+                    is_playing: true,
                     duration_sec: 0,
                     current_sec: 0,
-                    album_art_base64: icon_opt,
+                    album_art_base64: None,
                 });
             }
         } else if exe_lower.starts_with("kmplayer") {
@@ -365,10 +414,10 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                     title,
                     artist,
                     album_title: None,
-                    is_playing: !win.is_minimized,
+                    is_playing: true,
                     duration_sec: 0,
                     current_sec: 0,
-                    album_art_base64: icon_opt,
+                    album_art_base64: None,
                 });
             }
         } else if exe_lower.starts_with("gom") {
@@ -382,10 +431,10 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                     title,
                     artist,
                     album_title: None,
-                    is_playing: !win.is_minimized,
+                    is_playing: true,
                     duration_sec: 0,
                     current_sec: 0,
-                    album_art_base64: icon_opt,
+                    album_art_base64: None,
                 });
             }
         }
@@ -514,9 +563,55 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
         if !title.trim().is_empty() || is_playing {
             let timeline = session.GetTimelineProperties().ok();
             let (current_sec, duration_sec) = if let Some(tl) = timeline {
-                let pos = tl.Position().map(|d| (d.Duration / 10_000_000) as u64).unwrap_or(0);
-                let end = tl.EndTime().map(|d| (d.Duration / 10_000_000) as u64).unwrap_or(0);
-                (pos, end)
+                let start_ticks = tl.StartTime().map(|d| d.Duration).unwrap_or(0);
+                let end_ticks = tl.EndTime().map(|d| d.Duration).unwrap_or(0);
+                let pos_ticks = tl.Position().map(|d| d.Duration).unwrap_or(0);
+                let last_updated = tl.LastUpdatedTime().map(|d| d.UniversalTime).unwrap_or(0);
+
+                let duration_ticks = if end_ticks > start_ticks {
+                    end_ticks - start_ticks
+                } else if let Ok(max_seek) = tl.MaxSeekTime() {
+                    max_seek.Duration
+                } else {
+                    0
+                };
+
+                let duration_sec = if duration_ticks > 0 {
+                    (duration_ticks / 10_000_000) as u64
+                } else {
+                    0
+                };
+
+                let mut current_ticks = if pos_ticks >= start_ticks {
+                    pos_ticks - start_ticks
+                } else {
+                    pos_ticks
+                };
+
+                // If playing and LastUpdatedTime is valid, project forward with real elapsed wall clock time
+                if is_playing && last_updated > 0 {
+                    let now_filetime = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| (d.as_nanos() / 100) as i64 + 116_444_736_000_000_000)
+                        .unwrap_or(0);
+
+                    if now_filetime > last_updated {
+                        let elapsed = now_filetime - last_updated;
+                        current_ticks += elapsed;
+                    }
+                }
+
+                if duration_ticks > 0 && current_ticks > duration_ticks {
+                    current_ticks = duration_ticks;
+                }
+
+                let current_sec = if current_ticks > 0 {
+                    (current_ticks / 10_000_000) as u64
+                } else {
+                    0
+                };
+
+                (current_sec, duration_sec)
             } else {
                 (0, 0)
             };
@@ -592,16 +687,22 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
 
     let final_session = match (session_info, win32_media) {
         (Some(gsmtc), Some(w32)) => {
-            if gsmtc.is_playing {
+            if gsmtc.is_playing && !gsmtc.title.is_empty() {
                 Some(gsmtc)
-            } else if w32.is_playing {
-                // Actively playing Win32 player (e.g. VLC) overrides paused/idle GSMTC session!
+            } else if w32.is_playing && !w32.title.is_empty() {
+                // Actively playing Win32 player (e.g. VLC playing in background) overrides paused/idle GSMTC session!
                 Some(w32)
             } else {
                 Some(gsmtc)
             }
         }
-        (Some(gsmtc), None) => Some(gsmtc),
+        (Some(gsmtc), None) => {
+            if !gsmtc.title.is_empty() || gsmtc.is_playing {
+                Some(gsmtc)
+            } else {
+                None
+            }
+        }
         (None, Some(w32)) => Some(w32),
         (None, None) => None,
     };
@@ -657,6 +758,17 @@ pub fn volume_mute() {
         // VK_VOLUME_MUTE = 0xAD
         keybd_event(0xAD, 0, KEYBD_EVENT_FLAGS(0), 0);
         keybd_event(0xAD, 0, KEYEVENTF_KEYUP, 0);
+    }
+}
+
+pub fn seek_media(position_sec: u64) {
+    if let Ok(guard) = MEDIA_CACHE.lock() {
+        if let Some(ref mgr) = guard.manager {
+            if let Ok(session) = mgr.GetCurrentSession() {
+                let ticks = (position_sec as i64) * 10_000_000;
+                let _ = session.TryChangePlaybackPositionAsync(ticks);
+            }
+        }
     }
 }
 

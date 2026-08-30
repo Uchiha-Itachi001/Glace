@@ -356,7 +356,7 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
     }
 }
 
-fn get_window_exe_path(hwnd: HWND) -> (String, String) {
+pub(crate) fn get_window_exe_path(hwnd: HWND) -> (String, String) {
     let mut pid: u32 = 0;
     unsafe {
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
@@ -936,7 +936,7 @@ pub fn start(app_handle: AppHandle) {
         let mut last_fullscreen_state = false;
 
         loop {
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(200));
 
             if let Some(glace_hwnd) = crate::services::work_area::get_glace_hwnd() {
                 let is_fs = is_foreground_fullscreen(glace_hwnd, current_pid);

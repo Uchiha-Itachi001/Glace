@@ -67,6 +67,7 @@ pub fn run() {
             commands::windows::get_window_thumbnail,
             commands::tray::get_tray_icons,
             commands::tray::get_system_metrics,
+            commands::tray::get_app_resource_usage,
             commands::settings::get_settings,
             commands::settings::save_settings,
             commands::pinned::get_pinned_apps,
@@ -78,6 +79,7 @@ pub fn run() {
             commands::media::media_volume_up,
             commands::media::media_volume_down,
             commands::media::media_volume_mute,
+            commands::media::media_seek,
             commands::media::get_media_session_info,
             commands::bluetooth::get_bluetooth_devices,
         ])
@@ -189,6 +191,7 @@ pub fn run() {
             }
 
             let initial_settings = config::settings::load();
+            services::autostart::sync_autostart(initial_settings.autostart);
             services::bluetooth::set_enabled(initial_settings.enable_dynamic_island && initial_settings.island_show_bluetooth);
             services::window_watcher::start(app.handle().clone());
             services::bluetooth::start();

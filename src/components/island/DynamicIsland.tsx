@@ -9,6 +9,8 @@ import { albumArtService, TrackColorTheme } from "../../services/albumArtService
 
 
 
+import { useMediaSession } from "../../hooks/useMediaSession";
+
 export const DynamicIsland: React.FC = () => {
   const { settings } = useSettings();
   const isIslandEnabled = settings?.enable_dynamic_island ?? true;
@@ -21,6 +23,23 @@ export const DynamicIsland: React.FC = () => {
   const systemMetrics = useSystemMetrics(isIslandEnabled);
   const batteryPercent = systemMetrics?.battery_percent ?? 100;
   const isCharging = Boolean(systemMetrics?.is_charging);
+
+  const {
+    liveMedia,
+    dynamicTheme,
+    isPlaying: activeIsPlaying,
+    currentSec: activeCurrentSec,
+    durationSec: activeDuration,
+    progressPercent,
+    hasLiveMedia,
+    togglePlay: handleTogglePlay,
+    nextTrack: handleNextTrack,
+    prevTrack: handlePrevTrack,
+    toggleMute: handleToggleMute,
+    volumeUp,
+    volumeDown,
+    seekTrack,
+  } = useMediaSession(showMedia);
 
   const [currentTime, setCurrentTime] = useState<string>(() => {
     const now = new Date();
@@ -43,105 +62,24 @@ export const DynamicIsland: React.FC = () => {
     const timer = setInterval(() => {
       const now = new Date();
       setCurrentTime(now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }));
-    }, 1000);
+    }, 5000);
     return () => clearInterval(timer);
   }, []);
 
   const [expandedType, setExpandedType] = useState<"media" | "bluetooth" | "hardware" | null>(null);
   const [splitViewMode, setSplitViewMode] = useState<"media_main" | "bt_main">("media_main");
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [currentSec, setCurrentSec] = useState(0);
-  const [liveMedia, setLiveMedia] = useState<MediaSessionInfo | null>(null);
-  const [dynamicTheme, setDynamicTheme] = useState<TrackColorTheme | null>(null);
 
   const { activeDevice: activeBtDevice, isConnected: isBtConnected } = bluetooth;
   const btBatteryPct = activeBtDevice?.battery_percent ?? null;
-
-  // Auto-Detect Windows Global System Media Transport (Only polls when showMedia is active)
-  useEffect(() => {
-    if (!showMedia) {
-      setLiveMedia(null);
-      return;
-    }
-    let isMounted = true;
-    const pollMedia = async () => {
-      try {
-        const session = await tauriBridge.getMediaSessionInfo();
-        if (isMounted) {
-          if (session && (session.title?.trim() || session.artist?.trim())) {
-            let art = session.album_art_base64;
-            if (!art) {
-              art = albumArtService.getCached(session.title, session.artist) || undefined;
-              if (!art) {
-                albumArtService.fetchAlbumArt(session.title, session.artist).then((fetchedArt) => {
-                  if (fetchedArt && isMounted) {
-                    setLiveMedia((prev) => (prev && prev.title === session.title ? { ...prev, album_art_base64: fetchedArt } : prev));
-                  }
-                });
-              }
-            }
-            setLiveMedia({ ...session, album_art_base64: art });
-            if (session.current_sec > 0) {
-              setCurrentSec(session.current_sec);
-            }
-          } else {
-            setLiveMedia(null);
-          }
-        }
-      } catch (err) {
-        console.error("Error polling media session:", err);
-      }
-    };
-    pollMedia();
-    const interval = setInterval(pollMedia, 1500);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [showMedia]);
-
-  // Extract vibrant theme colors from album artwork
-  useEffect(() => {
-    const artUrl = liveMedia?.album_art_base64;
-    if (!artUrl) {
-      setDynamicTheme(null);
-      return;
-    }
-    const cached = albumArtService.getColorCached(artUrl);
-    if (cached) {
-      setDynamicTheme(cached);
-      return;
-    }
-    albumArtService.extractDominantColor(artUrl).then((theme) => {
-      if (theme) {
-        setDynamicTheme(theme);
-      }
-    });
-  }, [liveMedia?.album_art_base64]);
-
-  const activeIsPlaying = liveMedia ? liveMedia.is_playing : isPlaying;
-
-  // Media Progress Ticker (Only ticks when media is actually playing)
-  useEffect(() => {
-    if (!showMedia || !activeIsPlaying) return;
-    const interval = setInterval(() => {
-      setCurrentSec((prev) => (liveMedia?.duration_sec && prev >= liveMedia.duration_sec ? 0 : prev + 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [showMedia, activeIsPlaying, liveMedia?.duration_sec]);
-
-  const hasLiveMedia = liveMedia !== null && (Boolean(liveMedia.title?.trim()) || Boolean(liveMedia.artist?.trim()));
-  const activeTitle = liveMedia?.title || "";
-  const activeArtist = liveMedia?.artist || "";
-  const activeDuration = liveMedia && liveMedia.duration_sec > 0 ? liveMedia.duration_sec : 0;
-  const activeCurrentSec = currentSec > activeDuration ? activeDuration : currentSec;
-  const progressPercent = activeDuration > 0 ? (activeCurrentSec / activeDuration) * 100 : 0;
 
   // Media session is active ONLY when a real media player session is detected from Windows
   const hasMediaSession = showMedia && hasLiveMedia;
   // Multi-activity is active when real media exists AND a real bluetooth device is connected!
   const isMultiActivity = hasMediaSession && showBluetooth && isBtConnected && activeBtDevice !== null;
+
+  const activeTitle = liveMedia?.title?.trim() || (hasLiveMedia ? "Connecting Audio..." : "No Media Playing");
+  const activeArtist = liveMedia?.artist?.trim() || (hasLiveMedia ? "Resolving Stream..." : "Ready to play");
 
   if (!isIslandEnabled) {
     return null;
@@ -151,11 +89,6 @@ export const DynamicIsland: React.FC = () => {
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return `${m}:${s < 10 ? "0" : ""}${s}`;
-  };
-
-  const formatNegativeTime = (current: number, total: number) => {
-    const remaining = total > current ? total - current : 0;
-    return `-${formatTime(remaining)}`;
   };
 
   const handleExpandMedia = (e: React.MouseEvent) => {
@@ -198,43 +131,21 @@ export const DynamicIsland: React.FC = () => {
     setSplitViewMode((prev) => (prev === "media_main" ? "bt_main" : "media_main"));
   };
 
-  const handleTogglePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsPlaying(!isPlaying);
-    tauriBridge.toggleMediaPlayPause().catch(console.error);
-  };
-
-  const handleNextTrack = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentSec(0);
-    tauriBridge.mediaNextTrack().catch(console.error);
-  };
-
-  const handlePrevTrack = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentSec(0);
-    tauriBridge.mediaPrevTrack().catch(console.error);
-  };
-
-  const handleToggleMute = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsMuted((prev) => !prev);
-    tauriBridge.mediaVolumeMute().catch(console.error);
-  };
-
   const handleScrubberClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
+    if (activeDuration <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const pct = Math.max(0, Math.min(1, clickX / rect.width));
-    setCurrentSec(Math.floor(pct * activeDuration));
+    const clickX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const ratio = rect.width > 0 ? clickX / rect.width : 0;
+    const targetSec = Math.round(ratio * activeDuration);
+    seekTrack(targetSec);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
     if (e.deltaY < 0) {
-      tauriBridge.mediaVolumeUp().catch(console.error);
+      volumeUp();
     } else if (e.deltaY > 0) {
-      tauriBridge.mediaVolumeDown().catch(console.error);
+      volumeDown();
     }
   };
 
@@ -445,7 +356,7 @@ export const DynamicIsland: React.FC = () => {
               {/* Row 2: Scrubber Track with Inline Timestamps */}
               <div className="notch-card-scrubber-row">
                 <span className="notch-time-label">
-                  {formatNegativeTime(activeCurrentSec, activeDuration)}
+                  {formatTime(activeCurrentSec)}
                 </span>
                 <div className="notch-scrubber-track" onClick={handleScrubberClick}>
                   <div className="notch-scrubber-fill" style={{ width: `${progressPercent}%` }} />
