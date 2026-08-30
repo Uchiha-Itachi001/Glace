@@ -1826,12 +1826,42 @@ html, body {
 
 /* ─── Media Capsule & Soundwave Visualizer ────────────────────────────── */
 
+.media-capsule-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .media-capsule {
   cursor: pointer;
   padding: 0 10px;
-  min-width: 170px;
-  max-width: 270px;
+  width: 176px;
+  min-width: 176px;
+  max-width: 176px;
+  height: var(--glace-bar-height, 36px);
+  box-sizing: border-box;
   overflow: hidden;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  position: relative;
+  transition: all var(--glace-duration-base) var(--glace-ease-spring) !important;
+}
+
+.media-capsule:hover {
+  background: var(--glace-bg-hover, rgba(255, 255, 255, 0.08)) !important;
+  border-color: var(--glace-border-focus, rgba(255, 255, 255, 0.25)) !important;
+  box-shadow: var(--glace-shadow-hover) !important;
+}
+
+.media-capsule:active {
+  transform: scale(0.97) !important;
+}
+
+.media-capsule--active-flyout {
+  background: var(--glace-bg-active, rgba(255, 255, 255, 0.12)) !important;
+  border-color: var(--wave-color, var(--glace-accent)) !important;
+  box-shadow: 0 0 12px var(--wave-glow, rgba(0, 0, 0, 0.3)) !important;
 }
 
 .media-content {
@@ -1842,9 +1872,9 @@ html, body {
 }
 
 .media-album-thumb {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   display: flex;
   align-items: center;
@@ -1869,7 +1899,7 @@ html, body {
 }
 
 .eq-bar {
-  width: 2.5px;
+  width: 2px;
   background: var(--wave-gradient, var(--glace-accent));
   box-shadow: 0 0 4px var(--wave-glow, transparent);
   border-radius: 1px;
@@ -1914,6 +1944,7 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .media-artist {
@@ -1922,37 +1953,7 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.media-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.media-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border-radius: 6px;
-  background: transparent;
-  border: none;
-  color: var(--glace-text-secondary);
-  cursor: pointer;
-  transition: all var(--glace-duration-fast) var(--glace-ease-smooth);
-}
-
-.media-btn:hover {
-  color: var(--glace-text-primary);
-  background: var(--glace-bg-hover);
-}
-
-.media-btn--play {
-  color: var(--wave-color, var(--glace-accent));
+  line-height: 1.2;
 }
 
 .media-progress-bar {
@@ -1966,8 +1967,220 @@ html, body {
 
 .media-progress-fill {
   height: 100%;
-  background: var(--wave-color, var(--glace-accent));
+  background: var(--wave-gradient, #ffffff);
+  box-shadow: 0 0 6px var(--wave-glow, rgba(255, 255, 255, 0.4));
   transition: width 0.3s linear;
+}
+
+/* ─── Media Controls Flyout (Pop-up Card above Taskbar) ─────────────── */
+
+.media-controls-flyout {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 256px;
+  padding: 14px 16px 12px;
+  border-radius: var(--glace-radius-lg, 16px);
+  background: var(--glace-surface, rgba(18, 18, 24, 0.92));
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--glace-border-focus, rgba(255, 255, 255, 0.14));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  user-select: none;
+  animation: media-flyout-bounce-in 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  transform-origin: bottom center;
+}
+
+@keyframes media-flyout-bounce-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px) scale(0.82);
+  }
+  65% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-5px) scale(1.04);
+  }
+  85% {
+    transform: translateX(-50%) translateY(2px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.media-flyout-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.media-flyout-art {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #18181b;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.media-flyout-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.media-flyout-details {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.media-flyout-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--glace-text-primary, #ffffff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.media-flyout-artist {
+  font-size: 10.5px;
+  color: var(--glace-text-secondary, #a1a1aa);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.media-flyout-scrubber-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.media-flyout-time {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--glace-text-secondary, #71717a);
+  font-variant-numeric: tabular-nums;
+  min-width: 26px;
+}
+
+.media-flyout-time:first-child {
+  text-align: left;
+}
+
+.media-flyout-time:last-child {
+  text-align: right;
+}
+
+.media-flyout-track {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: height 0.15s ease;
+}
+
+.media-flyout-track:hover {
+  height: 6px;
+}
+
+.media-flyout-fill {
+  height: 100%;
+  background: #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+  transition: width 0.1s linear;
+}
+
+.media-flyout-thumb {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  transition: left 0.1s linear;
+}
+
+.media-flyout-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-top: 4px;
+}
+
+.media-flyout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.16s ease, color 0.2s ease;
+  opacity: 0.85;
+}
+
+.media-flyout-btn:hover {
+  background: transparent !important;
+  border: none !important;
+  color: #ffffff;
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.media-flyout-btn:active {
+  transform: scale(0.92);
+}
+
+.media-flyout-btn--play {
+  width: 38px;
+  height: 38px;
+  background: transparent !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: none !important;
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+.media-flyout-btn--play:hover {
+  background: transparent !important;
+  color: #ffffff !important;
+  transform: scale(1.35);
+  box-shadow: none !important;
+}
+
+.media-flyout-btn--play:active {
+  transform: scale(1.1);
+}
+
+.media-flyout-btn--muted {
+  color: #ef4444 !important;
+  opacity: 1;
 }
 
 /* ─── SysMon Capsule (Hardware Gauges & Internet Speed) ──────────────── */

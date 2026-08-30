@@ -807,45 +807,45 @@
 }
 
 /* Row 3: 5 Playback Controls (Enlarged & Tightly Clustered) */
+/* Row 3: 5 Playback Controls */
 .notch-card-controls-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 20px;
+  justify-content: space-between;
   width: 100%;
-  padding: 0 8px;
+  padding: 4px 16px 2px;
 }
 
 .notch-btn-icon {
-  background: transparent;
-  border: none;
-  outline: none;
-  box-shadow: none;
-  color: #ffffff;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  padding: 4px;
-  border-radius: 50%;
+  padding: 0;
+  border-radius: 0;
   transition: transform var(--glace-duration-fast) var(--glace-ease-spring), opacity 0.16s ease, color 0.2s ease;
-  opacity: 0.9;
+  opacity: 0.85;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
 
 .notch-btn-icon:hover {
+  background: transparent !important;
+  border: none !important;
+  color: #ffffff;
   opacity: 1;
-  transform: scale(1.15);
+  transform: scale(1.18);
 }
 
 .notch-btn-icon:active {
   transform: scale(0.92);
-  outline: none !important;
-  border: none !important;
-  box-shadow: none !important;
 }
 
 .notch-btn-icon:focus,
@@ -855,23 +855,30 @@
   box-shadow: none !important;
 }
 
-.notch-btn-icon::-moz-focus-inner {
-  border: 0 !important;
-}
-
 .notch-btn-icon--play {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+  background: transparent !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: none !important;
   opacity: 1;
-  transform: scale(1.05);
+  transform: scale(1.25);
 }
 
 .notch-btn-icon--play:hover {
-  transform: scale(1.18);
+  background: transparent !important;
+  color: #ffffff !important;
+  transform: scale(1.4);
+  box-shadow: none !important;
+}
+
+.notch-btn-icon--play:active {
+  transform: scale(1.12);
 }
 
 .notch-btn-icon--active {
-  color: var(--wave-color, #ff2d55);
+  color: #ef4444 !important;
   opacity: 1;
 }
 

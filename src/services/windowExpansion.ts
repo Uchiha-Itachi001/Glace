@@ -3,6 +3,7 @@ import { tauriBridge } from "./tauriBridge";
 export type ExpansionSource =
   | "flyout"
   | "island"
+  | "media-capsule"
   | "apps-hover"
   | "apps-context"
   | "apps-overflow";

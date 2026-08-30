@@ -2,13 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSettings } from "../../stores/settingsStore";
 import { useBluetooth } from "../../hooks/useBluetooth";
 import { useSystemMetrics } from "../../hooks/useSystemMetrics";
-import { tauriBridge } from "../../services/tauriBridge";
 import { windowExpansion } from "../../services/windowExpansion";
-import { MediaSessionInfo } from "../../types";
-import { albumArtService, TrackColorTheme } from "../../services/albumArtService";
-
-
-
 import { useMediaSession } from "../../hooks/useMediaSession";
 
 export const DynamicIsland: React.FC = () => {
@@ -39,6 +33,7 @@ export const DynamicIsland: React.FC = () => {
     volumeUp,
     volumeDown,
     seekTrack,
+    focusMediaApp,
   } = useMediaSession(showMedia);
 
   const [currentTime, setCurrentTime] = useState<string>(() => {
@@ -365,12 +360,60 @@ export const DynamicIsland: React.FC = () => {
                 <span className="notch-time-label">{formatTime(activeDuration)}</span>
               </div>
 
-              {/* Row 3: 5 Playback Controls (Evenly Clustered & Enlarged) */}
+              {/* Row 3: 5 Playback Controls */}
               <div className="notch-card-controls-row">
-                {/* 1. System Audio Mute / Unmute */}
+                {/* 1. Open Source Media App */}
+                <button
+                  className="notch-btn-icon"
+                  onClick={focusMediaApp}
+                  title="Open Playing App"
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </button>
+
+                {/* 2. Previous Track */}
+                <button className="notch-btn-icon" onClick={handlePrevTrack} title="Previous">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                    <path d="M22 5.5a1.2 1.2 0 0 0-1.85-.98L13.3 9.7a1.2 1.2 0 0 0 0 1.96l6.85 5.18A1.2 1.2 0 0 0 22 15.86V5.5zm-11 0a1.2 1.2 0 0 0-1.85-.98L2.3 9.7a1.2 1.2 0 0 0 0 1.96l6.85 5.18A1.2 1.2 0 0 0 11 15.86V5.5z" />
+                  </svg>
+                </button>
+
+                {/* 3. Play / Pause Button (Enlarged) */}
+                <button
+                  className="notch-btn-icon notch-btn-icon--play"
+                  onClick={handleTogglePlay}
+                  title={activeIsPlaying ? "Pause" : "Play"}
+                >
+                  {activeIsPlaying ? (
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+                      <rect x="5.5" y="3.5" width="4.5" height="17" rx="1.8" />
+                      <rect x="14" y="3.5" width="4.5" height="17" rx="1.8" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+                      <path d="M6 4.5a1.5 1.5 0 0 1 2.3-1.28l12 7.5a1.5 1.5 0 0 1 0 2.56l-12 7.5A1.5 1.5 0 0 1 6 19.5V4.5z" />
+                    </svg>
+                  )}
+                </button>
+
+                {/* 4. Next Track */}
+                <button className="notch-btn-icon" onClick={handleNextTrack} title="Next">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                    <path d="M2 5.5a1.2 1.2 0 0 1 1.85-.98L10.7 9.7a1.2 1.2 0 0 1 0 1.96l-6.85 5.18A1.2 1.2 0 0 1 2 15.86V5.5zm11 0a1.2 1.2 0 0 1 1.85-.98L21.7 9.7a1.2 1.2 0 0 1 0 1.96l-6.85 5.18A1.2 1.2 0 0 1 13 15.86V5.5z" />
+                  </svg>
+                </button>
+
+                {/* 5. System Audio Mute / Unmute */}
                 <button
                   className={`notch-btn-icon ${isMuted ? "notch-btn-icon--active" : ""}`}
-                  onClick={handleToggleMute}
+                  onClick={(e) => {
+                    setIsMuted(!isMuted);
+                    handleToggleMute(e);
+                  }}
                   title={isMuted ? "Unmute Sound" : "Mute Sound"}
                 >
                   {isMuted ? (
@@ -386,45 +429,6 @@ export const DynamicIsland: React.FC = () => {
                       <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
                     </svg>
                   )}
-                </button>
-
-                {/* 2. Previous Track */}
-                <button className="notch-btn-icon" onClick={handlePrevTrack} title="Previous">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M22 5.5a1.2 1.2 0 0 0-1.85-.98L13.3 9.7a1.2 1.2 0 0 0 0 1.96l6.85 5.18A1.2 1.2 0 0 0 22 15.86V5.5zm-11 0a1.2 1.2 0 0 0-1.85-.98L2.3 9.7a1.2 1.2 0 0 0 0 1.96l6.85 5.18A1.2 1.2 0 0 0 11 15.86V5.5z" />
-                  </svg>
-                </button>
-
-                {/* 3. Play / Pause Button */}
-                <button
-                  className="notch-btn-icon notch-btn-icon--play"
-                  onClick={handleTogglePlay}
-                  title={activeIsPlaying ? "Pause" : "Play"}
-                >
-                  {activeIsPlaying ? (
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                      <rect x="5.5" y="3.5" width="4.5" height="17" rx="1.8" />
-                      <rect x="14" y="3.5" width="4.5" height="17" rx="1.8" />
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                      <path d="M6 4.5a1.5 1.5 0 0 1 2.3-1.28l12 7.5a1.5 1.5 0 0 1 0 2.56l-12 7.5A1.5 1.5 0 0 1 6 19.5V4.5z" />
-                    </svg>
-                  )}
-                </button>
-
-                {/* 4. Next Track */}
-                <button className="notch-btn-icon" onClick={handleNextTrack} title="Next">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M2 5.5a1.2 1.2 0 0 1 1.85-.98L10.7 9.7a1.2 1.2 0 0 1 0 1.96l-6.85 5.18A1.2 1.2 0 0 1 2 15.86V5.5zm11 0a1.2 1.2 0 0 1 1.85-.98L21.7 9.7a1.2 1.2 0 0 1 0 1.96l-6.85 5.18A1.2 1.2 0 0 1 13 15.86V5.5z" />
-                  </svg>
-                </button>
-
-                {/* 5. Collapse / Minimize Notch */}
-                <button className="notch-btn-icon" onClick={handleCollapse} title="Minimize Notch">
-                  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
                 </button>
               </div>
             </div>

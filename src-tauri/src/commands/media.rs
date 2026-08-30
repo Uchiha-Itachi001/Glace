@@ -36,6 +36,11 @@ pub fn media_seek(position_sec: u64) {
 }
 
 #[tauri::command]
+pub fn media_focus_app() {
+    media_host::focus_media_app();
+}
+
+#[tauri::command]
 pub fn get_media_session_info() -> Option<media_host::MediaSessionInfo> {
     media_host::get_current_media_session()
 }

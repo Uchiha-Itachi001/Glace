@@ -217,6 +217,14 @@ export const tauriBridge = {
     }
   },
 
+  focusMediaApp: async (): Promise<void> => {
+    try {
+      await invoke("media_focus_app");
+    } catch (e) {
+      console.error("focusMediaApp error:", e);
+    }
+  },
+
   getMediaSessionInfo: async (): Promise<MediaSessionInfo | null> => {
     try {
       return await invoke<MediaSessionInfo | null>("get_media_session_info");

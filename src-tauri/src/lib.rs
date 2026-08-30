@@ -80,6 +80,7 @@ pub fn run() {
             commands::media::media_volume_down,
             commands::media::media_volume_mute,
             commands::media::media_seek,
+            commands::media::media_focus_app,
             commands::media::get_media_session_info,
             commands::bluetooth::get_bluetooth_devices,
         ])

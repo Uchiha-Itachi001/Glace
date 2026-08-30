@@ -190,6 +190,13 @@ export function useMediaSession(enabled: boolean = true) {
 
   const togglePlay = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    const nextPlaying = !currentState.isPlaying;
+    currentState = {
+      ...currentState,
+      isPlaying: nextPlaying,
+    };
+    notifyListeners();
+    updatePlaybackTicker();
     tauriBridge.toggleMediaPlayPause().catch(console.error);
   }, []);
 
@@ -229,6 +236,11 @@ export function useMediaSession(enabled: boolean = true) {
     tauriBridge.mediaSeek(boundedSec).catch(console.error);
   }, []);
 
+  const focusMediaApp = useCallback((e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    tauriBridge.focusMediaApp().catch(console.error);
+  }, []);
+
   return {
     ...state,
     togglePlay,
@@ -238,5 +250,6 @@ export function useMediaSession(enabled: boolean = true) {
     volumeUp,
     volumeDown,
     seekTrack,
+    focusMediaApp,
   };
 }

@@ -299,29 +299,39 @@ export async function extractDominantColor(imageUrl: string): Promise<TrackColor
           b: Math.round(bTotal / count),
         } : bestColor);
 
-        const boost = (val: number) => Math.min(255, Math.max(30, Math.round(val * 1.12)));
-        const finalR = boost(chosen.r);
-        const finalG = boost(chosen.g);
-        const finalB = boost(chosen.b);
+        // Convert to HSL and force vibrant saturation & luminous lightness (no muddy browns)
+        const rNorm = chosen.r / 255;
+        const gNorm = chosen.g / 255;
+        const bNorm = chosen.b / 255;
+        const cMax = Math.max(rNorm, gNorm, bNorm);
+        const cMin = Math.min(rNorm, gNorm, bNorm);
+        const delta = cMax - cMin;
 
-        const topR = Math.min(255, Math.round(finalR * 0.40 + 255 * 0.60));
-        const topG = Math.min(255, Math.round(finalG * 0.40 + 255 * 0.60));
-        const topB = Math.min(255, Math.round(finalB * 0.40 + 255 * 0.60));
+        let h = 200; // fallback sky blue
+        if (delta > 0.02) {
+          if (cMax === rNorm) {
+            h = ((gNorm - bNorm) / delta) % 6;
+          } else if (cMax === gNorm) {
+            h = (bNorm - rNorm) / delta + 2;
+          } else {
+            h = (rNorm - gNorm) / delta + 4;
+          }
+          h = Math.round(h * 60);
+          if (h < 0) h += 360;
+        }
 
-        const botR = Math.max(15, Math.round(finalR * 0.88));
-        const botG = Math.max(15, Math.round(finalG * 0.88));
-        const botB = Math.max(15, Math.round(finalB * 0.88));
-
-        const waveGradientTop = `rgb(${topR}, ${topG}, ${topB})`;
-        const waveGradientBottom = `rgb(${botR}, ${botG}, ${botB})`;
-        const waveGradient = `linear-gradient(180deg, ${waveGradientTop} 0%, ${waveGradientBottom} 100%)`;
+        const topColor = `hsl(${h}, 90%, 82%)`;
+        const botColor = `hsl(${h}, 85%, 48%)`;
+        const waveColor = `hsl(${h}, 88%, 58%)`;
+        const glowColor = `hsla(${h}, 88%, 58%, 0.55)`;
+        const waveGradient = `linear-gradient(180deg, ${topColor} 0%, ${botColor} 100%)`;
 
         const result: TrackColorTheme = {
-          waveColor: `rgb(${finalR}, ${finalG}, ${finalB})`,
+          waveColor,
           waveGradient,
-          waveGradientTop,
-          waveGradientBottom,
-          glowColor: `rgba(${finalR}, ${finalG}, ${finalB}, 0.55)`,
+          waveGradientTop: topColor,
+          waveGradientBottom: botColor,
+          glowColor,
         };
 
         setBoundedCache(colorCache, imageUrl, result);

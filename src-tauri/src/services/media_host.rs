@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use windows::core::BOOL;
 use windows::Win32::Foundation::{HWND, LPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{keybd_event, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP};
-use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextW, GetWindowThreadProcessId, IsWindow};
+use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextW, GetWindowThreadProcessId, IsWindow, IsWindowVisible};
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 use windows::Media::Control::{
     GlobalSystemMediaTransportControlsSession,
@@ -714,26 +714,68 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
 }
 
 pub fn toggle_play_pause() {
-    unsafe {
-        // VK_MEDIA_PLAY_PAUSE = 0xB3
-        keybd_event(0xB3, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0xB3, 0, KEYEVENTF_KEYUP, 0);
+    let mut sent = false;
+    if let Ok(guard) = MEDIA_CACHE.lock() {
+        if let Some(ref mgr) = guard.manager {
+            if let Ok(session) = mgr.GetCurrentSession() {
+                if let Ok(op) = session.TryTogglePlayPauseAsync() {
+                    if let Ok(success) = op.get() {
+                        sent = success;
+                    }
+                }
+            }
+        }
+    }
+    if !sent {
+        unsafe {
+            // VK_MEDIA_PLAY_PAUSE = 0xB3 fallback
+            keybd_event(0xB3, 0, KEYBD_EVENT_FLAGS(0), 0);
+            keybd_event(0xB3, 0, KEYEVENTF_KEYUP, 0);
+        }
     }
 }
 
 pub fn next_track() {
-    unsafe {
-        // VK_MEDIA_NEXT_TRACK = 0xB0
-        keybd_event(0xB0, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0xB0, 0, KEYEVENTF_KEYUP, 0);
+    let mut sent = false;
+    if let Ok(guard) = MEDIA_CACHE.lock() {
+        if let Some(ref mgr) = guard.manager {
+            if let Ok(session) = mgr.GetCurrentSession() {
+                if let Ok(op) = session.TrySkipNextAsync() {
+                    if let Ok(success) = op.get() {
+                        sent = success;
+                    }
+                }
+            }
+        }
+    }
+    if !sent {
+        unsafe {
+            // VK_MEDIA_NEXT_TRACK = 0xB0 fallback
+            keybd_event(0xB0, 0, KEYBD_EVENT_FLAGS(0), 0);
+            keybd_event(0xB0, 0, KEYEVENTF_KEYUP, 0);
+        }
     }
 }
 
 pub fn prev_track() {
-    unsafe {
-        // VK_MEDIA_PREV_TRACK = 0xB1
-        keybd_event(0xB1, 0, KEYBD_EVENT_FLAGS(0), 0);
-        keybd_event(0xB1, 0, KEYEVENTF_KEYUP, 0);
+    let mut sent = false;
+    if let Ok(guard) = MEDIA_CACHE.lock() {
+        if let Some(ref mgr) = guard.manager {
+            if let Ok(session) = mgr.GetCurrentSession() {
+                if let Ok(op) = session.TrySkipPreviousAsync() {
+                    if let Ok(success) = op.get() {
+                        sent = success;
+                    }
+                }
+            }
+        }
+    }
+    if !sent {
+        unsafe {
+            // VK_MEDIA_PREV_TRACK = 0xB1 fallback
+            keybd_event(0xB1, 0, KEYBD_EVENT_FLAGS(0), 0);
+            keybd_event(0xB1, 0, KEYEVENTF_KEYUP, 0);
+        }
     }
 }
 
@@ -769,6 +811,81 @@ pub fn seek_media(position_sec: u64) {
                 let _ = session.TryChangePlaybackPositionAsync(ticks);
             }
         }
+    }
+}
+
+pub fn focus_media_app() {
+    let mut app_id = String::new();
+    let mut session_title = String::new();
+
+    if let Ok(guard) = MEDIA_CACHE.lock() {
+        if let Some(ref mgr) = guard.manager {
+            if let Ok(session) = mgr.GetCurrentSession() {
+                if let Ok(src) = session.SourceAppUserModelId() {
+                    app_id = src.to_string().to_lowercase();
+                }
+                if let Ok(media_props) = session.TryGetMediaPropertiesAsync().and_then(|op| op.get()) {
+                    if let Ok(t) = media_props.Title() {
+                        session_title = t.to_string().to_lowercase();
+                    }
+                }
+            }
+        }
+    }
+
+    struct FinderState {
+        app_id: String,
+        session_title: String,
+        found_hwnd: Option<HWND>,
+    }
+
+    let mut state = FinderState {
+        app_id,
+        session_title,
+        found_hwnd: None,
+    };
+
+    unsafe extern "system" fn enum_win(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let state = &mut *(lparam.0 as *mut FinderState);
+        if !IsWindow(Some(hwnd)).as_bool() || !IsWindowVisible(hwnd).as_bool() {
+            return BOOL(1);
+        }
+
+        let (exe_name, _) = crate::services::window_watcher::get_window_exe_path(hwnd);
+        let exe_lower = exe_name.to_lowercase();
+
+        let mut title_buf = [0u16; 512];
+        let len = GetWindowTextW(hwnd, &mut title_buf);
+        let win_title = if len > 0 {
+            String::from_utf16_lossy(&title_buf[..len as usize]).to_lowercase()
+        } else {
+            String::new()
+        };
+
+        let matched = if !state.app_id.is_empty() && (state.app_id.contains(&exe_lower) || (!exe_lower.is_empty() && state.app_id.contains(&exe_lower.replace(".exe", "")))) {
+            true
+        } else if !state.session_title.is_empty() && !win_title.is_empty() && win_title.contains(&state.session_title) {
+            true
+        } else if exe_lower == "vlc.exe" || exe_lower == "spotify.exe" || exe_lower.starts_with("potplayer") || exe_lower == "mpv.exe" || exe_lower == "musicbee.exe" || exe_lower == "aimp.exe" {
+            true
+        } else {
+            false
+        };
+
+        if matched {
+            state.found_hwnd = Some(hwnd);
+            return BOOL(0);
+        }
+
+        BOOL(1)
+    }
+
+    unsafe {
+        let _ = EnumWindows(Some(enum_win), LPARAM(&mut state as *mut _ as isize));
+    }
+
+    if let Some(hwnd) = state.found_hwnd {
+        crate::services::window_watcher::focus_window(hwnd.0 as u64);
     }
 }
 
