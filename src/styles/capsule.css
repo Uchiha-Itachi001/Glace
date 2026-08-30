@@ -1700,6 +1700,32 @@ html, body {
   pointer-events: auto;
 }
 
+/* Quick Settings Flyout Alignment & Position Variations */
+.quick-settings-flyout--align-left,
+.quick-settings-flyout--align-center {
+  right: 60px;
+  left: auto;
+  transform-origin: bottom right;
+}
+
+.quick-settings-flyout--align-right {
+  left: 60px;
+  right: auto;
+  transform-origin: bottom left;
+}
+
+.quick-settings-flyout--pos-top {
+  top: 56px;
+  bottom: auto;
+  transform-origin: top right;
+}
+
+.quick-settings-flyout--pos-bottom,
+.quick-settings-flyout--pos-windows {
+  bottom: 56px;
+  top: auto;
+}
+
 .qs-header {
   display: flex;
   align-items: center;
@@ -2253,6 +2279,36 @@ html, body {
   pointer-events: auto;
   user-select: none;
   box-sizing: border-box;
+}
+
+/* ─── Settings Flyout Alignment & Positioning Variations ───────────────── */
+.settings-flyout--align-left,
+.settings-flyout--align-center {
+  right: var(--glace-bar-margin, 20px);
+  left: auto;
+  transform-origin: bottom right;
+}
+
+.settings-flyout--align-right {
+  left: var(--glace-bar-margin, 20px);
+  right: auto;
+  transform-origin: bottom left;
+}
+
+.settings-flyout--pos-top {
+  top: 56px !important;
+  bottom: auto !important;
+  transform-origin: top right;
+}
+
+.settings-flyout--pos-top.settings-flyout--align-right {
+  transform-origin: top left !important;
+}
+
+.settings-flyout--pos-bottom,
+.settings-flyout--pos-windows {
+  bottom: 56px !important;
+  top: auto !important;
 }
 
 /* Sidebar */
@@ -3281,6 +3337,156 @@ html, body {
   background: rgba(239, 68, 68, 0.25);
 }
 
+/* Developer Credits Card */
+.about-dev-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.about-dev-card::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, var(--glace-accent, #10b981) 0%, transparent 70%);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.about-dev-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.about-dev-avatar-wrap {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+.about-dev-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.about-dev-avatar-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 14px;
+  height: 14px;
+  background: var(--glace-accent, #10b981);
+  border: 2px solid #141416;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-dev-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.about-dev-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.about-dev-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--glace-text-primary);
+  letter-spacing: 0.1px;
+}
+
+.about-dev-role-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  background: rgba(var(--glace-accent-rgb, 16, 185, 129), 0.12);
+  color: var(--glace-accent, #10b981);
+  border: 1px solid rgba(var(--glace-accent-rgb, 16, 185, 129), 0.3);
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.about-dev-subtitle {
+  font-size: 11px;
+  color: var(--glace-text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.about-dev-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.about-dev-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: var(--glace-text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.about-dev-link-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+  color: #ffffff;
+}
+
+.about-dev-link-btn--linkedin:hover {
+  background: rgba(10, 102, 194, 0.2);
+  border-color: rgba(10, 102, 194, 0.4);
+  color: #70b5f9;
+}
+
+.about-dev-link-btn--github:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+.about-dev-link-btn svg {
+  flex-shrink: 0;
+}
+
+
 
 /* ─── Start Launcher Enhanced Styles ──────────────────────────────────── */
 
@@ -3869,13 +4075,30 @@ html, body {
   box-shadow: none !important;
 }
 
-/* Flyout positioning adaptations */
+/* Flyout positioning adaptations for macOS Top Bar & Top Position modes */
 .calendar-flyout--pos-macos,
 .calendar-flyout--pos-top {
   top: 38px !important;
   bottom: auto !important;
   right: 12px !important;
   left: auto !important;
+  transform-origin: top right !important;
+}
+
+.settings-flyout--pos-macos {
+  top: 38px !important;
+  bottom: auto !important;
+  right: 12px !important;
+  left: auto !important;
+  transform-origin: top right !important;
+}
+
+.quick-settings-flyout--pos-macos {
+  top: 38px !important;
+  bottom: auto !important;
+  right: 60px !important;
+  left: auto !important;
+  transform-origin: top right !important;
 }
 
 /* Start Launcher Flyout opens from bottom dock */

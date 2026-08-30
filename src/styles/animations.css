@@ -5,9 +5,23 @@
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+@keyframes flyout-in-top {
+  from { opacity: 0; transform: scale(0.92) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 .flyout-enter {
   animation: flyout-in var(--glace-duration-base) var(--glace-ease-spring) forwards;
   transform-origin: bottom center;
+}
+
+.settings-flyout--pos-macos.flyout-enter,
+.settings-flyout--pos-top.flyout-enter,
+.calendar-flyout--pos-macos.flyout-enter,
+.calendar-flyout--pos-top.flyout-enter,
+.quick-settings-flyout--pos-macos.flyout-enter,
+.quick-settings-flyout--pos-top.flyout-enter {
+  animation-name: flyout-in-top;
 }
 
 .icon-hover {

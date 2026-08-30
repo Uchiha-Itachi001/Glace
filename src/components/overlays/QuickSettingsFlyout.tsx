@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { SystemMetrics } from "../../types";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
+import { useSettings } from "../../stores/settingsStore";
 import { WifiIcon } from "../common/WifiIcon";
 
 interface QuickSettingsFlyoutProps {
@@ -12,12 +13,16 @@ export const QuickSettingsFlyout: React.FC<QuickSettingsFlyoutProps> = ({
   systemStatus,
   onClose,
 }) => {
+  const { settings } = useSettings();
   const { networkState, setNetworkState } = useNetworkStatus();
   const [volume, setVolume] = useState<number>(75);
   const [brightness, setBrightness] = useState<number>(85);
   const [bluetoothEnabled, setBluetoothEnabled] = useState<boolean>(true);
   const [dndEnabled, setDndEnabled] = useState<boolean>(false);
   const [nightLight, setNightLight] = useState<boolean>(false);
+
+  const barAlign = settings?.bar_alignment || "center";
+  const barPos = settings?.bar_position || "bottom";
 
   const handleWifiToggle = () => {
     if (networkState === "connected") {
@@ -33,7 +38,10 @@ export const QuickSettingsFlyout: React.FC<QuickSettingsFlyoutProps> = ({
   };
 
   return (
-    <div className="quick-settings-flyout flyout-enter" onClick={(e) => e.stopPropagation()}>
+    <div
+      className={`quick-settings-flyout quick-settings-flyout--align-${barAlign} quick-settings-flyout--pos-${barPos} flyout-enter`}
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="qs-header">
         <span className="qs-title">Control Center</span>
         <button className="calendar-close-btn icon-hover" onClick={onClose}>

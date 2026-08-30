@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useSettings, THEME_PRESETS } from "../../stores/settingsStore";
-import { ThemeId, PinnedApp, BarAlignment } from "../../types";
+import { ThemeId, BarAlignment } from "../../types";
 import { tauriBridge } from "../../services/tauriBridge";
 
 interface SettingsFlyoutProps {
@@ -22,7 +22,6 @@ const ACCENT_PRESETS = [
 const WIDGET_OPTIONS = [
   { id: "start", name: "Start Launcher Button", desc: "Windows Start menu & launcher button" },
   { id: "apps", name: "Taskbar Dock Apps", desc: "Pinned & active running applications" },
-  { id: "media", name: "Media Player Capsule", desc: "Soundwave visualizer & track controls" },
   { id: "sysmon", name: "System Monitor", desc: "Live CPU, RAM & Internet Speed telemetry" },
   { id: "tray", name: "System Tray & Indicators", desc: "Settings shortcut and notification area" },
   { id: "clock", name: "Clock & Calendar", desc: "Digital clock with interactive calendar flyout" },
@@ -110,10 +109,7 @@ const MEDIA_LOCATIONS: { id: "notch" | "taskbar" | "none"; name: string; badge: 
 
 export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const { settings, updateSettings, setTheme, toggleWidget, toggleTrayItem, setSysMonMode, setMediaLocation } = useSettings();
-  const [activeTab, setActiveTab] = useState<"appearance" | "taskbar" | "island" | "tray" | "pinned" | "about">("appearance");
-  const [pinnedApps, setPinnedApps] = useState<PinnedApp[]>([]);
-  const [newAppName, setNewAppName] = useState("");
-  const [newAppCmd, setNewAppCmd] = useState("");
+  const [activeTab, setActiveTab] = useState<"appearance" | "taskbar" | "island" | "tray" | "about">("appearance");
 
   const currentTheme = settings?.theme_id || "obsidian";
   const currentAccent = settings?.accent_color || "#10b981";
@@ -142,41 +138,15 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const currentMarginLeft = settings?.margin_left ?? 0;
   const currentMarginRight = settings?.margin_right ?? 0;
 
-  useEffect(() => {
-    tauriBridge.getPinnedApps().then(setPinnedApps).catch(console.error);
-  }, []);
-
-  const handleAddPinnedApp = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAppName.trim() && !newAppCmd.trim()) return;
-
-    const title = newAppName.trim() || newAppCmd.trim();
-    const cmd = newAppCmd.trim() || newAppName.trim();
-    const id = title.toLowerCase().replace(/[^a-z0-9]/g, "-");
-
-    const app: PinnedApp = {
-      id,
-      title,
-      exe: cmd,
-      lnk_path: cmd,
-      icon_b64: "",
-    };
-
-    tauriBridge.pinApp(app).then(() => {
-      setPinnedApps((prev) => [...prev.filter((p) => p.id !== id), app]);
-      setNewAppName("");
-      setNewAppCmd("");
-    });
-  };
-
-  const handleUnpinApp = (id: string) => {
-    tauriBridge.unpinApp(id).then(() => {
-      setPinnedApps((prev) => prev.filter((p) => p.id !== id));
-    });
+  const openExternalLink = (url: string) => {
+    tauriBridge.launchApp(url).catch(console.error);
   };
 
   return (
-    <div className="settings-flyout flyout-enter" onClick={(e) => e.stopPropagation()}>
+    <div
+      className={`settings-flyout settings-flyout--align-${currentBarAlign} settings-flyout--pos-${currentBarPos} flyout-enter`}
+      onClick={(e) => e.stopPropagation()}
+    >
       {/* Left Sidebar Navigation */}
       <aside className="settings-sidebar">
         <div className="settings-brand">
@@ -251,19 +221,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             <span>Status & Tray</span>
           </button>
 
-          {/* Tab 5: Pinned Apps */}
-          <button
-            className={`settings-nav-item ${activeTab === "pinned" ? "settings-nav-item--active" : ""}`}
-            onClick={() => setActiveTab("pinned")}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="12" y1="17" x2="12" y2="22" />
-              <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
-            </svg>
-            <span>Pinned Apps</span>
-          </button>
-
-          {/* Tab 6: About */}
+          {/* Tab 5: About & Developer */}
           <button
             className={`settings-nav-item ${activeTab === "about" ? "settings-nav-item--active" : ""}`}
             onClick={() => setActiveTab("about")}
@@ -273,7 +231,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               <path d="M12 16v-4" />
               <path d="M12 8h.01" />
             </svg>
-            <span>About</span>
+            <span>About & Credits</span>
           </button>
         </nav>
       </aside>
@@ -286,8 +244,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             {activeTab === "taskbar" && "Taskbar & Dock Configuration"}
             {activeTab === "island" && "Dynamic Island (Top Notch Hub)"}
             {activeTab === "tray" && "Status Bar & System Tray"}
-            {activeTab === "pinned" && "Taskbar Pinned Applications"}
-            {activeTab === "about" && "System & Environment"}
+            {activeTab === "about" && "About & Developer Credits"}
           </h4>
           <button className="settings-close-circle icon-hover" onClick={onClose} title="Close Settings">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -507,8 +464,31 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
           {/* Tab 2: Taskbar & Dock */}
           {activeTab === "taskbar" && (
             <div className="settings-section-block">
-              {/* Taskbar Alignment Selector */}
-              <span className="settings-block-label">Taskbar Dock Alignment</span>
+              {/* 1. Desktop Layout Style */}
+              <span className="settings-block-label">Desktop Layout Style</span>
+              <div className="layout-choice-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                <button
+                  type="button"
+                  className={`layout-choice-btn ${currentBarPos !== "macos" && currentBarPos !== "top" ? "layout-choice-btn--active" : ""}`}
+                  onClick={() => updateSettings({ bar_position: "windows", margin_top: 32, margin_bottom: 48 })}
+                >
+                  <span className="layout-choice-title">Windows Style</span>
+                  <span className="layout-choice-sub">Unified bottom taskbar with apps, start & tray</span>
+                </button>
+                <button
+                  type="button"
+                  className={`layout-choice-btn ${currentBarPos === "macos" || currentBarPos === "top" ? "layout-choice-btn--active" : ""}`}
+                  onClick={() => updateSettings({ bar_position: "macos", margin_top: 32, margin_bottom: 48 })}
+                >
+                  <span className="layout-choice-title">macOS Style</span>
+                  <span className="layout-choice-sub">Bottom app dock + Top menu bar with status & clock</span>
+                </button>
+              </div>
+
+              {/* 2. Taskbar Dock Alignment */}
+              <span className="settings-block-label" style={{ marginTop: "16px" }}>
+                Taskbar Dock Alignment
+              </span>
               <div className="layout-choice-grid">
                 {([
                   { id: "left", title: "Left Aligned", sub: "Classic Windows 10 style" },
@@ -530,339 +510,22 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 })}
               </div>
 
-              {/* Desktop Layout Style */}
-              <span className="settings-block-label" style={{ marginTop: "14px" }}>
-                Desktop Layout Style
-              </span>
-              <div className="layout-choice-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                <button
-                  type="button"
-                  className={`layout-choice-btn ${currentBarPos !== "macos" && currentBarPos !== "top" ? "layout-choice-btn--active" : ""}`}
-                  onClick={() => updateSettings({ bar_position: "windows", margin_top: 32, margin_bottom: 48 })}
-                >
-                  <span className="layout-choice-title">Windows Style</span>
-                  <span className="layout-choice-sub">Unified bottom taskbar with apps, start & tray</span>
-                </button>
-                <button
-                  type="button"
-                  className={`layout-choice-btn ${currentBarPos === "macos" || currentBarPos === "top" ? "layout-choice-btn--active" : ""}`}
-                  onClick={() => updateSettings({ bar_position: "macos", margin_top: 32, margin_bottom: 48 })}
-                >
-                  <span className="layout-choice-title">macOS Style</span>
-                  <span className="layout-choice-sub">Bottom app dock + Top menu bar with status & clock</span>
-                </button>
-              </div>
-
-              {/* App Screen Bounds & Desktop Work Area Margins */}
-              <div style={{ marginTop: "16px" }}>
-                <span className="settings-block-label" style={{ margin: 0 }}>
-                  Active App Screen Bounds & Desktop Margins
-                </span>
-                <span style={{ fontSize: "11px", color: "var(--glace-text-muted)", display: "block", marginTop: "2px", marginBottom: "8px" }}>
-                  Restricts maximized & snapped apps to prevent overlapping custom top, bottom, left, or right spaces
-                </span>
-              </div>
-
-              {/* Margins Sliders Grid */}
-              <div className="margin-controls-grid">
-                {/* Top Margin */}
-                <div className="geometry-slider-card">
-                  <div className="geometry-slider-header">
-                    <div className="geometry-meta">
-                      <div className="geometry-icon">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="18 15 12 9 6 15" />
-                        </svg>
-                      </div>
-                      <div>
-                        <span className="geometry-title">Top Margin (Notch / Top Area)</span>
-                        <span className="geometry-desc">Reserved height at the top edge</span>
-                      </div>
-                    </div>
-                    <span className="geometry-val-badge">{currentMarginTop}px</span>
-                  </div>
-                  <div className="glace-slider-wrapper">
-                    <input
-                      type="range"
-                      min="0"
-                      max="150"
-                      step="2"
-                      value={currentMarginTop}
-                      onChange={(e) => updateSettings({ margin_top: Number(e.target.value) })}
-                      className="glace-range-slider"
-                      style={{
-                        background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
-                          (currentMarginTop / 150) * 100
-                        }%, rgba(255, 255, 255, 0.12) ${
-                          (currentMarginTop / 150) * 100
-                        }%, rgba(255, 255, 255, 0.12) 100%)`,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Bottom Margin */}
-                <div className="geometry-slider-card">
-                  <div className="geometry-slider-header">
-                    <div className="geometry-meta">
-                      <div className="geometry-icon">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="6 9 12 15 18 9" />
-                        </svg>
-                      </div>
-                      <div>
-                        <span className="geometry-title">Bottom Margin (Taskbar Dock)</span>
-                        <span className="geometry-desc">Reserved height for bottom dock</span>
-                      </div>
-                    </div>
-                    <span className="geometry-val-badge">{currentMarginBottom}px</span>
-                  </div>
-                  <div className="glace-slider-wrapper">
-                    <input
-                      type="range"
-                      min="0"
-                      max="150"
-                      step="2"
-                      value={currentMarginBottom}
-                      onChange={(e) => updateSettings({ margin_bottom: Number(e.target.value) })}
-                      className="glace-range-slider"
-                      style={{
-                        background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
-                          (currentMarginBottom / 150) * 100
-                        }%, rgba(255, 255, 255, 0.12) ${
-                          (currentMarginBottom / 150) * 100
-                        }%, rgba(255, 255, 255, 0.12) 100%)`,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Left Margin */}
-                <div className="geometry-slider-card">
-                  <div className="geometry-slider-header">
-                    <div className="geometry-meta">
-                      <div className="geometry-icon">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="15 18 9 12 15 6" />
-                        </svg>
-                      </div>
-                      <div>
-                        <span className="geometry-title">Left Margin (Sidebar / Gap)</span>
-                        <span className="geometry-desc">Reserved space on the left screen edge</span>
-                      </div>
-                    </div>
-                    <span className="geometry-val-badge">{currentMarginLeft}px</span>
-                  </div>
-                  <div className="glace-slider-wrapper">
-                    <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      step="4"
-                      value={currentMarginLeft}
-                      onChange={(e) => updateSettings({ margin_left: Number(e.target.value) })}
-                      className="glace-range-slider"
-                      style={{
-                        background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
-                          (currentMarginLeft / 200) * 100
-                        }%, rgba(255, 255, 255, 0.12) ${
-                          (currentMarginLeft / 200) * 100
-                        }%, rgba(255, 255, 255, 0.12) 100%)`,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Right Margin */}
-                <div className="geometry-slider-card">
-                  <div className="geometry-slider-header">
-                    <div className="geometry-meta">
-                      <div className="geometry-icon">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                      </div>
-                      <div>
-                        <span className="geometry-title">Right Margin (Sidebar / Gap)</span>
-                        <span className="geometry-desc">Reserved space on the right screen edge</span>
-                      </div>
-                    </div>
-                    <span className="geometry-val-badge">{currentMarginRight}px</span>
-                  </div>
-                  <div className="glace-slider-wrapper">
-                    <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      step="4"
-                      value={currentMarginRight}
-                      onChange={(e) => updateSettings({ margin_right: Number(e.target.value) })}
-                      className="glace-range-slider"
-                      style={{
-                        background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
-                          (currentMarginRight / 200) * 100
-                        }%, rgba(255, 255, 255, 0.12) ${
-                          (currentMarginRight / 200) * 100
-                        }%, rgba(255, 255, 255, 0.12) 100%)`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Margin Presets & Live Visual Monitor */}
-              <div className="geometry-presets-row" style={{ marginTop: "8px" }}>
-                {[
-                  { label: "Recommended (32/48)", top: 32, bottom: 48, left: 0, right: 0 },
-                  { label: "Bespoke Gaps (44/56/16/16)", top: 44, bottom: 56, left: 16, right: 16 },
-                  { label: "Wide Sidebars (40/50/60/60)", top: 40, bottom: 50, left: 60, right: 60 },
-                  { label: "Zero Margins (0/0)", top: 0, bottom: 0, left: 0, right: 0 },
-                ].map((p) => (
-                  <button
-                    key={p.label}
-                    type="button"
-                    className="geometry-preset-chip"
-                    onClick={() => updateSettings({ margin_top: p.top, margin_bottom: p.bottom, margin_left: p.left, margin_right: p.right })}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Live Desktop Monitor Preview */}
-              <div className="margin-live-monitor-box">
-                <div className="geometry-preview-label">Live Active App Workspace Diagram</div>
-                <div className="margin-screen-monitor-frame">
-                  {/* Top Notch Inset Bar */}
-                  {currentMarginTop > 0 && (
-                    <div
-                      className="margin-inset-indicator margin-inset-indicator--top"
-                      style={{ height: `${Math.max(8, Math.round((currentMarginTop / 150) * 28))}px` }}
-                    >
-                      <span>Top Reserved: {currentMarginTop}px</span>
-                    </div>
-                  )}
-
-                  {/* Middle Row with Left, App Workspace, and Right */}
-                  <div className="margin-monitor-middle-row">
-                    {currentMarginLeft > 0 && (
-                      <div
-                        className="margin-inset-indicator margin-inset-indicator--left"
-                        style={{ width: `${Math.max(12, Math.round((currentMarginLeft / 200) * 45))}px` }}
-                      >
-                        <span>{currentMarginLeft}px</span>
-                      </div>
-                    )}
-
-                    <div className="margin-active-app-workspace">
-                      <div className="margin-app-mock-window">
-                        <div className="margin-mock-titlebar">
-                          <div className="margin-mock-dots">
-                            <span /><span /><span />
-                          </div>
-                          <span className="margin-mock-title">Active App / Browser / Editor</span>
-                        </div>
-                        <div className="margin-mock-body">
-                          <span>Maximized Windows restricted inside this area</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {currentMarginRight > 0 && (
-                      <div
-                        className="margin-inset-indicator margin-inset-indicator--right"
-                        style={{ width: `${Math.max(12, Math.round((currentMarginRight / 200) * 45))}px` }}
-                      >
-                        <span>{currentMarginRight}px</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bottom Dock Inset Bar */}
-                  {currentMarginBottom > 0 && (
-                    <div
-                      className="margin-inset-indicator margin-inset-indicator--bottom"
-                      style={{ height: `${Math.max(8, Math.round((currentMarginBottom / 150) * 28))}px` }}
-                    >
-                      <span>Bottom Dock: {currentMarginBottom}px</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Media Player Active Location Preference */}
-              <span className="settings-block-label" style={{ marginTop: "14px" }}>
-                Media Player Active Location (Single Active Module)
-              </span>
-              <div className="sysmon-mode-options-grid">
-                {MEDIA_LOCATIONS.map((loc) => {
-                  const isSelected = currentMediaLocation === loc.id;
-                  return (
-                    <div
-                      key={loc.id}
-                      className={`sysmon-mode-card ${
-                        isSelected ? "sysmon-mode-card--active" : ""
-                      }`}
-                      onClick={() => setMediaLocation(loc.id)}
-                    >
-                      <div className="sysmon-mode-header">
-                        <span className="sysmon-mode-name">{loc.name}</span>
-                        <span className="sysmon-mode-badge">{loc.badge}</span>
-                      </div>
-                      <span className="sysmon-mode-desc">{loc.desc}</span>
-                      {isSelected && (
-                        <div className="sysmon-mode-check">
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Taskbar Capsules Visibility */}
-              <span className="settings-block-label" style={{ marginTop: "14px" }}>
+              {/* 3. Taskbar Capsules Visibility */}
+              <span className="settings-block-label" style={{ marginTop: "16px" }}>
                 Taskbar Capsules & Sections
               </span>
               <div className="widget-items-stack">
                 {WIDGET_OPTIONS.map((w) => {
-                  const isEnabled = w.id === "media"
-                    ? currentMediaLocation === "taskbar"
-                    : enabledWidgets.includes(w.id);
+                  const isEnabled = enabledWidgets.includes(w.id);
                   return (
                     <div
                       key={w.id}
                       className="widget-row-card"
-                      onClick={() => {
-                        if (w.id === "media") {
-                          setMediaLocation(currentMediaLocation === "taskbar" ? "notch" : "taskbar");
-                        } else {
-                          toggleWidget(w.id);
-                        }
-                      }}
+                      onClick={() => toggleWidget(w.id)}
                     >
                       <div className="widget-row-meta">
                         <span className="widget-row-name">{w.name}</span>
-                        <span className="widget-row-desc">
-                          {w.id === "media"
-                            ? currentMediaLocation === "taskbar"
-                              ? "Active in Taskbar dock (Dynamic Notch media is dormant)"
-                              : currentMediaLocation === "notch"
-                              ? "Active in Top Dynamic Notch (Click to move into Taskbar)"
-                              : "Currently disabled in both Taskbar and Notch"
-                            : w.desc}
-                        </span>
+                        <span className="widget-row-desc">{w.desc}</span>
                       </div>
                       <div className={`switch-pill ${isEnabled ? "switch-pill--on" : ""}`}>
                         <div className="switch-thumb" />
@@ -872,22 +535,246 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 })}
               </div>
 
-              {/* System Startup */}
-              <span className="settings-block-label" style={{ marginTop: "14px" }}>
-                System Startup
-              </span>
-              <div
-                className="widget-row-card"
-                onClick={() => updateSettings({ autostart: !currentAutostart })}
-              >
-                <div className="widget-row-meta">
-                  <span className="widget-row-name">Launch on Windows Startup</span>
-                  <span className="widget-row-desc">Automatically initialize Glace upon user login</span>
-                </div>
-                <div className={`switch-pill ${currentAutostart ? "switch-pill--on" : ""}`}>
-                  <div className="switch-thumb" />
-                </div>
-              </div>
+              {/* 4. Active App Screen Bounds & Desktop Work Area Margins (Hidden / Preserved) */}
+              {false && (
+                <>
+                  <div style={{ marginTop: "16px" }}>
+                    <span className="settings-block-label" style={{ margin: 0 }}>
+                      Active App Screen Bounds & Desktop Margins
+                    </span>
+                    <span style={{ fontSize: "11px", color: "var(--glace-text-muted)", display: "block", marginTop: "2px", marginBottom: "8px" }}>
+                      Restricts maximized & snapped apps to prevent overlapping custom top, bottom, left, or right spaces
+                    </span>
+                  </div>
+
+                  {/* Margins Sliders Grid */}
+                  <div className="margin-controls-grid">
+                    {/* Top Margin */}
+                    <div className="geometry-slider-card">
+                      <div className="geometry-slider-header">
+                        <div className="geometry-meta">
+                          <div className="geometry-icon">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="18 15 12 9 6 15" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="geometry-title">Top Margin (Notch / Top Area)</span>
+                            <span className="geometry-desc">Reserved height at the top edge</span>
+                          </div>
+                        </div>
+                        <span className="geometry-val-badge">{currentMarginTop}px</span>
+                      </div>
+                      <div className="glace-slider-wrapper">
+                        <input
+                          type="range"
+                          min="0"
+                          max="150"
+                          step="2"
+                          value={currentMarginTop}
+                          onChange={(e) => updateSettings({ margin_top: Number(e.target.value) })}
+                          className="glace-range-slider"
+                          style={{
+                            background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                              (currentMarginTop / 150) * 100
+                            }%, rgba(255, 255, 255, 0.12) ${
+                              (currentMarginTop / 150) * 100
+                            }%, rgba(255, 255, 255, 0.12) 100%)`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bottom Margin */}
+                    <div className="geometry-slider-card">
+                      <div className="geometry-slider-header">
+                        <div className="geometry-meta">
+                          <div className="geometry-icon">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="geometry-title">Bottom Margin (Taskbar Dock)</span>
+                            <span className="geometry-desc">Reserved height for bottom dock</span>
+                          </div>
+                        </div>
+                        <span className="geometry-val-badge">{currentMarginBottom}px</span>
+                      </div>
+                      <div className="glace-slider-wrapper">
+                        <input
+                          type="range"
+                          min="0"
+                          max="150"
+                          step="2"
+                          value={currentMarginBottom}
+                          onChange={(e) => updateSettings({ margin_bottom: Number(e.target.value) })}
+                          className="glace-range-slider"
+                          style={{
+                            background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                              (currentMarginBottom / 150) * 100
+                            }%, rgba(255, 255, 255, 0.12) ${
+                              (currentMarginBottom / 150) * 100
+                            }%, rgba(255, 255, 255, 0.12) 100%)`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Left Margin */}
+                    <div className="geometry-slider-card">
+                      <div className="geometry-slider-header">
+                        <div className="geometry-meta">
+                          <div className="geometry-icon">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="15 18 9 12 15 6" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="geometry-title">Left Margin (Sidebar / Gap)</span>
+                            <span className="geometry-desc">Reserved space on the left screen edge</span>
+                          </div>
+                        </div>
+                        <span className="geometry-val-badge">{currentMarginLeft}px</span>
+                      </div>
+                      <div className="glace-slider-wrapper">
+                        <input
+                          type="range"
+                          min="0"
+                          max="200"
+                          step="4"
+                          value={currentMarginLeft}
+                          onChange={(e) => updateSettings({ margin_left: Number(e.target.value) })}
+                          className="glace-range-slider"
+                          style={{
+                            background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                              (currentMarginLeft / 200) * 100
+                            }%, rgba(255, 255, 255, 0.12) ${
+                              (currentMarginLeft / 200) * 100
+                            }%, rgba(255, 255, 255, 0.12) 100%)`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Right Margin */}
+                    <div className="geometry-slider-card">
+                      <div className="geometry-slider-header">
+                        <div className="geometry-meta">
+                          <div className="geometry-icon">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="geometry-title">Right Margin (Sidebar / Gap)</span>
+                            <span className="geometry-desc">Reserved space on the right screen edge</span>
+                          </div>
+                        </div>
+                        <span className="geometry-val-badge">{currentMarginRight}px</span>
+                      </div>
+                      <div className="glace-slider-wrapper">
+                        <input
+                          type="range"
+                          min="0"
+                          max="200"
+                          step="4"
+                          value={currentMarginRight}
+                          onChange={(e) => updateSettings({ margin_right: Number(e.target.value) })}
+                          className="glace-range-slider"
+                          style={{
+                            background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
+                              (currentMarginRight / 200) * 100
+                            }%, rgba(255, 255, 255, 0.12) ${
+                              (currentMarginRight / 200) * 100
+                            }%, rgba(255, 255, 255, 0.12) 100%)`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Margin Presets & Live Visual Monitor */}
+                  <div className="geometry-presets-row" style={{ marginTop: "8px" }}>
+                    {[
+                      { label: "Recommended (32/48)", top: 32, bottom: 48, left: 0, right: 0 },
+                      { label: "Bespoke Gaps (44/56/16/16)", top: 44, bottom: 56, left: 16, right: 16 },
+                      { label: "Wide Sidebars (40/50/60/60)", top: 40, bottom: 50, left: 60, right: 60 },
+                      { label: "Zero Margins (0/0)", top: 0, bottom: 0, left: 0, right: 0 },
+                    ].map((p) => (
+                      <button
+                        key={p.label}
+                        type="button"
+                        className="geometry-preset-chip"
+                        onClick={() => updateSettings({ margin_top: p.top, margin_bottom: p.bottom, margin_left: p.left, margin_right: p.right })}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Live Desktop Monitor Preview */}
+                  <div className="margin-live-monitor-box">
+                    <div className="geometry-preview-label">Live Active App Workspace Diagram</div>
+                    <div className="margin-screen-monitor-frame">
+                      {/* Top Notch Inset Bar */}
+                      {currentMarginTop > 0 && (
+                        <div
+                          className="margin-inset-indicator margin-inset-indicator--top"
+                          style={{ height: `${Math.max(8, Math.round((currentMarginTop / 150) * 28))}px` }}
+                        >
+                          <span>Top Reserved: {currentMarginTop}px</span>
+                        </div>
+                      )}
+
+                      {/* Middle Row with Left, App Workspace, and Right */}
+                      <div className="margin-monitor-middle-row">
+                        {currentMarginLeft > 0 && (
+                          <div
+                            className="margin-inset-indicator margin-inset-indicator--left"
+                            style={{ width: `${Math.max(12, Math.round((currentMarginLeft / 200) * 45))}px` }}
+                          >
+                            <span>{currentMarginLeft}px</span>
+                          </div>
+                        )}
+
+                        <div className="margin-active-app-workspace">
+                          <div className="margin-app-mock-window">
+                            <div className="margin-mock-titlebar">
+                              <div className="margin-mock-dots">
+                                <span /><span /><span />
+                              </div>
+                              <span className="margin-mock-title">Active App / Browser / Editor</span>
+                            </div>
+                            <div className="margin-mock-body">
+                              <span>Maximized Windows restricted inside this area</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {currentMarginRight > 0 && (
+                          <div
+                            className="margin-inset-indicator margin-inset-indicator--right"
+                            style={{ width: `${Math.max(12, Math.round((currentMarginRight / 200) * 45))}px` }}
+                          >
+                            <span>{currentMarginRight}px</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Bottom Dock Inset Bar */}
+                      {currentMarginBottom > 0 && (
+                        <div
+                          className="margin-inset-indicator margin-inset-indicator--bottom"
+                          style={{ height: `${Math.max(8, Math.round((currentMarginBottom / 150) * 28))}px` }}
+                        >
+                          <span>Bottom Dock: {currentMarginBottom}px</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -921,28 +808,56 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 </div>
               </div>
 
-              {/* 2. Sub-Features & Activity HUDs */}
+              {/* 2. Media Player Location Routing (Single Authoritative Selector) */}
+              {islandEnabled && (
+                <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                  <span className="settings-block-label">
+                    Media Player Routing & Live HUD
+                  </span>
+                  <div className="sysmon-mode-options-grid">
+                    {MEDIA_LOCATIONS.map((loc) => {
+                      const isSelected = currentMediaLocation === loc.id;
+                      return (
+                        <div
+                          key={loc.id}
+                          className={`sysmon-mode-card ${
+                            isSelected ? "sysmon-mode-card--active" : ""
+                          }`}
+                          onClick={() => setMediaLocation(loc.id)}
+                        >
+                          <div className="sysmon-mode-header">
+                            <span className="sysmon-mode-name">{loc.name}</span>
+                            <span className="sysmon-mode-badge">{loc.badge}</span>
+                          </div>
+                          <span className="sysmon-mode-desc">{loc.desc}</span>
+                          {isSelected && (
+                            <div className="sysmon-mode-check">
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Sub-Features & Activity HUDs */}
               {islandEnabled && (
                 <div className="settings-section-block" style={{ marginTop: "16px" }}>
                   <span className="settings-block-label">Notch Features & Activity HUDs</span>
                   <div className="widget-items-stack">
-                    <div
-                      className="widget-row-card"
-                      onClick={() => setMediaLocation(currentMediaLocation === "notch" ? "taskbar" : "notch")}
-                    >
-                      <div className="widget-row-meta">
-                        <span className="widget-row-name">Live Media Activity HUD</span>
-                        <span className="widget-row-desc">
-                          {currentMediaLocation === "notch"
-                            ? "Active in Dynamic Notch (Taskbar dock media is dormant)"
-                            : "Click to route active music player & soundwave to Dynamic Notch"}
-                        </span>
-                      </div>
-                      <div className={`switch-pill ${currentMediaLocation === "notch" ? "switch-pill--on" : ""}`}>
-                        <div className="switch-thumb" />
-                      </div>
-                    </div>
-
                     <div
                       className="widget-row-card"
                       onClick={() => updateSettings({ island_show_bluetooth: !islandShowBluetooth })}
@@ -985,7 +900,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 </div>
               )}
 
-              {/* 3. Window Overlap & Top Margin Clearance */}
+              {/* 4. Window Overlap & Top Margin Clearance */}
               {islandEnabled && (
                 <div className="settings-section-block" style={{ marginTop: "16px" }}>
                   <span className="settings-block-label">Notch Screen Clearance & Window Overlap</span>
@@ -998,71 +913,12 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                         <span className="widget-row-name">Allow Windows to Overlap Notch</span>
                         <span className="widget-row-desc">
                           {currentMarginTop === 0
-                            ? "Overlap Active: Maximized windows fill the entire screen behind the notch"
-                            : "Clearance Active: Desktop reserved so maximized windows start below the notch"}
+                            ? "Overlap Active: Maximized windows fill entire screen behind notch (0px)"
+                            : "Clearance Active: Desktop reserved so maximized windows start below notch (32px)"}
                         </span>
                       </div>
                       <div className={`switch-pill ${currentMarginTop === 0 ? "switch-pill--on" : ""}`}>
                         <div className="switch-thumb" />
-                      </div>
-                    </div>
-
-                    <div className="geometry-slider-card" style={{ marginTop: "6px" }}>
-                      <div className="geometry-slider-header">
-                        <div className="geometry-meta">
-                          <div className="geometry-icon">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="18 15 12 9 6 15" />
-                            </svg>
-                          </div>
-                          <div>
-                            <span className="geometry-title">Top Screen Margin Offset</span>
-                            <span className="geometry-desc">
-                              {currentMarginTop === 0
-                                ? "0px — Full overlay (Windows maximize underneath)"
-                                : `${currentMarginTop}px — Windows restricted below notch`}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="geometry-val-badge">{currentMarginTop}px</span>
-                      </div>
-                      <div className="glace-slider-wrapper">
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="2"
-                          value={currentMarginTop}
-                          onChange={(e) => updateSettings({ margin_top: Number(e.target.value) })}
-                          className="glace-range-slider"
-                          style={{
-                            background: `linear-gradient(to right, var(--glace-accent) 0%, var(--glace-accent) ${
-                              (currentMarginTop / 100) * 100
-                            }%, rgba(255, 255, 255, 0.12) ${
-                              (currentMarginTop / 100) * 100
-                            }%, rgba(255, 255, 255, 0.12) 100%)`,
-                          }}
-                        />
-                      </div>
-
-                      <div className="geometry-presets-row" style={{ marginTop: "10px" }}>
-                        {[
-                          { val: 0, label: "0px (Overlap)" },
-                          { val: 28, label: "28px (Flush)" },
-                          { val: 32, label: "32px (Default)" },
-                          { val: 48, label: "48px (macOS Top)" },
-                        ].map((p) => (
-                          <button
-                            key={p.val}
-                            type="button"
-                            className={`geometry-preset-chip ${
-                              currentMarginTop === p.val ? "geometry-preset-chip--active" : ""
-                            }`}
-                            onClick={() => updateSettings({ margin_top: p.val })}
-                          >
-                            {p.label}
-                          </button>
-                        ))}
                       </div>
                     </div>
                   </div>
@@ -1142,76 +998,114 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             </div>
           )}
 
-          {/* Tab 5: Pinned Apps */}
-          {activeTab === "pinned" && (
-            <div className="settings-section-block">
-              <span className="settings-block-label">Pin New Application</span>
-              <form className="pinned-form-box" onSubmit={handleAddPinnedApp}>
-                <div className="pinned-inputs-row">
-                  <input
-                    type="text"
-                    placeholder="App Name (e.g. Spotify)"
-                    value={newAppName}
-                    onChange={(e) => setNewAppName(e.target.value)}
-                    className="pinned-styled-input"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Executable or Path (e.g. spotify.exe)"
-                    value={newAppCmd}
-                    onChange={(e) => setNewAppCmd(e.target.value)}
-                    className="pinned-styled-input"
-                  />
-                </div>
-                <button type="submit" className="pinned-submit-btn">
-                  + Pin to Dock
-                </button>
-              </form>
-
-              <div className="pinned-header-row">
-                <span className="settings-block-label">Current Pinned Apps ({pinnedApps.length})</span>
-              </div>
-
-              <div className="pinned-items-list">
-                {pinnedApps.map((app) => (
-                  <div key={app.id} className="pinned-card-item">
-                    <div className="pinned-card-left">
-                      {app.icon_b64 ? (
-                        <img src={app.icon_b64} alt="" className="pinned-card-icon" />
-                      ) : (
-                        <div className="pinned-card-fallback">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <rect width="18" height="18" x="3" y="3" rx="2" />
-                          </svg>
-                        </div>
-                      )}
-                      <div className="pinned-card-meta">
-                        <span className="pinned-card-name">{app.title}</span>
-                        <span className="pinned-card-path">{app.exe || app.lnk_path}</span>
-                      </div>
-                    </div>
-                    <button
-                      className="pinned-card-unpin"
-                      onClick={() => handleUnpinApp(app.id)}
-                      title="Unpin application"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-
-                {pinnedApps.length === 0 && (
-                  <div className="pinned-empty-box">
-                    No pinned apps. Right-click any active app in the dock or add above.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Tab 6: About */}
+          {/* Tab 5: About & Developer Credits */}
           {activeTab === "about" && (
             <div className="settings-section-block">
+              {/* 1. System Startup Preferences (Top Position) */}
+              <span className="settings-block-label" style={{ margin: 0 }}>
+                System Startup
+              </span>
+              <div
+                className="widget-row-card"
+                style={{ marginTop: "8px", marginBottom: "16px" }}
+                onClick={() => updateSettings({ autostart: !currentAutostart })}
+              >
+                <div className="widget-row-meta">
+                  <span className="widget-row-name">Launch on Windows Startup</span>
+                  <span className="widget-row-desc">Automatically initialize Glace upon user login</span>
+                </div>
+                <div className={`switch-pill ${currentAutostart ? "switch-pill--on" : ""}`}>
+                  <div className="switch-thumb" />
+                </div>
+              </div>
+
+              {/* 2. Developer & Creator Card */}
+              <span className="settings-block-label">Developer & Creator</span>
+              <div className="about-dev-card">
+                <div className="about-dev-top">
+                  <div className="about-dev-avatar-wrap">
+                    <img
+                      src="/developer.jpg"
+                      alt="Pankoj Roy"
+                      className="about-dev-avatar"
+                      onError={(e) => {
+                        // Fallback in case of image load issue
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                    <div className="about-dev-avatar-badge" title="Active Developer">
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="about-dev-meta">
+                    <div className="about-dev-name-row">
+                      <span className="about-dev-name">Pankoj Roy</span>
+                      <span className="about-dev-role-badge">Lead Architect</span>
+                    </div>
+                    <p className="about-dev-subtitle">
+                      Building fluid desktop systems, next-gen interfaces, and high-performance native software.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Social & Portfolio Links */}
+                <div className="about-dev-actions">
+                  <button
+                    type="button"
+                    className="about-dev-link-btn about-dev-link-btn--linkedin"
+                    onClick={() => openExternalLink("https://www.linkedin.com/in/pankoj-roy-b201202b0")}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+                    </svg>
+                    <span>LinkedIn</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}>
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="about-dev-link-btn about-dev-link-btn--github"
+                    onClick={() => openExternalLink("https://github.com/Uchiha-Itachi001")}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                    </svg>
+                    <span>GitHub</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}>
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="about-dev-link-btn"
+                    onClick={() => openExternalLink("https://github.com/Uchiha-Itachi001/Glace")}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                    <span>Glace Repo</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}>
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. App Overview Hero */}
+              <span className="settings-block-label" style={{ marginTop: "16px" }}>
+                Application Information
+              </span>
               <div className="about-hero-box">
                 <div className="about-hero-brand">
                   <img src="/logo.png" alt="Glace Logo" className="about-hero-logo" />
@@ -1221,7 +1115,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                   </div>
                 </div>
                 <p className="about-hero-desc">
-                  Ultra-fast, customizable taskbar and widget environment for Windows built with Tauri v2, Win32 APIs, and React 19.
+                  Ultra-fast, customizable taskbar and dynamic notch environment for Windows 11 built with Tauri v2, native Win32 APIs, and React 19.
                 </p>
                 <div className="about-specs-grid">
                   <div className="about-spec-item">
@@ -1243,8 +1137,10 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 </div>
               </div>
 
+              {/* 4. Factory Defaults Reset */}
               <button
                 className="settings-danger-reset"
+                style={{ marginTop: "16px" }}
                 onClick={() =>
                   updateSettings({
                     theme_id: "obsidian",
