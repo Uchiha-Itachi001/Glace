@@ -748,11 +748,35 @@ html, body {
 /* ─── Fluent Hover Window Previews & Tooltips ──────────────────────── */
 .fluent-dock-preview-container {
   position: absolute;
-  bottom: 46px;
+  bottom: 44px;
   z-index: 1000;
   pointer-events: auto;
-  animation: fluentFlyoutFade 0.14s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
+}
+
+.fluent-dock-preview-container--single {
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  animation: fluentTooltipFade 0.14s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.fluent-dock-preview-container--multi {
+  animation: fluentFlyoutFade 0.14s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fluentTooltipFade {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
 }
 
 @keyframes fluentFlyoutFade {
@@ -767,6 +791,10 @@ html, body {
 }
 
 .fluent-simple-tooltip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   background: rgba(14, 18, 28, 0.94);
   background-image: var(--glace-glass-gradient);
   backdrop-filter: var(--glace-blur);
@@ -777,6 +805,8 @@ html, body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 1px rgba(255, 255, 255, 0.2);
   white-space: nowrap;
   pointer-events: none;
+  max-width: 280px;
+  box-sizing: border-box;
 }
 
 .fluent-simple-tooltip-text {
@@ -784,6 +814,12 @@ html, body {
   font-weight: 600;
   color: var(--glace-text-primary, #ffffff);
   letter-spacing: 0.2px;
+  line-height: 1.2;
+  text-align: center;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fluent-window-cards-row {

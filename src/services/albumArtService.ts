@@ -50,13 +50,26 @@ export const PLATFORM_BADGES: Record<string, string> = {
   opera: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23121212"/><path fill="%23FF1B2D" d="M50 16c-19 0-34 15-34 34s15 34 34 34 34-15 34-34-15-34-34-34zm0 56c-10 0-18-10-18-22s8-22 18-22 18 10 18 22-8 22-18 22z"/></svg>',
   arc: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="arcg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23FF5B84"/><stop offset="100%" stop-color="%235655FE"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(%23arcg)"/><circle cx="50" cy="50" r="22" fill="%23fff"/><circle cx="50" cy="50" r="14" fill="url(%23arcg)"/></svg>',
   vivaldi: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23EF3939"/><path fill="%23fff" d="M32 30h12l12 28 12-28h12L62 70H50L32 30z"/></svg>',
+  // Local Media Players & Desktop Applications
+  vlc: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23FF8800"/><path fill="%23fff" d="M46 16 h8 l4 20 h-16 z M38 42 h24 l4 16 h-32 z M30 64 h40 l5 18 h-50 z"/><rect x="20" y="80" width="60" height="8" rx="4" fill="%23fff"/></svg>',
+  "vlc media player": 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23FF8800"/><path fill="%23fff" d="M46 16 h8 l4 20 h-16 z M38 42 h24 l4 16 h-32 z M30 64 h40 l5 18 h-50 z"/><rect x="20" y="80" width="60" height="8" rx="4" fill="%23fff"/></svg>',
+  "media player": 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="mpg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23FF5E62"/><stop offset="100%" stop-color="%23FF9966"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(%23mpg)"/><circle cx="50" cy="50" r="28" fill="%23fff"/><polygon points="44,38 44,62 64,50" fill="%23FF5E62"/></svg>',
+  "windows media player": 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="wmpg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%230078D7"/><stop offset="100%" stop-color="%2300C7FF"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(%23wmpg)"/><circle cx="50" cy="50" r="28" fill="%23fff"/><polygon points="44,38 44,62 64,50" fill="%230078D7"/></svg>',
+  "movies & tv": 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%230078D7"/><rect x="20" y="24" width="60" height="52" rx="8" fill="%23fff"/><polygon points="44,40 44,60 62,50" fill="%230078D7"/></svg>',
+  "mpc-hc": 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%231E293B"/><rect x="20" y="24" width="60" height="52" rx="8" fill="%2338BDF8"/><polygon points="44,40 44,60 62,50" fill="%230F172A"/></svg>',
+  potplayer: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23F59E0B"/><circle cx="50" cy="50" r="26" fill="%23fff"/><polygon points="44,40 44,60 62,50" fill="%23F59E0B"/></svg>',
+  mpv: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%234B1D6D"/><circle cx="50" cy="50" r="26" fill="%23fff"/><polygon points="44,40 44,60 62,50" fill="%234B1D6D"/></svg>',
+  foobar2000: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%2322C55E"/><circle cx="50" cy="50" r="26" fill="%23fff"/><path fill="%2322C55E" d="M46 36 v28 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V42 h14 v18 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V36 Z"/></svg>',
+  aimp: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23EA580C"/><circle cx="50" cy="50" r="26" fill="%23fff"/><polygon points="44,40 44,60 62,50" fill="%23EA580C"/></svg>',
+  musicbee: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23EAB308"/><circle cx="50" cy="50" r="26" fill="%231E293B"/><path fill="%23EAB308" d="M46 36 v28 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V42 h14 v18 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V36 Z"/></svg>',
+  "local media": 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="lmg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%236366F1"/><stop offset="100%" stop-color="%23A855F7"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(%23lmg)"/><circle cx="50" cy="50" r="26" fill="%23fff"/><path fill="%236366F1" d="M46 36 v28 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V42 h14 v18 a6 6 0 1 1 -6 -6 c2 0 4 1 6 2 V36 Z"/></svg>',
 };
 
 export function detectPlatformBadge(title: string, artist?: string): string | null {
   const normTitle = title.toLowerCase().replace(/^\(\d+\+?\)\s*/, "").trim();
   const normArtist = (artist || "").toLowerCase().trim();
 
-  // 1. Direct artist match (e.g. Brave, Chrome, Spotify, Instagram, Edge)
+  // 1. Direct artist match (e.g. Brave, Chrome, Spotify, Instagram, Edge, VLC, Media Player)
   for (const [key, badge] of Object.entries(PLATFORM_BADGES)) {
     if (normArtist === key) return badge;
   }
@@ -65,7 +78,9 @@ export function detectPlatformBadge(title: string, artist?: string): string | nu
   const PURE_APP_NAMES = [
     "instagram", "facebook", "tiktok", "twitter", "x", "reddit",
     "twitch", "netflix", "spotify", "brave", "edge", "microsoft edge",
-    "chrome", "google chrome", "firefox", "opera", "arc", "vivaldi", "soundcloud"
+    "chrome", "google chrome", "firefox", "opera", "arc", "vivaldi", "soundcloud",
+    "vlc", "vlc media player", "media player", "windows media player", "movies & tv",
+    "mpc-hc", "mpc-be", "potplayer", "mpv", "foobar2000", "aimp", "musicbee", "local media"
   ];
   
   if (PURE_APP_NAMES.includes(normTitle)) {
@@ -88,6 +103,14 @@ export function detectFallbackBadge(title: string, artist?: string): string | nu
   if (combined.includes("twitch")) return PLATFORM_BADGES.twitch;
   if (combined.includes("netflix")) return PLATFORM_BADGES.netflix;
   if (combined.includes("soundcloud")) return PLATFORM_BADGES.soundcloud;
+  if (combined.includes("vlc")) return PLATFORM_BADGES.vlc;
+  if (combined.includes("media player") || combined.includes("movies & tv") || combined.includes("zune")) return PLATFORM_BADGES["media player"];
+  if (combined.includes("mpc")) return PLATFORM_BADGES["mpc-hc"];
+  if (combined.includes("potplayer")) return PLATFORM_BADGES.potplayer;
+  if (combined.includes("mpv")) return PLATFORM_BADGES.mpv;
+  if (combined.includes("foobar")) return PLATFORM_BADGES.foobar2000;
+  if (combined.includes("aimp")) return PLATFORM_BADGES.aimp;
+  if (combined.includes("musicbee")) return PLATFORM_BADGES.musicbee;
   if (combined.includes("brave")) return PLATFORM_BADGES.brave;
   if (combined.includes("edge")) return PLATFORM_BADGES.edge;
   if (combined.includes("chrome")) return PLATFORM_BADGES.chrome;
@@ -96,17 +119,17 @@ export function detectFallbackBadge(title: string, artist?: string): string | nu
   if (combined.includes("arc")) return PLATFORM_BADGES.arc;
   if (combined.includes("vivaldi")) return PLATFORM_BADGES.vivaldi;
 
-  return null;
+  return PLATFORM_BADGES["local media"] || null;
 }
 
 function cleanQueryString(title: string, artist?: string): string {
   let cleanedTitle = title
     .replace(/^\(\d+\+?\)\s*/, "")
-    .replace(/\s*-\s*(youtube|facebook|instagram|tiktok|twitch|netflix|brave|edge|chrome|firefox|opera)$/i, "")
-    .replace(/\s*\|\s*(youtube|facebook|instagram|tiktok|twitch|netflix|brave|edge|chrome|firefox|opera)$/i, "")
+    .replace(/\s*-\s*(youtube|facebook|instagram|tiktok|twitch|netflix|brave|edge|chrome|firefox|opera|vlc|mpc-hc|potplayer|mpv|foobar2000|aimp)$/i, "")
+    .replace(/\s*\|\s*(youtube|facebook|instagram|tiktok|twitch|netflix|brave|edge|chrome|firefox|opera|vlc|mpc-hc|potplayer|mpv|foobar2000|aimp)$/i, "")
     .replace(/\s*\([^)]*(official|video|audio|lyrics|from|feat|ft\.|remix|version|ost|hd|4k)[^)]*\)/gi, "")
-    .replace(/\s*\[[^\]]*(official|video|audio|lyrics|from|feat|ft\.|remix|version|ost|hd|4k)[^\]]*\]/gi, "")
-    .replace(/\.mp3|\.flac|\.wav|\.m4a/gi, "")
+    .replace(/\s*\[[^\]]*(official|video|audio|lyrics|from|feat|ft\.|remix|version|ost|hd|4k|foobar2000)[^\]]*\]/gi, "")
+    .replace(/\.(mp3|mp4|mkv|wav|flac|avi|mov|webm|m4a|aac|opus|ogg|wma|wmv|m4v)/gi, "")
     .trim();
 
   let cleanedArtist = (artist || "")

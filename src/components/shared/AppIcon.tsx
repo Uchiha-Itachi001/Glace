@@ -60,17 +60,15 @@ export const AppIcon = React.memo<AppIconProps>(
       return [focusedWin, ...windowList.filter((w) => w.hwnd !== focusedWin.hwnd)];
     }, [windowList, hasMultipleWindows]);
 
-    // Viewport Boundary Clamping & Anti-Cutout Calculation
+    // Viewport Boundary Clamping & Anti-Cutout Calculation for Multi-Window Previews
     useEffect(() => {
-      if (isHovered && containerRef.current) {
+      if (isHovered && hasMultipleWindows && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         const screenW = window.innerWidth || document.documentElement.clientWidth;
 
-        const cardCount = windowList.length > 0 ? windowList.length : 1;
+        const cardCount = windowList.length;
         const estimatedCardW = 200;
-        const totalEstimatedW = hasMultipleWindows
-          ? Math.min(cardCount * (estimatedCardW + 8) + 16, screenW - 32)
-          : Math.min(220, screenW - 32);
+        const totalEstimatedW = Math.min(cardCount * (estimatedCardW + 8) + 16, screenW - 32);
 
         const iconCenterX = rect.left + rect.width / 2;
         const idealLeft = iconCenterX - totalEstimatedW / 2;
@@ -183,8 +181,12 @@ export const AppIcon = React.memo<AppIconProps>(
         {/* Hover Window Previews & Tooltips with Anti-Cutoff Clamping */}
         {isHovered && !isContextMenuOpen && (
           <div
-            className="fluent-dock-preview-container"
-            style={previewStyle}
+            className={`fluent-dock-preview-container ${
+              hasMultipleWindows
+                ? "fluent-dock-preview-container--multi"
+                : "fluent-dock-preview-container--single"
+            }`}
+            style={hasMultipleWindows ? previewStyle : undefined}
             onClick={(e) => e.stopPropagation()}
           >
             {hasMultipleWindows ? (

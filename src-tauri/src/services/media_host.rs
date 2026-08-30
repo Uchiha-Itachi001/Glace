@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use windows::Win32::UI::Input::KeyboardAndMouse::{keybd_event, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP};
+use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 use windows::Media::Control::{
     GlobalSystemMediaTransportControlsSession,
     GlobalSystemMediaTransportControlsSessionManager,
@@ -58,7 +59,7 @@ fn extract_thumbnail_base64(thumb_ref: &windows::Storage::Streams::IRandomAccess
 
     let stream = thumb_ref.OpenReadAsync().ok()?.get().ok()?;
     let size = stream.Size().ok()? as usize;
-    if size == 0 || size > 5 * 1024 * 1024 {
+    if size == 0 || size > 8 * 1024 * 1024 {
         return None;
     }
 
@@ -83,16 +84,331 @@ fn extract_thumbnail_base64(thumb_ref: &windows::Storage::Streams::IRandomAccess
     Some(format!("data:{};base64,{}", mime, BASE64.encode(&bytes)))
 }
 
+/// Clean local file paths, file extensions, and formatting from raw song/video titles
+pub fn clean_media_title(raw: &str) -> String {
+    let mut title = raw.trim();
+
+    // 1. Strip file URI prefix
+    if title.starts_with("file:///") {
+        title = title.trim_start_matches("file:///");
+    }
+
+    // 2. If title is a full file path (e.g. C:\Downloads\Video.mp4 or /path/to/song.mp3), extract filename
+    if let Some(pos) = title.rfind(['\\', '/']) {
+        title = &title[pos + 1..];
+    }
+
+    // 3. Strip common audio & video file extensions
+    let extensions = [
+        ".mp3", ".mp4", ".mkv", ".wav", ".flac", ".avi", ".mov", ".webm",
+        ".m4a", ".aac", ".opus", ".ogg", ".wma", ".wmv", ".m4v", ".3gp",
+        ".ts", ".m2ts", ".vob", ".iso"
+    ];
+    let mut title_owned = title.to_string();
+    for ext in extensions {
+        if title_owned.to_lowercase().ends_with(ext) {
+            let len = title_owned.len() - ext.len();
+            title_owned.truncate(len);
+            break;
+        }
+    }
+
+    // 4. Strip browser download duplicate counters e.g. " [1]", " (1)", " [2]" from end of filename
+    let trimmed = title_owned.trim();
+    if let Some(stripped) = trimmed.strip_suffix(']') {
+        if let Some(pos) = stripped.rfind('[') {
+            let inner = &stripped[pos + 1..];
+            if inner.chars().all(|c| c.is_ascii_digit()) {
+                title_owned = stripped[..pos].trim().to_string();
+            }
+        }
+    } else if let Some(stripped) = trimmed.strip_suffix(')') {
+        if let Some(pos) = stripped.rfind('(') {
+            let inner = &stripped[pos + 1..];
+            if inner.chars().all(|c| c.is_ascii_digit()) {
+                title_owned = stripped[..pos].trim().to_string();
+            }
+        }
+    }
+
+    // 5. Replace underscores with spaces if no space exists (e.g. My_Cool_Track -> My Cool Track)
+    if title_owned.contains('_') && !title_owned.contains(' ') {
+        title_owned = title_owned.replace('_', " ");
+    }
+
+    title_owned.trim().to_string()
+}
+
+/// Helper to parse "Artist - Title" strings from window titles
+fn parse_artist_title(raw_track: &str, default_player: &str) -> (String, String) {
+    if let Some((a, t)) = raw_track.split_once(" - ") {
+        let clean_a = a.trim().to_string();
+        let clean_t = clean_media_title(t);
+        if !clean_t.is_empty() && !clean_a.is_empty() {
+            return (clean_a, clean_t);
+        }
+    }
+    let clean = clean_media_title(raw_track);
+    (default_player.to_string(), clean)
+}
+
+/// Derive user-friendly application / service names from SourceAppUserModelId
+fn get_friendly_source_name(app_id: &str) -> String {
+    let lower = app_id.to_lowercase();
+    if lower.contains("zunemusic") || lower.contains("mediaplayer") {
+        "Media Player".to_string()
+    } else if lower.contains("zunevideo") || lower.contains("movies") {
+        "Movies & TV".to_string()
+    } else if lower.contains("spotify") {
+        "Spotify".to_string()
+    } else if lower.contains("vlc") {
+        "VLC media player".to_string()
+    } else if lower.contains("chrome") {
+        "Chrome".to_string()
+    } else if lower.contains("edge") || lower.contains("edg") {
+        "Edge".to_string()
+    } else if lower.contains("brave") {
+        "Brave".to_string()
+    } else if lower.contains("firefox") {
+        "Firefox".to_string()
+    } else if lower.contains("opera") {
+        "Opera".to_string()
+    } else if lower.contains("wmplayer") {
+        "Windows Media Player".to_string()
+    } else if !app_id.trim().is_empty() {
+        if let Some(pos) = app_id.find('!') {
+            app_id[pos + 1..].replace(".App", "").replace(".exe", "")
+        } else {
+            app_id.replace(".exe", "")
+        }
+    } else {
+        "Local Media".to_string()
+    }
+}
+
+/// Win32 Local Media Player Fallback Scanner (VLC, MPC-HC, MPV, PotPlayer, foobar2000, AIMP, WMP, KMPlayer, MusicBee, GOM)
+fn scan_win32_media_players() -> Option<MediaSessionInfo> {
+    let windows = crate::services::window_watcher::enumerate_windows();
+
+    for win in windows {
+        let exe_lower = win.exe.to_lowercase();
+        let title_raw = win.title.trim();
+        if title_raw.is_empty() {
+            continue;
+        }
+
+        let icon_opt = if !win.icon_b64.is_empty() {
+            Some(win.icon_b64.clone())
+        } else {
+            None
+        };
+
+        if exe_lower == "vlc.exe" {
+            // Idle state: "VLC media player"
+            if title_raw.eq_ignore_ascii_case("VLC media player") {
+                continue;
+            }
+            let track_raw = title_raw.trim_end_matches(" - VLC media player").trim();
+            let (artist, title) = parse_artist_title(track_raw, "VLC media player");
+            if !title.is_empty() {
+                return Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title: None,
+                    is_playing: !win.is_minimized,
+                    duration_sec: 0,
+                    current_sec: 0,
+                    album_art_base64: icon_opt,
+                });
+            }
+        } else if exe_lower.starts_with("mpc-hc") || exe_lower.starts_with("mpc-be") {
+            if title_raw.eq_ignore_ascii_case("Media Player Classic Home Cinema")
+                || title_raw.eq_ignore_ascii_case("MPC-HC")
+                || title_raw.eq_ignore_ascii_case("MPC-BE")
+            {
+                continue;
+            }
+            let track_raw = title_raw
+                .trim_end_matches(" - MPC-HC")
+                .trim_end_matches(" - MPC-BE")
+                .trim();
+            let (artist, title) = parse_artist_title(track_raw, "MPC-HC");
+            if !title.is_empty() {
+                return Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title: None,
+                    is_playing: !win.is_minimized,
+                    duration_sec: 0,
+                    current_sec: 0,
+                    album_art_base64: icon_opt,
+                });
+            }
+        } else if exe_lower.starts_with("potplayer") {
+            if title_raw.eq_ignore_ascii_case("PotPlayer")
+                || title_raw.eq_ignore_ascii_case("Daum PotPlayer")
+            {
+                continue;
+            }
+            let track_raw = title_raw
+                .trim_end_matches(" - PotPlayer")
+                .trim_end_matches(" - Daum PotPlayer")
+                .trim();
+            let (artist, title) = parse_artist_title(track_raw, "PotPlayer");
+            if !title.is_empty() {
+                return Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title: None,
+                    is_playing: !win.is_minimized,
+                    duration_sec: 0,
+                    current_sec: 0,
+                    album_art_base64: icon_opt,
+                });
+            }
+        } else if exe_lower == "mpv.exe" {
+            if title_raw.eq_ignore_ascii_case("mpv") {
+                continue;
+            }
+            let track_raw = title_raw
+                .trim_start_matches("mpv - ")
+                .trim_end_matches(" - mpv")
+                .trim();
+            let (artist, title) = parse_artist_title(track_raw, "mpv");
+            if !title.is_empty() {
+                return Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title: None,
+                    is_playing: !win.is_minimized,
+                    duration_sec: 0,
+                    current_sec: 0,
+                    album_art_base64: icon_opt,
+                });
+            }
+        } else if exe_lower == "foobar2000.exe" {
+            if title_raw.eq_ignore_ascii_case("foobar2000") {
+                continue;
+            }
+            let track_raw = title_raw.trim_end_matches(" [foobar2000]").trim();
+            let (artist, title) = parse_artist_title(track_raw, "foobar2000");
+            if !title.is_empty() {
+                return Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title: None,
+                    is_playing: !win.is_minimized,
+                    duration_sec: 0,
+                    current_sec: 0,
+                    album_art_base64: icon_opt,
+                });
+            }
+        } else if exe_lower == "aimp.exe" {
+            if title_raw.eq_ignore_ascii_case("AIMP") {
+                continue;
+            }
+            let track_raw = title_raw.trim_end_matches(" - AIMP").trim();
+            let (artist, title) = parse_artist_title(track_raw, "AIMP");
+            if !title.is_empty() {
+                return Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title: None,
+                    is_playing: !win.is_minimized,
+                    duration_sec: 0,
+                    current_sec: 0,
+                    album_art_base64: icon_opt,
+                });
+            }
+        } else if exe_lower == "wmplayer.exe" {
+            if title_raw.eq_ignore_ascii_case("Windows Media Player") {
+                continue;
+            }
+            let track_raw = title_raw.trim_end_matches(" - Windows Media Player").trim();
+            let (artist, title) = parse_artist_title(track_raw, "Windows Media Player");
+            if !title.is_empty() {
+                return Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title: None,
+                    is_playing: !win.is_minimized,
+                    duration_sec: 0,
+                    current_sec: 0,
+                    album_art_base64: icon_opt,
+                });
+            }
+        } else if exe_lower == "musicbee.exe" {
+            if title_raw.eq_ignore_ascii_case("MusicBee") {
+                continue;
+            }
+            let track_raw = title_raw.trim_end_matches(" - MusicBee").trim();
+            let (artist, title) = parse_artist_title(track_raw, "MusicBee");
+            if !title.is_empty() {
+                return Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title: None,
+                    is_playing: !win.is_minimized,
+                    duration_sec: 0,
+                    current_sec: 0,
+                    album_art_base64: icon_opt,
+                });
+            }
+        } else if exe_lower.starts_with("kmplayer") {
+            if title_raw.eq_ignore_ascii_case("KMPlayer") {
+                continue;
+            }
+            let track_raw = title_raw.trim_end_matches(" - KMPlayer").trim();
+            let (artist, title) = parse_artist_title(track_raw, "KMPlayer");
+            if !title.is_empty() {
+                return Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title: None,
+                    is_playing: !win.is_minimized,
+                    duration_sec: 0,
+                    current_sec: 0,
+                    album_art_base64: icon_opt,
+                });
+            }
+        } else if exe_lower.starts_with("gom") {
+            if title_raw.eq_ignore_ascii_case("GOM Player") {
+                continue;
+            }
+            let track_raw = title_raw.trim_end_matches(" - GOM Player").trim();
+            let (artist, title) = parse_artist_title(track_raw, "GOM Player");
+            if !title.is_empty() {
+                return Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title: None,
+                    is_playing: !win.is_minimized,
+                    duration_sec: 0,
+                    current_sec: 0,
+                    album_art_base64: icon_opt,
+                });
+            }
+        }
+    }
+
+    None
+}
+
 pub fn get_current_media_session() -> Option<MediaSessionInfo> {
     let now = Instant::now();
 
-    // 1. Check TTL cache snapshot (600ms) to serve concurrent UI widgets without COM churn
+    // 1. Check TTL cache snapshot (450ms) to serve concurrent UI widgets without COM churn
     if let Ok(guard) = MEDIA_CACHE.lock() {
         if let Some(last_time) = guard.last_fetch {
-            if now.duration_since(last_time) < Duration::from_millis(600) {
+            if now.duration_since(last_time) < Duration::from_millis(450) {
                 return guard.cached_session.clone();
             }
         }
+    }
+
+    // Ensure COM apartment is initialized on calling thread
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
     }
 
     let mut cache = MEDIA_CACHE.lock().ok()?;
@@ -109,50 +425,48 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
     let mut selected_session: Option<GlobalSystemMediaTransportControlsSession> = None;
     let mut fallback_session: Option<GlobalSystemMediaTransportControlsSession> = None;
 
-    if let Some(mgr) = &cache.manager {
-        // Priority 1: Prioritize session that is ACTIVELY PLAYING across all apps & browser tabs
+    let mgr_opt = cache.manager.clone();
+    if let Some(mgr) = mgr_opt {
+        // Priority 1: Prioritize session that is ACTIVELY PLAYING across all apps & local players
         if let Ok(sessions) = mgr.GetSessions() {
             for session in sessions {
                 let is_playing = if let Ok(playback_info) = session.GetPlaybackInfo() {
-                    playback_info.PlaybackStatus().map(|s| s == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing).unwrap_or(false)
+                    playback_info
+                        .PlaybackStatus()
+                        .map(|s| s == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing)
+                        .unwrap_or(false)
                 } else {
                     false
                 };
 
-                if is_playing {
-                    if let Ok(props_op) = session.TryGetMediaPropertiesAsync() {
-                        if let Ok(props) = props_op.get() {
-                            let t = props.Title().map(|s| s.to_string()).unwrap_or_default();
-                            let a = props.Artist().map(|s| s.to_string()).unwrap_or_default();
-                            if !t.trim().is_empty() || !a.trim().is_empty() {
-                                selected_session = Some(session);
-                                break;
-                            }
-                        }
-                    }
+                let props_opt = session.TryGetMediaPropertiesAsync().ok().and_then(|op| op.get().ok());
+                let t = props_opt.as_ref().and_then(|p| p.Title().ok()).map(|s| s.to_string()).unwrap_or_default();
+                let a = props_opt.as_ref().and_then(|p| p.Artist().ok()).map(|s| s.to_string()).unwrap_or_default();
+                let has_title_or_artist = !t.trim().is_empty() || !a.trim().is_empty();
+
+                if is_playing && (has_title_or_artist || session.SourceAppUserModelId().is_ok()) {
+                    selected_session = Some(session);
+                    break;
                 }
 
-                if fallback_session.is_none() {
-                    if let Ok(props_op) = session.TryGetMediaPropertiesAsync() {
-                        if let Ok(props) = props_op.get() {
-                            let t = props.Title().map(|s| s.to_string()).unwrap_or_default();
-                            let a = props.Artist().map(|s| s.to_string()).unwrap_or_default();
-                            if !t.trim().is_empty() || !a.trim().is_empty() {
-                                fallback_session = Some(session);
-                            }
-                        }
-                    }
+                if fallback_session.is_none() && has_title_or_artist {
+                    fallback_session = Some(session);
                 }
             }
+        } else {
+            // Invalidate stale manager if GetSessions fails
+            cache.manager = None;
         }
 
-        // Priority 2: If none is playing, fallback to Windows current session or first valid session
+        // Priority 2: Fallback to Windows current session or first valid session
         if selected_session.is_none() {
             selected_session = mgr.GetCurrentSession().ok().or(fallback_session);
         }
     }
 
-    let session_info = if let Some(session) = selected_session {
+    let mut session_info: Option<MediaSessionInfo> = None;
+
+    if let Some(session) = selected_session {
         let playback_info = session.GetPlaybackInfo().ok();
         let is_playing = if let Some(info) = playback_info {
             if let Ok(status) = info.PlaybackStatus() {
@@ -164,8 +478,10 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
             false
         };
 
+        let app_id = session.SourceAppUserModelId().map(|s| s.to_string()).unwrap_or_default();
         let props = session.TryGetMediaPropertiesAsync().ok().and_then(|op| op.get().ok());
-        let (title, artist, album_title, send_thumb_opt) = if let Some(ref p) = props {
+
+        let (raw_title, raw_artist, album_title, send_thumb_opt) = if let Some(ref p) = props {
             let t = p.Title().map(|s| s.to_string()).unwrap_or_default();
             let a = p.Artist().map(|s| s.to_string()).unwrap_or_default();
             let alb = p.AlbumTitle().map(|s| s.to_string()).ok();
@@ -175,9 +491,27 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
             (String::new(), String::new(), None, None)
         };
 
-        if title.trim().is_empty() && artist.trim().is_empty() {
-            None
+        // Extract clean title with local path/extension filtering
+        let title = if !raw_title.trim().is_empty() {
+            clean_media_title(&raw_title)
+        } else if let Some(ref alb) = album_title {
+            if !alb.trim().is_empty() {
+                clean_media_title(alb)
+            } else {
+                get_friendly_source_name(&app_id)
+            }
         } else {
+            get_friendly_source_name(&app_id)
+        };
+
+        // Extract clean artist or fallback to application/source name
+        let artist = if !raw_artist.trim().is_empty() {
+            raw_artist.trim().to_string()
+        } else {
+            get_friendly_source_name(&app_id)
+        };
+
+        if !title.trim().is_empty() || is_playing {
             let timeline = session.GetTimelineProperties().ok();
             let (current_sec, duration_sec) = if let Some(tl) = timeline {
                 let pos = tl.Position().map(|d| (d.Duration / 10_000_000) as u64).unwrap_or(0);
@@ -241,7 +575,7 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
                 }
             }
 
-            Some(MediaSessionInfo {
+            session_info = Some(MediaSessionInfo {
                 title,
                 artist,
                 album_title,
@@ -249,16 +583,33 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
                 duration_sec,
                 current_sec,
                 album_art_base64,
-            })
+            });
         }
-    } else {
-        None
+    }
+
+    // 3. Priority Arbitration between WinRT GSMTC and Win32 Media Players
+    let win32_media = scan_win32_media_players();
+
+    let final_session = match (session_info, win32_media) {
+        (Some(gsmtc), Some(w32)) => {
+            if gsmtc.is_playing {
+                Some(gsmtc)
+            } else if w32.is_playing {
+                // Actively playing Win32 player (e.g. VLC) overrides paused/idle GSMTC session!
+                Some(w32)
+            } else {
+                Some(gsmtc)
+            }
+        }
+        (Some(gsmtc), None) => Some(gsmtc),
+        (None, Some(w32)) => Some(w32),
+        (None, None) => None,
     };
 
     cache.last_fetch = Some(now);
-    cache.cached_session = session_info.clone();
+    cache.cached_session = final_session.clone();
 
-    session_info
+    final_session
 }
 
 pub fn toggle_play_pause() {
@@ -308,3 +659,4 @@ pub fn volume_mute() {
         keybd_event(0xAD, 0, KEYEVENTF_KEYUP, 0);
     }
 }
+
