@@ -12,24 +12,35 @@ export const AppsCapsule: React.FC = () => {
   const [hoveredAppId, setHoveredAppId] = useState<string | null>(null);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const [maxVisibleApps, setMaxVisibleApps] = useState<number>(() => dockApps.length || 20);
+  const [iconDensity, setIconDensity] = useState<"normal" | "compact" | "dense">("normal");
   const collapseTimeoutRef = useRef<number | null>(null);
 
-  // Dynamic Real-Time Section Collision Engine
+  // Dynamic Real-Time Section Collision & Adaptive Icon Scaling Engine
   useEffect(() => {
     const computeCollisionFreeCapacity = () => {
       const taskbarEl = document.getElementById("taskbar-bar");
-      const statusClusterEl = document.getElementById("taskbar-status-cluster");
       const appsClusterEl = document.getElementById("taskbar-apps-cluster");
 
       const screenW = window.innerWidth || (taskbarEl ? taskbarEl.clientWidth : 1920);
       const barAlign = settings?.bar_alignment || "center";
       const isMac = settings?.bar_position === "macos" || settings?.bar_position === "top";
 
-      // If in macOS mode, dock is centered alone at the bottom with 100% full screen width available
+      // If in macOS mode, dock is centered alone at the bottom with full screen width available
       if (isMac) {
         const availableW = screenW - 80;
-        const iconW = 40;
-        setMaxVisibleApps(Math.max(3, Math.floor(availableW / iconW)));
+        if (dockApps.length * 40 <= availableW) {
+          setIconDensity("normal");
+          setMaxVisibleApps(dockApps.length);
+        } else if (dockApps.length * 33 <= availableW) {
+          setIconDensity("compact");
+          setMaxVisibleApps(dockApps.length);
+        } else if (dockApps.length * 28 <= availableW) {
+          setIconDensity("dense");
+          setMaxVisibleApps(dockApps.length);
+        } else {
+          setIconDensity("dense");
+          setMaxVisibleApps(Math.max(3, Math.floor((availableW - 36) / 28)));
+        }
         return;
       }
 
@@ -102,17 +113,36 @@ export const AppsCapsule: React.FC = () => {
         maxAllowedAppsWidth = availableSpace;
       }
 
-      const iconW = 40; // 36px icon + 4px gap
-      const totalNeededWidth = dockApps.length * iconW + 16;
-
-      // If all dock apps fit inside the available space without collision, show ALL of them!
-      if (totalNeededWidth <= maxAllowedAppsWidth) {
+      // Adaptive Windows 11 Scaling Tiers:
+      // Tier 1: Normal full size (36px icon + 4px gap = 40px)
+      const neededNormal = dockApps.length * 40 + 16;
+      if (neededNormal <= maxAllowedAppsWidth) {
+        setIconDensity("normal");
         setMaxVisibleApps(dockApps.length);
-      } else {
-        // When space is constrained, reserve 44px for the overflow ellipsis button
-        const fittingApps = Math.max(2, Math.floor((maxAllowedAppsWidth - 44) / iconW));
-        setMaxVisibleApps(fittingApps);
+        return;
       }
+
+      // Tier 2: Compact size (30px icon + 3px gap = 33px)
+      const neededCompact = dockApps.length * 33 + 16;
+      if (neededCompact <= maxAllowedAppsWidth) {
+        setIconDensity("compact");
+        setMaxVisibleApps(dockApps.length);
+        return;
+      }
+
+      // Tier 3: Dense size (26px icon + 2px gap = 28px)
+      const neededDense = dockApps.length * 28 + 16;
+      if (neededDense <= maxAllowedAppsWidth) {
+        setIconDensity("dense");
+        setMaxVisibleApps(dockApps.length);
+        return;
+      }
+
+      // Tier 4: Ultra Dense with Overflow Ellipsis
+      // If even at dense size all apps do not fit, reserve 36px for ellipsis and fit as many as possible
+      setIconDensity("dense");
+      const fittingApps = Math.max(2, Math.floor((maxAllowedAppsWidth - 36) / 28));
+      setMaxVisibleApps(fittingApps);
     };
 
     // Run measurement with requestAnimationFrame
@@ -212,13 +242,17 @@ export const AppsCapsule: React.FC = () => {
       clearTimeout(collapseTimeoutRef.current);
       collapseTimeoutRef.current = null;
     }
+    // When overflow flyout is open, ignore hover on background dock icons
+    if (isOverflowOpen && !overflowApps.some((a) => a.id === appId)) {
+      return;
+    }
     setHoveredAppId(appId);
     if (activeContextMenuAppId && activeContextMenuAppId !== appId) {
       setActiveContextMenuAppId(null);
       windowExpansion.release("apps-context");
     }
-    windowExpansion.request("apps-hover", activeContextMenuAppId ? 360 : 280);
-  }, [activeContextMenuAppId]);
+    windowExpansion.request("apps-hover", activeContextMenuAppId ? 480 : 380);
+  }, [activeContextMenuAppId, isOverflowOpen, overflowApps]);
 
   const handleIconMouseLeave = useCallback((appId: string) => {
     if (collapseTimeoutRef.current) clearTimeout(collapseTimeoutRef.current);
@@ -234,7 +268,7 @@ export const AppsCapsule: React.FC = () => {
       collapseTimeoutRef.current = null;
     }
     setActiveContextMenuAppId(appId);
-    windowExpansion.request("apps-context", 360);
+    windowExpansion.request("apps-context", 480);
   }, []);
 
   const handleCloseContextMenu = useCallback(() => {
@@ -256,7 +290,11 @@ export const AppsCapsule: React.FC = () => {
     setIsOverflowOpen((prev) => {
       const nextState = !prev;
       if (nextState) {
-        windowExpansion.request("apps-overflow", 320);
+        setHoveredAppId(null);
+        setActiveContextMenuAppId(null);
+        windowExpansion.release("apps-hover");
+        windowExpansion.release("apps-context");
+        windowExpansion.request("apps-overflow", 380);
       } else {
         windowExpansion.release("apps-overflow");
       }
@@ -301,7 +339,7 @@ export const AppsCapsule: React.FC = () => {
 
   return (
     <div className="capsule apps-capsule">
-      <div className="apps-list">
+      <div className={`apps-list apps-list--${iconDensity}`}>
         {/* Ellipsis Overflow Button on LEFT when in right alignment */}
         {isRightAlign && overflowApps.length > 0 && (
           <div
@@ -338,8 +376,8 @@ export const AppsCapsule: React.FC = () => {
               onClick={handleIconClick}
               onPin={pinApp}
               onUnpin={unpinApp}
-              isHovered={hoveredAppId === app.id}
-              isContextMenuOpen={activeContextMenuAppId === app.id}
+              isHovered={!isOverflowOpen && hoveredAppId === app.id}
+              isContextMenuOpen={!isOverflowOpen && activeContextMenuAppId === app.id}
               onHoverStart={handleIconMouseEnter}
               onHoverEnd={handleIconMouseLeave}
               onOpenContextMenu={handleOpenContextMenu}

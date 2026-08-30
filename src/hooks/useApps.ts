@@ -10,6 +10,66 @@ function normalizeName(name: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+function isRegularBrowserWindow(win: WindowInfo): boolean {
+  const exe = (win.exe || "").toLowerCase();
+  const isBrowser = /msedge|chrome|brave|opera|vivaldi|firefox/i.test(exe);
+  if (!isBrowser) return false;
+
+  const title = (win.title || "").trim();
+  if (!title) return true; // Blank new windows belong to the browser
+
+  const titleLower = title.toLowerCase();
+
+  // 1. Edge: Any window containing "edge" (e.g. "... - Microsoft Edge", "... - Edge", "InPrivate", "New Tab")
+  if (/msedge|edge/i.test(exe)) {
+    return (
+      titleLower.includes("edge") ||
+      titleLower === "new tab" ||
+      titleLower.startsWith("inprivate")
+    );
+  }
+
+  // 2. Chrome: Any window containing "chrome"
+  if (/chrome/i.test(exe)) {
+    return (
+      titleLower.includes("chrome") ||
+      titleLower === "new tab" ||
+      titleLower.startsWith("incognito")
+    );
+  }
+
+  // 3. Brave
+  if (/brave/i.test(exe)) {
+    return titleLower.includes("brave") || titleLower === "new tab";
+  }
+
+  // 4. Firefox
+  if (/firefox/i.test(exe)) {
+    return titleLower.includes("firefox") || titleLower.includes("mozilla") || titleLower === "new tab";
+  }
+
+  // 5. Opera
+  if (/opera/i.test(exe)) {
+    return titleLower.includes("opera") || titleLower === "new tab";
+  }
+
+  // 6. Vivaldi
+  if (/vivaldi/i.test(exe)) {
+    return titleLower.includes("vivaldi") || titleLower === "new tab";
+  }
+
+  return false;
+}
+
+export function getCleanAppTitle(rawTitle: string): string {
+  let title = rawTitle.trim();
+  // Strip profile suffixes e.g. " - Person 1", " - Profile 1", " - Default", " - Work", " - Personal"
+  title = title.replace(/\s*-\s*(Person\s*\d+|Profile\s*\d+|Default|Personal|Work)$/i, "");
+  // Strip browser suffixes
+  title = title.replace(/\s*-\s*(Google Chrome|Microsoft Edge|Brave|Mozilla Firefox|Opera|Vivaldi|Edge)$/i, "");
+  return title.trim() || rawTitle;
+}
+
 /**
  * Dynamically computes a match confidence score between a running window and a pinned app.
  * Ensures the main browser always claims all normal browser windows unless a dedicated PWA shortcut specifically matches.
@@ -23,6 +83,7 @@ function computeWindowMatchScore(
 
   const winExeNorm = normalizeName(win.exe || "");
   const winTitleNorm = normalizeName(win.title || "");
+  const cleanWinTitleNorm = normalizeName(getCleanAppTitle(win.title || ""));
   const pinnedExeNorm = normalizeName(pinned.exe || "");
   const pinnedTitleNorm = normalizeName(pinned.title || "");
 
@@ -34,25 +95,42 @@ function computeWindowMatchScore(
     /msedge|chrome|brave|opera|vivaldi|firefox/i.test(pinned.exe || "") &&
     /edge|chrome|brave|opera|vivaldi|firefox|browser/i.test(pinned.title || targetStemNorm || "");
 
-  // 1. Check if pinned app is a specific named PWA/shortcut (e.g. Claude, DeepSeek, YouTube Music, WhatsApp)
+  const isPwa = isBrowserProcess && !isRegularBrowserWindow(win);
+
+  // 1. Check if pinned app is a specific named PWA/shortcut (e.g. Instagram, Claude, WhatsApp, YouTube)
   if (isBrowserProcess && !isPinnedBrowser) {
-    if (pinnedTitleNorm && winTitleNorm) {
-      if (winTitleNorm === pinnedTitleNorm) return 300;
-      if (winTitleNorm.startsWith(pinnedTitleNorm) || pinnedTitleNorm.startsWith(winTitleNorm)) return 250;
-      if (winTitleNorm.includes(pinnedTitleNorm) || pinnedTitleNorm.includes(winTitleNorm)) return 200;
+    if (pinnedTitleNorm && (winTitleNorm || cleanWinTitleNorm)) {
+      if (cleanWinTitleNorm === pinnedTitleNorm || winTitleNorm === pinnedTitleNorm) return 300;
+      if (
+        cleanWinTitleNorm.startsWith(pinnedTitleNorm) ||
+        pinnedTitleNorm.startsWith(cleanWinTitleNorm) ||
+        winTitleNorm.startsWith(pinnedTitleNorm)
+      ) {
+        return 250;
+      }
+      if (
+        cleanWinTitleNorm.includes(pinnedTitleNorm) ||
+        pinnedTitleNorm.includes(cleanWinTitleNorm)
+      ) {
+        return 200;
+      }
     }
     if (
       targetStemNorm &&
-      winTitleNorm &&
-      (targetStemNorm.includes(winTitleNorm) || winTitleNorm.includes(targetStemNorm))
+      (cleanWinTitleNorm.includes(targetStemNorm) || targetStemNorm.includes(cleanWinTitleNorm))
     ) {
       return 220;
     }
   }
 
-  // 2. If this is the main pinned browser (e.g. Edge, Chrome, Brave) and the window belongs to this browser:
+  // 2. If this is the main pinned browser (e.g. Edge, Chrome, Brave):
   if (isPinnedBrowser && winExeNorm && pinnedExeNorm && winExeNorm === pinnedExeNorm) {
-    // Check if any other pinned app is a dedicated PWA matching this specific window title
+    // If the window is a dedicated PWA / Web App (e.g. Instagram - Person 1), do NOT claim it under the browser!
+    if (isPwa) {
+      return 0;
+    }
+
+    // Regular browser window: check if any other pinned app claims it
     const hasDedicatedPwaMatch = allPinned.some((p) => {
       if (p.id === pinned.id) return false;
       const pTitle = normalizeName(p.title || "");
@@ -60,9 +138,10 @@ function computeWindowMatchScore(
       return (
         (pTitle &&
           (winTitleNorm === pTitle ||
+            cleanWinTitleNorm === pTitle ||
             winTitleNorm.startsWith(pTitle) ||
-            winTitleNorm.includes(pTitle))) ||
-        (pTarget && (pTarget.includes(winTitleNorm) || winTitleNorm.includes(pTarget)))
+            cleanWinTitleNorm.startsWith(pTitle))) ||
+        (pTarget && (pTarget.includes(cleanWinTitleNorm) || cleanWinTitleNorm.includes(pTarget)))
       );
     });
 
@@ -102,7 +181,7 @@ function computeWindowMatchScore(
 
   // 5. Fallback for title-only items
   if (winTitleNorm && pinnedTitleNorm) {
-    if (winTitleNorm === pinnedTitleNorm) return 120;
+    if (winTitleNorm === pinnedTitleNorm || cleanWinTitleNorm === pinnedTitleNorm) return 120;
     if (winTitleNorm.includes(pinnedTitleNorm) || pinnedTitleNorm.includes(winTitleNorm)) {
       return 40;
     }
@@ -171,7 +250,7 @@ export function useApps() {
 
         items.push({
           id: pinned.id,
-          title: pinned.title || activeWin.title,
+          title: pinned.title || getCleanAppTitle(activeWin.title),
           exe: pinned.exe || activeWin.exe,
           icon_b64: pinned.icon_b64 || activeWin.icon_b64,
           is_pinned: true,
@@ -198,24 +277,38 @@ export function useApps() {
       }
     }
 
-    // 2. Process remaining unpinned running windows (group by exe/title)
+    // 2. Process remaining unpinned running windows (group standalone PWAs separately from browsers)
     const remainingWins = windows.filter((w) => !matchedHwnds.has(w.hwnd));
-    const groupedByExe = new Map<string, WindowInfo[]>();
+    const groupedApps = new Map<string, WindowInfo[]>();
 
     for (const win of remainingWins) {
-      const key = (win.exe || win.title || `hwnd-${win.hwnd}`).toLowerCase();
-      const list = groupedByExe.get(key) || [];
+      const isBrowser = /msedge|chrome|brave|opera|vivaldi|firefox/i.test(win.exe || "");
+      let groupKey: string;
+
+      if (isBrowser && !isRegularBrowserWindow(win)) {
+        // Standalone Web App / PWA: group by its clean app title (e.g. "Instagram", "WhatsApp")
+        const cleanTitle = getCleanAppTitle(win.title || "Web App");
+        groupKey = `pwa-${win.exe}-${cleanTitle}`.toLowerCase();
+      } else {
+        groupKey = (win.exe || win.title || `hwnd-${win.hwnd}`).toLowerCase();
+      }
+
+      const list = groupedApps.get(groupKey) || [];
       list.push(win);
-      groupedByExe.set(key, list);
+      groupedApps.set(groupKey, list);
     }
 
-    for (const [groupKey, wins] of groupedByExe.entries()) {
+    for (const [groupKey, wins] of groupedApps.entries()) {
       const activeWin = wins.find((w) => w.is_focused) || wins[0];
+      const isBrowser = /msedge|chrome|brave|opera|vivaldi|firefox/i.test(activeWin.exe || "");
+      const isPwa = isBrowser && !isRegularBrowserWindow(activeWin);
+
+      const title = isPwa ? getCleanAppTitle(activeWin.title) : activeWin.title;
       const id = `running-${groupKey}`;
 
       items.push({
         id,
-        title: activeWin.title,
+        title,
         exe: activeWin.exe,
         icon_b64: activeWin.icon_b64,
         is_pinned: false,
