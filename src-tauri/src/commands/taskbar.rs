@@ -298,10 +298,15 @@ pub fn update_work_area(
             let pos = monitor.position();
             let scale_factor = monitor.scale_factor();
 
-            let top = if let Some(m_top) = margin_top {
+            let settings = crate::config::settings::load();
+            let is_macos_mode = settings.bar_position == "macos" || settings.bar_position == "top";
+
+            let top = if is_macos_mode {
+                (32.0 * scale_factor).round() as i32
+            } else if let Some(m_top) = margin_top {
                 (m_top as f64 * scale_factor).round() as i32
             } else if top_notch_enabled.unwrap_or(true) {
-                (32.0 * scale_factor).round() as i32
+                (settings.margin_top as f64 * scale_factor).round() as i32
             } else {
                 0
             };

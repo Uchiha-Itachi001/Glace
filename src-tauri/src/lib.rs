@@ -171,7 +171,10 @@ pub fn run() {
                     }
 
                     let initial_settings = config::settings::load();
-                    let top_notch_physical = if initial_settings.enable_dynamic_island {
+                    let is_macos_mode = initial_settings.bar_position == "macos" || initial_settings.bar_position == "top";
+                    let top_notch_physical = if is_macos_mode {
+                        (32.0 * scale_factor).round() as i32
+                    } else if initial_settings.enable_dynamic_island {
                         (initial_settings.margin_top as f64 * scale_factor).round() as i32
                     } else {
                         0

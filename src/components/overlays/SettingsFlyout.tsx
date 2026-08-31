@@ -116,6 +116,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const currentRadius = settings?.corner_radius ?? 20;
   const currentBlur = settings?.blur_intensity ?? 1.0;
   const currentBarPos = settings?.bar_position || "bottom";
+  const isMacStyle = currentBarPos === "macos" || currentBarPos === "top";
   const currentBarAlign = (settings?.bar_alignment || "center") as BarAlignment;
   const enabledWidgets = settings?.enabled_widgets || ["start", "apps", "sysmon", "tray", "clock"];
   const enabledTrayItems = settings?.tray_items || [
@@ -133,7 +134,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const islandShowBluetooth = settings?.island_show_bluetooth ?? true;
   const islandShowHardware = settings?.island_show_hardware ?? true;
   const islandShowBattery = settings?.island_show_battery ?? true;
-  const currentMarginTop = settings?.margin_top ?? 32;
+  const currentMarginTop = settings?.margin_top ?? 0;
   const currentMarginBottom = settings?.margin_bottom ?? 48;
   const currentMarginLeft = settings?.margin_left ?? 0;
   const currentMarginRight = settings?.margin_right ?? 0;
@@ -488,16 +489,16 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               <div className="layout-choice-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
                 <button
                   type="button"
-                  className={`layout-choice-btn ${currentBarPos !== "macos" && currentBarPos !== "top" ? "layout-choice-btn--active" : ""}`}
-                  onClick={() => updateSettings({ bar_position: "windows", margin_top: 32, margin_bottom: 48 })}
+                  className={`layout-choice-btn ${!isMacStyle ? "layout-choice-btn--active" : ""}`}
+                  onClick={() => updateSettings({ bar_position: "windows", margin_bottom: 48 })}
                 >
                   <span className="layout-choice-title">Windows Style</span>
                   <span className="layout-choice-sub">Unified bottom taskbar with apps, start & tray</span>
                 </button>
                 <button
                   type="button"
-                  className={`layout-choice-btn ${currentBarPos === "macos" || currentBarPos === "top" ? "layout-choice-btn--active" : ""}`}
-                  onClick={() => updateSettings({ bar_position: "macos", margin_top: 32, margin_bottom: 48 })}
+                  className={`layout-choice-btn ${isMacStyle ? "layout-choice-btn--active" : ""}`}
+                  onClick={() => updateSettings({ bar_position: "macos", margin_bottom: 48 })}
                 >
                   <span className="layout-choice-title">macOS Style</span>
                   <span className="layout-choice-sub">Bottom app dock + Top menu bar with status & clock</span>
@@ -830,21 +831,45 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               {/* 2. Window Overlap & Top Margin Clearance (Moved to Top Section) */}
               {islandEnabled && (
                 <div className="settings-section-block" style={{ marginTop: "16px" }}>
-                  <span className="settings-block-label">Notch Screen Clearance & Window Overlap</span>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                    <span className="settings-block-label" style={{ margin: 0 }}>Notch Screen Clearance & Window Overlap</span>
+                    {isMacStyle && (
+                      <span style={{
+                        fontSize: "9px",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        padding: "2px 7px",
+                        borderRadius: "6px",
+                        background: "rgba(239, 68, 68, 0.15)",
+                        color: "#f87171",
+                        border: "1px solid rgba(239, 68, 68, 0.25)"
+                      }}>
+                        Locked in macOS Mode
+                      </span>
+                    )}
+                  </div>
                   <div className="widget-items-stack">
                     <div
-                      className="widget-row-card"
-                      onClick={() => updateSettings({ margin_top: currentMarginTop === 0 ? 32 : 0 })}
+                      className={`widget-row-card ${isMacStyle ? "widget-row-card--disabled" : ""}`}
+                      style={isMacStyle ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
+                      onClick={() => {
+                        if (isMacStyle) return;
+                        updateSettings({ margin_top: currentMarginTop === 0 ? 32 : 0 });
+                      }}
+                      title={isMacStyle ? "In macOS layout, the full top menu bar occupies the top edge and always requires clearance" : undefined}
                     >
                       <div className="widget-row-meta">
                         <span className="widget-row-name">Allow Windows to Overlap Notch</span>
                         <span className="widget-row-desc">
-                          {currentMarginTop === 0
+                          {isMacStyle
+                            ? "Restricted in macOS Style: Full-width top menu bar is active and reserves top screen clearance (32px)"
+                            : currentMarginTop === 0
                             ? "Overlap Active: Maximized windows fill entire screen behind notch (0px)"
                             : "Clearance Active: Desktop reserved so maximized windows start below notch (32px)"}
                         </span>
                       </div>
-                      <div className={`switch-pill ${currentMarginTop === 0 ? "switch-pill--on" : ""}`}>
+                      <div className={`switch-pill ${!isMacStyle && currentMarginTop === 0 ? "switch-pill--on" : ""}`}>
                         <div className="switch-thumb" />
                       </div>
                     </div>
