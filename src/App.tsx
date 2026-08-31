@@ -4,8 +4,10 @@ import "./styles/capsule.css";
 import "./styles/animations.css";
 import "./styles/island.css";
 
+import { useEffect } from "react";
 import { useSettings } from "./stores/settingsStore";
 import { useFlyout } from "./stores/flyoutStore";
+import { windowExpansion } from "./services/windowExpansion";
 
 import { DynamicIsland } from "./components/island/DynamicIsland";
 import { StartCapsule } from "./components/capsules/StartCapsule";
@@ -22,6 +24,64 @@ import { tauriBridge } from "./services/tauriBridge";
 export default function App() {
   const { settings } = useSettings();
   const { activeFlyout, closeFlyout } = useFlyout();
+
+  // Fail-safe global listener: prevents WebView2 context menu on transparent space
+  // and auto-dismisses all open flyouts & window expansions when clicking transparent screen space.
+  useEffect(() => {
+    const handleGlobalPointerDown = (e: PointerEvent | MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      // Allow clicks within actual interactive components
+      if (
+        target.closest(
+          "#taskbar-bar, .dynamic-notch-wrapper, .settings-flyout, .calendar-flyout, .apps-overflow-flyout, .apps-context-menu, .fluent-jumplist"
+        )
+      ) {
+        return;
+      }
+
+      // Clicking on transparent background -> immediately collapse all flyouts & release window expansions
+      if (activeFlyout !== null) {
+        closeFlyout();
+      }
+      windowExpansion.releaseAll();
+    };
+
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isCustomMenuTarget = target?.closest(
+        ".app-icon, .apps-context-menu, .fluent-jumplist, [data-custom-context]"
+      );
+      if (!isCustomMenuTarget) {
+        // Prevent default WebView2 browser context menu ("Back", "Refresh", "Inspect")
+        e.preventDefault();
+        if (activeFlyout !== null) {
+          closeFlyout();
+        }
+        windowExpansion.releaseAll();
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (activeFlyout !== null) {
+          closeFlyout();
+        }
+        windowExpansion.releaseAll();
+      }
+    };
+
+    window.addEventListener("pointerdown", handleGlobalPointerDown, true);
+    window.addEventListener("contextmenu", handleGlobalContextMenu);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("pointerdown", handleGlobalPointerDown, true);
+      window.removeEventListener("contextmenu", handleGlobalContextMenu);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeFlyout, closeFlyout]);
 
   const enabled_widgets = settings?.enabled_widgets || ["start", "apps", "sysmon", "tray", "clock"];
   const bar_position = settings?.bar_position || "bottom";

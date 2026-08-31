@@ -46,6 +46,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::taskbar::hide_native_taskbar,
             commands::taskbar::restore_native_taskbar,
+            commands::taskbar::quit_app,
             commands::taskbar::open_start_menu,
             commands::taskbar::open_quick_settings,
             commands::taskbar::open_calendar_notifications,
@@ -214,16 +215,13 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
+        .on_window_event(|_window, event| {
             if matches!(
                 event,
                 tauri::WindowEvent::Destroyed | tauri::WindowEvent::CloseRequested { .. }
             ) {
                 work_area::restore_native_taskbar();
-                if let Ok(Some(monitor)) = window.primary_monitor() {
-                    let size = monitor.size();
-                    work_area::restore(size.height as i32, size.width as i32);
-                }
+                work_area::restore(0, 0);
             }
         })
         .build(tauri::generate_context!())

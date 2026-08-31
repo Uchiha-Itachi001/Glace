@@ -1,25 +1,31 @@
-use std::sync::Mutex;
+use std::sync::{atomic::{AtomicBool, Ordering}, Mutex};
 use windows::{
     core::{BOOL, PCWSTR},
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM},
-        Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_INVALIDATE, RDW_UPDATENOW},
+        Graphics::Gdi::{
+            GetMonitorInfoW, MonitorFromWindow, RedrawWindow, MONITORINFO,
+            MONITOR_DEFAULTTOPRIMARY, RDW_ALLCHILDREN, RDW_ERASE, RDW_FRAME,
+            RDW_INVALIDATE, RDW_UPDATENOW,
+        },
         System::Console::SetConsoleCtrlHandler,
         UI::Shell::{
             SHAppBarMessage, APPBARDATA, ABE_BOTTOM, ABE_LEFT, ABE_RIGHT, ABE_TOP,
-            ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS,
+            ABM_ACTIVATE, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS,
         },
         UI::WindowsAndMessaging::{
-            CreateWindowExW, DefWindowProcW, DestroyWindow, FindWindowW, GetSystemMetrics,
-            GetWindowRect, IsWindowVisible, RegisterClassW, SendMessageTimeoutW, SetWindowPos,
-            ShowWindow, HWND_BROADCAST, HWND_TOP, HWND_TOPMOST, SMTO_ABORTIFHUNG, SM_CXSCREEN,
-            SM_CYSCREEN, SPI_SETWORKAREA, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-            SWP_NOZORDER, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, WM_SETTINGCHANGE, WNDCLASSW,
-            WS_EX_TOOLWINDOW, WS_POPUP,
+            CreateWindowExW, DefWindowProcW, DestroyWindow, EnumWindows, FindWindowW,
+            GetClassNameW, GetSystemMetrics, GetWindowRect, IsWindowVisible, RegisterClassW,
+            SendMessageTimeoutW, SetWindowPos, ShowWindow, HWND_BROADCAST, HWND_TOP,
+            HWND_TOPMOST, SMTO_ABORTIFHUNG, SM_CXSCREEN, SM_CYSCREEN, SPI_SETWORKAREA,
+            SWP_FRAMECHANGED, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+            SWP_NOZORDER, SWP_SHOWWINDOW, SW_HIDE, SW_RESTORE, SW_SHOW, WM_SETTINGCHANGE,
+            WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
         },
     },
 };
 
+pub static IS_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 static ORIGINAL_TRAY_RECTS: Mutex<Vec<(isize, RECT)>> = Mutex::new(Vec::new());
 
 static TOP_APPBAR_HWND: Mutex<Option<isize>> = Mutex::new(None);
@@ -299,12 +305,12 @@ pub fn update_window_region(
             let is_macos_mode = settings.bar_position == "macos" || settings.bar_position == "top";
 
             let rgn_top = if is_macos_mode {
-                CreateRectRgn(0, 0, monitor_w, 48)
+                CreateRectRgn(0, 0, monitor_w, 38)
             } else if settings.enable_dynamic_island {
-                let notch_w = 460;
+                let notch_w = 236;
                 let notch_left = ((monitor_w - notch_w) / 2).max(0);
                 let notch_right = (notch_left + notch_w).min(monitor_w);
-                CreateRectRgn(notch_left, 0, notch_right, 54)
+                CreateRectRgn(notch_left, 0, notch_right, 40)
             } else {
                 CreateRectRgn(0, 0, 0, 0)
             };
@@ -454,20 +460,41 @@ pub fn pin_window_to_bottom(
     }
 }
 
+unsafe extern "system" fn enum_taskbar_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let list = &mut *(lparam.0 as *mut Vec<HWND>);
+    let mut class_name = [0u16; 256];
+    let len = GetClassNameW(hwnd, &mut class_name);
+    if len > 0 {
+        let name = String::from_utf16_lossy(&class_name[..len as usize]);
+        if name == "Shell_TrayWnd" || name == "Shell_SecondaryTrayWnd" {
+            list.push(hwnd);
+        }
+    }
+    BOOL(1)
+}
+
 fn find_windows() -> Vec<HWND> {
     let mut list = Vec::new();
-    let class_primary: Vec<u16> = "Shell_TrayWnd\0".encode_utf16().collect();
-    let class_sec: Vec<u16> = "Shell_SecondaryTrayWnd\0".encode_utf16().collect();
-
     unsafe {
-        if let Ok(hwnd) = FindWindowW(PCWSTR(class_primary.as_ptr()), PCWSTR::null()) {
-            if !hwnd.0.is_null() {
-                list.push(hwnd);
+        let _ = EnumWindows(
+            Some(enum_taskbar_windows_proc),
+            LPARAM(&mut list as *mut _ as isize),
+        );
+    }
+    if list.is_empty() {
+        let class_primary: Vec<u16> = "Shell_TrayWnd\0".encode_utf16().collect();
+        let class_sec: Vec<u16> = "Shell_SecondaryTrayWnd\0".encode_utf16().collect();
+
+        unsafe {
+            if let Ok(hwnd) = FindWindowW(PCWSTR(class_primary.as_ptr()), PCWSTR::null()) {
+                if !hwnd.0.is_null() {
+                    list.push(hwnd);
+                }
             }
-        }
-        if let Ok(hwnd) = FindWindowW(PCWSTR(class_sec.as_ptr()), PCWSTR::null()) {
-            if !hwnd.0.is_null() {
-                list.push(hwnd);
+            if let Ok(hwnd) = FindWindowW(PCWSTR(class_sec.as_ptr()), PCWSTR::null()) {
+                if !hwnd.0.is_null() {
+                    list.push(hwnd);
+                }
             }
         }
     }
@@ -475,6 +502,10 @@ fn find_windows() -> Vec<HWND> {
 }
 
 pub fn hide_native_taskbar() {
+    if IS_SHUTTING_DOWN.load(Ordering::SeqCst) {
+        return;
+    }
+
     for hwnd in find_windows() {
         unsafe {
             let mut rc = RECT::default();
@@ -488,45 +519,35 @@ pub fn hide_native_taskbar() {
             }
 
             let _ = ShowWindow(hwnd, SW_HIDE);
-            let _ = SetWindowPos(
-                hwnd,
-                None,
-                0,
-                10000,
-                0,
-                0,
-                SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSIZE,
-            );
         }
     }
 }
 
 /// Proactively ensures Windows native taskbar remains hidden if Explorer attempts to unhide it via Auto-Hide edge hover.
 pub fn ensure_native_taskbar_hidden() {
+    if IS_SHUTTING_DOWN.load(Ordering::SeqCst) {
+        return;
+    }
+
     for hwnd in find_windows() {
         unsafe {
             if IsWindowVisible(hwnd).as_bool() {
-                let mut rc = RECT::default();
-                let _ = GetWindowRect(hwnd, &mut rc);
-                if rc.top < 5000 {
-                    hide_native_taskbar();
-                    break;
-                }
+                hide_native_taskbar();
+                break;
             }
         }
     }
 }
 
-/// Always called on exit/panic/Ctrl+C — reliably restores the native taskbar to its exact screen position.
+/// Always called on exit/panic/Ctrl+C/close — reliably restores the native taskbar to its exact screen position across all monitors.
 pub fn restore_native_taskbar() {
+    IS_SHUTTING_DOWN.store(true, Ordering::SeqCst);
+
     let cached_rects = if let Ok(guard) = ORIGINAL_TRAY_RECTS.lock() {
         guard.clone()
     } else {
         Vec::new()
     };
-
-    let screen_w = unsafe { GetSystemMetrics(SM_CXSCREEN) };
-    let screen_h = unsafe { GetSystemMetrics(SM_CYSCREEN) };
 
     for hwnd in find_windows() {
         unsafe {
@@ -535,36 +556,65 @@ pub fn restore_native_taskbar() {
                 .find(|(h, _)| *h == hwnd.0 as isize)
                 .map(|(_, rc)| *rc);
 
-            if let Some(rc) = orig_rc {
-                let w = rc.right - rc.left;
-                let h = rc.bottom - rc.top;
-                let _ = SetWindowPos(
-                    hwnd,
-                    Some(HWND_TOP),
-                    rc.left,
-                    rc.top,
-                    w,
-                    h,
-                    SWP_SHOWWINDOW | SWP_NOACTIVATE,
-                );
+            let target_rc = if let Some(rc) = orig_rc {
+                rc
             } else {
-                let _ = SetWindowPos(
-                    hwnd,
-                    Some(HWND_TOP),
-                    0,
-                    screen_h - 48,
-                    screen_w,
-                    48,
-                    SWP_SHOWWINDOW | SWP_NOACTIVATE,
-                );
-            }
+                let hmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+                let mut mi = MONITORINFO {
+                    cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+                    ..Default::default()
+                };
+                if GetMonitorInfoW(hmonitor, &mut mi).as_bool() {
+                    RECT {
+                        left: mi.rcMonitor.left,
+                        top: mi.rcMonitor.bottom - 48,
+                        right: mi.rcMonitor.right,
+                        bottom: mi.rcMonitor.bottom,
+                    }
+                } else {
+                    let sw = GetSystemMetrics(SM_CXSCREEN);
+                    let sh = GetSystemMetrics(SM_CYSCREEN);
+                    RECT {
+                        left: 0,
+                        top: sh - 48,
+                        right: sw,
+                        bottom: sh,
+                    }
+                }
+            };
 
+            let w = target_rc.right - target_rc.left;
+            let h = target_rc.bottom - target_rc.top;
+
+            // 1. Move back onto screen and show
+            let _ = SetWindowPos(
+                hwnd,
+                Some(HWND_TOP),
+                target_rc.left,
+                target_rc.top,
+                w,
+                h,
+                SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+            );
+
+            // 2. Unhide using both SW_SHOW and SW_RESTORE
             let _ = ShowWindow(hwnd, SW_SHOW);
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+
+            // 3. Reactivate AppBar with Windows Shell
+            let mut abd = APPBARDATA {
+                cbSize: std::mem::size_of::<APPBARDATA>() as u32,
+                hWnd: hwnd,
+                ..Default::default()
+            };
+            let _ = SHAppBarMessage(ABM_ACTIVATE, &mut abd);
+
+            // 4. Invalidate & force redraw of taskbar window & all its children
             let _ = RedrawWindow(
                 Some(hwnd),
                 None,
                 None,
-                RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN,
+                RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_ALLCHILDREN | RDW_FRAME,
             );
         }
     }
@@ -574,8 +624,8 @@ unsafe extern "system" fn console_ctrl_handler(_ctrl_type: u32) -> BOOL {
     // Fired on CTRL+C (0), CTRL+BREAK (1), CLOSE (2), LOGOFF (5), SHUTDOWN (6)
     restore_native_taskbar();
     restore(0, 0);
-    std::thread::sleep(std::time::Duration::from_millis(80));
-    std::process::exit(0);
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    BOOL(0)
 }
 
 pub fn install_fail_safe() {

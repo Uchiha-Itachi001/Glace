@@ -110,6 +110,30 @@ export const DynamicIsland: React.FC = () => {
     windowExpansion.release("island");
   };
 
+  // Fail-safe outside click dismiss for expanded cards
+  useEffect(() => {
+    if (expandedType === null) return;
+
+    const handleOutsideClick = (e: MouseEvent | PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest(".dynamic-notch")) {
+        handleCollapse();
+      }
+    };
+
+    window.addEventListener("pointerdown", handleOutsideClick, true);
+    return () => {
+      window.removeEventListener("pointerdown", handleOutsideClick, true);
+    };
+  }, [expandedType]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      windowExpansion.release("island");
+    };
+  }, []);
+
   // When clicking the main (left) section: open/expand the active feature
   const handleMainPillClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -561,11 +585,6 @@ export const DynamicIsland: React.FC = () => {
                 ["--wave-gradient-bottom" as any]: trackTheme.waveGradientBottom,
                 ["--wave-glow" as any]: trackTheme.glowColor,
               }}
-              title={
-                splitViewMode === "media_main"
-                  ? `${activeTitle} — Click to expand Media`
-                  : `${activeBtDevice?.name || "Bluetooth"} — Click to expand Bluetooth`
-              }
             >
               {/* Left Concave Wing Ear */}
               <div className="notch-ear notch-ear--left" />
@@ -648,11 +667,6 @@ export const DynamicIsland: React.FC = () => {
             <div
               className="dynamic-notch notch-split-secondary"
               onClick={handleSecondaryPillClick}
-              title={
-                splitViewMode === "media_main"
-                  ? "Bluetooth active — Click to switch to main"
-                  : "Now Playing — Click to switch to main"
-              }
             >
               {/* Left Concave Wing Ear */}
               <div className="notch-ear notch-ear--left" />
@@ -736,7 +750,7 @@ export const DynamicIsland: React.FC = () => {
                 </div>
               </div>
 
-              <div className="notch-activity-middle" title={`${activeTitle} — ${activeArtist}`}>
+              <div className="notch-activity-middle">
                 <span className="notch-activity-title">{activeTitle}</span>
               </div>
 
@@ -764,7 +778,6 @@ export const DynamicIsland: React.FC = () => {
                 ["--wave-glow" as any]: "rgba(56, 189, 248, 0.45)",
                 cursor: showHardware ? "pointer" : "default",
               }}
-              title={showHardware ? "Hardware Telemetry — Click to expand" : undefined}
             >
               {/* Left Concave Wing Ear */}
               <div className="notch-ear notch-ear--left" />
@@ -792,7 +805,6 @@ export const DynamicIsland: React.FC = () => {
             <div
               className="dynamic-notch notch-split-secondary"
               onClick={handleExpandBluetooth}
-              title={`${activeBtDevice.name} (${btBatteryPct !== null ? `${btBatteryPct}%` : "Connected"}) — Click to expand`}
               style={{
                 cursor: "pointer",
                 display: "flex",
@@ -849,7 +861,6 @@ export const DynamicIsland: React.FC = () => {
               ["--wave-glow" as any]: "rgba(56, 189, 248, 0.45)",
               cursor: showHardware ? "pointer" : "default",
             }}
-            title={showHardware ? "Hardware Telemetry — Click to expand" : undefined}
           >
             {/* Left Concave Wing Ear */}
             <div className="notch-ear notch-ear--left" />

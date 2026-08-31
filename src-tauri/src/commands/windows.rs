@@ -48,7 +48,7 @@ pub fn set_window_height(
             let flyout_w_physical = (700.0 * scale_factor).round() as i32;
 
             if let Ok(hwnd) = window.hwnd() {
-                let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as _);
+                let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as *mut core::ffi::c_void);
                 crate::services::work_area::update_window_region(
                     win32_hwnd,
                     size.width as i32,
@@ -71,4 +71,3 @@ pub fn set_window_height(
 pub fn get_window_thumbnail(_hwnd: u64) -> Option<String> {
     None
 }
-

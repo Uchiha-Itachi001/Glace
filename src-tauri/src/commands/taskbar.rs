@@ -13,6 +13,13 @@ pub fn restore_native_taskbar() {
 }
 
 #[tauri::command]
+pub fn quit_app(app_handle: tauri::AppHandle) {
+    work_area::restore_native_taskbar();
+    work_area::restore(0, 0);
+    app_handle.exit(0);
+}
+
+#[tauri::command]
 pub fn open_start_menu() {
     flyout_tracker::toggle_start_menu();
 }

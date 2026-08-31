@@ -986,6 +986,10 @@ pub fn start(app_handle: AppHandle) {
         loop {
             thread::sleep(Duration::from_millis(150));
 
+            if crate::services::work_area::IS_SHUTTING_DOWN.load(std::sync::atomic::Ordering::SeqCst) {
+                break;
+            }
+
             if let Some(glace_hwnd) = crate::services::work_area::get_glace_hwnd() {
                 let state = is_foreground_fullscreen(glace_hwnd, current_pid);
                 let should_hide = match state {
@@ -999,8 +1003,8 @@ pub fn start(app_handle: AppHandle) {
                     crate::services::work_area::set_fullscreen_hidden(should_hide);
                 }
 
-                // Continuously ensure native taskbar remains hidden when Glace is active
-                if !last_fullscreen_state {
+                // Continuously ensure native taskbar remains hidden when Glace is active and not shutting down
+                if !last_fullscreen_state && !crate::services::work_area::IS_SHUTTING_DOWN.load(std::sync::atomic::Ordering::SeqCst) {
                     crate::services::work_area::ensure_native_taskbar_hidden();
                 }
             }

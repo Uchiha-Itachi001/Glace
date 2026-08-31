@@ -284,6 +284,14 @@ export const tauriBridge = {
     }
   },
 
+  quitApp: async (): Promise<void> => {
+    try {
+      await invoke("quit_app");
+    } catch (e) {
+      console.error("quitApp error:", e);
+    }
+  },
+
   // Tray & System Status
   getBluetoothDevices: async (): Promise<BluetoothDevice[]> => {
     try {
