@@ -1,22 +1,43 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { tauriBridge } from "../../services/tauriBridge";
 import { useFlyout } from "../../stores/flyoutStore";
 import { useSettings, DEFAULT_TRAY_ITEMS } from "../../stores/settingsStore";
 import { useSystemMetrics } from "../../hooks/useSystemMetrics";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
-import { WifiIcon } from "../common/WifiIcon";
+import { NetworkIcon, NetworkType } from "../common/NetworkIcon";
 
 export const TrayCapsule: React.FC = () => {
   const { activeFlyout, toggleFlyout } = useFlyout();
   const { settings } = useSettings();
   const { networkState } = useNetworkStatus();
+  const [keyboardLayout, setKeyboardLayout] = useState<{ lang: string; country: string }>({
+    lang: "ENG",
+    country: "IN",
+  });
 
+  const isOverflowOpen = activeFlyout === "overflow";
   const trayItems = settings?.tray_items || DEFAULT_TRAY_ITEMS;
   const isItemVisible = (id: string) => trayItems.includes(id);
 
   // Subscribe to shared metrics pool only if quick_settings indicator is visible
   const systemMetrics = useSystemMetrics(isItemVisible("quick_settings"));
 
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLayout = async () => {
+      const layout = await tauriBridge.getCurrentKeyboardLayout();
+      if (isMounted && layout) {
+        setKeyboardLayout(layout);
+      }
+    };
+
+    fetchLayout();
+    const layoutInterval = setInterval(fetchLayout, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(layoutInterval);
+    };
+  }, []);
 
   const handleSettingsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -31,6 +52,7 @@ export const TrayCapsule: React.FC = () => {
 
   const handleChevronClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    toggleFlyout("overflow", 0);
     tauriBridge.openTrayOverflow().catch(console.error);
   };
 
@@ -44,9 +66,13 @@ export const TrayCapsule: React.FC = () => {
     tauriBridge.openWidgetsPanel().catch(console.error);
   };
 
-  const handleLanguageClick = (e: React.MouseEvent) => {
+  const handleLanguageClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    tauriBridge.toggleInputLanguage().catch(console.error);
+    await tauriBridge.toggleInputLanguage().catch(console.error);
+    setTimeout(async () => {
+      const layout = await tauriBridge.getCurrentKeyboardLayout();
+      if (layout) setKeyboardLayout(layout);
+    }, 100);
   };
 
   const handleQuickSettingsClick = (e: React.MouseEvent) => {
@@ -57,19 +83,26 @@ export const TrayCapsule: React.FC = () => {
   const batteryPercent = systemMetrics?.battery_percent ?? 100;
   const isCharging = systemMetrics?.is_charging ?? false;
   const hasBattery = systemMetrics?.has_battery ?? true;
+  const netType = (systemMetrics?.net_type as NetworkType) || "wifi";
 
   const batteryColor =
     batteryPercent <= 15
       ? "#ef4444"
       : batteryPercent <= 25
       ? "#f59e0b"
-      : "#22c55e";
+      : "#4ade80";
 
-  const fillWidth = Math.max(2, Math.min(15, (batteryPercent / 100) * 15));
+  const fillWidth = Math.max(2, Math.min(14.6, (batteryPercent / 100) * 14.6));
 
-  const wifiTitle =
-    networkState === "connected"
-      ? "Internet Access: Connected"
+  const networkTitle =
+    netType === "ethernet"
+      ? networkState === "disconnected"
+        ? "Ethernet: Disconnected"
+        : networkState === "connecting"
+        ? "Ethernet: Connecting..."
+        : "Internet Access: Ethernet Connected"
+      : networkState === "connected"
+      ? "Internet Access: Wi-Fi Connected"
       : networkState === "connecting"
       ? "Wi-Fi: Connecting..."
       : "No Internet Access: Disconnected";
@@ -96,9 +129,9 @@ export const TrayCapsule: React.FC = () => {
         {/* Windows 11 Tray Overflow Chevron Button */}
         {isItemVisible("overflow") && (
           <div
-            className="tray-chevron-btn icon-hover"
+            className={`tray-chevron-btn icon-hover ${isOverflowOpen ? "tray-chevron-btn--active" : ""}`}
             onClick={handleChevronClick}
-            title="Show hidden icons (Win + B)"
+            title={isOverflowOpen ? "Hide hidden icons (Win + B)" : "Show hidden icons (Win + B)"}
           >
             <svg
               width="12"
@@ -115,7 +148,7 @@ export const TrayCapsule: React.FC = () => {
           </div>
         )}
 
-        {/* Windows 11 Widgets / Layout Panel Button (Placed beside keyboard & language) */}
+        {/* Windows 11 Widgets / Layout Panel Button */}
         {isItemVisible("widgets") && (
           <div
             className="tray-tool-btn icon-hover"
@@ -168,31 +201,40 @@ export const TrayCapsule: React.FC = () => {
           <div
             className="tray-lang-pill icon-hover"
             onClick={handleLanguageClick}
-            title="Keyboard Language: Click or Win+Space to switch"
+            title={`Keyboard Language: ${keyboardLayout.lang} (${keyboardLayout.country}) - Click or Win+Space to switch`}
           >
-            <span className="tray-lang-top">ENG</span>
-            <span className="tray-lang-bot">IN</span>
+            <span className="tray-lang-top">{keyboardLayout.lang}</span>
+            <span className="tray-lang-bot">{keyboardLayout.country}</span>
           </div>
         )}
 
-        {/* Windows 11 Unified Quick Settings Indicators Pill (WiFi, Volume, Battery) */}
+        {/* Windows 11 Unified Quick Settings Indicators Pill (Ethernet/WiFi, Volume, Battery) */}
         {isItemVisible("quick_settings") && (
           <div
             className="tray-system-indicators icon-hover"
             onClick={handleQuickSettingsClick}
-            title={`Network, Sound, Battery (${batteryPercent}%${isCharging ? ", Charging" : ""}) - Click for Control Center`}
+            title={`${netType === "ethernet" ? "Ethernet" : "Wi-Fi"}, Sound, Battery (${batteryPercent}%${isCharging ? ", Charging" : ""}) - Click for Control Center`}
           >
-            {/* Windows 11 Fluent Dynamic Wi-Fi (Connected / Connecting / Disconnected) */}
-            <div className="fluent-indicator-icon" title={wifiTitle}>
-              <WifiIcon state={networkState} size={15} />
+            {/* Windows 11 Fluent Dynamic Network (Ethernet / Wi-Fi) */}
+            <div className="fluent-indicator-icon" title={networkTitle}>
+              <NetworkIcon netType={netType} state={networkState} size={15} />
             </div>
 
             {/* Windows 11 Fluent Volume */}
-            <div className="fluent-indicator-icon" title="Speakers: 75%">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" />
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            <div className="fluent-indicator-icon" title="Speakers / Headphones">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke="currentColor" fill="none" />
+                <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                <path d="M19 5a9.5 9.5 0 0 1 0 14" />
               </svg>
             </div>
 
@@ -201,7 +243,7 @@ export const TrayCapsule: React.FC = () => {
               <div className="fluent-battery-wrapper" title={`Battery status: ${batteryPercent}% available${isCharging ? " (plugged in)" : ""}`}>
                 <svg width="22" height="12" viewBox="0 0 22 12" className="fluent-battery-svg">
                   {/* Outer Rounded Shell */}
-                  <rect x="0.6" y="0.6" width="18" height="10.8" rx="3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                  <rect x="0.6" y="0.6" width="18" height="10.8" rx="3.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
                   {/* Positive Terminal Nub */}
                   <path d="M 19.4 4 C 20.2 4 20.8 4.6 20.8 5.4 L 20.8 6.6 C 20.8 7.4 20.2 8 19.4 8 Z" fill="currentColor" />
                   {/* Filled Level Bar */}
@@ -231,3 +273,4 @@ export const TrayCapsule: React.FC = () => {
     </div>
   );
 };
+

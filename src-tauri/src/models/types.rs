@@ -42,6 +42,7 @@ pub struct SystemMetrics {
     pub net_sent_speed_bps: u64,
     pub net_recv_formatted: String,
     pub net_sent_formatted: String,
+    pub net_type: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

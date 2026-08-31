@@ -2,7 +2,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 use crate::models::types::{AppResourceUsage, SystemMetrics, TrayIcon};
 use windows::Win32::Foundation::FILETIME;
-use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2, MIB_IF_TYPE_LOOPBACK};
+use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, GetBestInterface, MIB_IF_TABLE2, MIB_IF_TYPE_LOOPBACK};
 use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 use windows::Win32::System::ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
 use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
@@ -56,10 +56,17 @@ fn format_speed(bytes_per_sec: u64) -> String {
     }
 }
 
-fn get_network_speeds() -> (u64, u64, String, String) {
+fn get_network_speeds() -> (u64, u64, String, String, String) {
     let mut p_table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
     let mut total_in: u64 = 0;
     let mut total_out: u64 = 0;
+    let mut has_ethernet_up = false;
+    let mut has_wifi_up = false;
+    let mut best_if_type: Option<String> = None;
+
+    let mut best_if_index: u32 = 0;
+    // 8.8.8.8 destination address in network byte order (0x08080808), returns 0 (NO_ERROR) on success
+    let has_best_if = unsafe { GetBestInterface(0x08080808, &mut best_if_index) == 0 };
 
     let res = unsafe { GetIfTable2(&mut p_table) };
     if res.is_ok() && !p_table.is_null() {
@@ -72,6 +79,24 @@ fn get_network_speeds() -> (u64, u64, String, String) {
             if row.Type != MIB_IF_TYPE_LOOPBACK {
                 total_in = total_in.saturating_add(row.InOctets);
                 total_out = total_out.saturating_add(row.OutOctets);
+
+                // If this is the active default route adapter to the internet
+                if has_best_if && row.InterfaceIndex == best_if_index {
+                    if row.Type == 71 /* IF_TYPE_IEEE80211 */ {
+                        best_if_type = Some("wifi".to_string());
+                    } else if row.Type == 6 /* MIB_IF_TYPE_ETHERNET / IF_TYPE_ETHERNET_CSMACD */ {
+                        best_if_type = Some("ethernet".to_string());
+                    }
+                }
+
+                // General status inspection for fallback
+                if row.OperStatus.0 == 1 {
+                    if row.Type == 71 /* IF_TYPE_IEEE80211 */ {
+                        has_wifi_up = true;
+                    } else if row.Type == 6 /* MIB_IF_TYPE_ETHERNET */ {
+                        has_ethernet_up = true;
+                    }
+                }
             }
         }
 
@@ -79,6 +104,18 @@ fn get_network_speeds() -> (u64, u64, String, String) {
             FreeMibTable(p_table as *const _ as *const _);
         }
     }
+
+    let net_type = if let Some(t) = best_if_type {
+        t
+    } else if has_wifi_up {
+        "wifi".to_string()
+    } else if has_ethernet_up {
+        "ethernet".to_string()
+    } else if total_in > 0 || total_out > 0 {
+        "ethernet".to_string()
+    } else {
+        "disconnected".to_string()
+    };
 
     let now = Instant::now();
     let mut net = NET_STATE.lock().unwrap();
@@ -112,6 +149,7 @@ fn get_network_speeds() -> (u64, u64, String, String) {
         sent_speed,
         format_speed(recv_speed),
         format_speed(sent_speed),
+        net_type,
     )
 }
 
@@ -215,7 +253,7 @@ pub fn get_system_metrics() -> SystemMetrics {
     let fallback_cpu = std::cmp::min(100, (ram_percent as u32 * 3 / 4 + 12) as u8);
     let cpu_percent = get_cpu_usage(fallback_cpu);
 
-    let (net_recv_speed_bps, net_sent_speed_bps, net_recv_formatted, net_sent_formatted) =
+    let (net_recv_speed_bps, net_sent_speed_bps, net_recv_formatted, net_sent_formatted, net_type) =
         get_network_speeds();
 
     let result = SystemMetrics {
@@ -230,6 +268,7 @@ pub fn get_system_metrics() -> SystemMetrics {
         net_sent_speed_bps,
         net_recv_formatted,
         net_sent_formatted,
+        net_type,
     };
 
     if let Ok(mut guard) = METRICS_CACHE.lock() {

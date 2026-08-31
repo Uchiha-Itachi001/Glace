@@ -121,11 +121,28 @@ export const tauriBridge = {
     }
   },
 
+  isTrayOverflowOpen: async (): Promise<boolean> => {
+    try {
+      return await invoke("is_tray_overflow_open");
+    } catch (e) {
+      return false;
+    }
+  },
+
   toggleInputLanguage: async (): Promise<void> => {
     try {
       await invoke("toggle_input_language");
     } catch (e) {
       console.error("toggleInputLanguage error:", e);
+    }
+  },
+
+  getCurrentKeyboardLayout: async (): Promise<{ lang: string; country: string }> => {
+    try {
+      return await invoke("get_current_keyboard_layout");
+    } catch (e) {
+      console.error("getCurrentKeyboardLayout error:", e);
+      return { lang: "ENG", country: "IN" };
     }
   },
 

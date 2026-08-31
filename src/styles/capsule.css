@@ -1486,7 +1486,13 @@ html, body {
   border-radius: 6px;
   cursor: pointer;
   color: var(--glace-text-secondary);
-  transition: transform var(--glace-duration-fast), color var(--glace-duration-fast);
+  background: transparent;
+  transition: background var(--glace-duration-fast), color var(--glace-duration-fast);
+}
+
+.tray-chevron-btn svg {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: center center;
 }
 
 .tray-chevron-btn:hover,
@@ -1495,7 +1501,7 @@ html, body {
   background: var(--glace-bg-hover);
 }
 
-.tray-chevron-btn--active {
+.tray-chevron-btn--active svg {
   transform: rotate(180deg);
 }
 
@@ -1571,12 +1577,14 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 4px 8px;
-  border-radius: 8px;
+  gap: 7px;
+  padding: 3px 6px;
+  height: 24px;
+  border-radius: 6px;
   color: var(--glace-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
+  user-select: none;
 }
 
 .tray-system-indicators:hover {
@@ -1588,13 +1596,29 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 16px;
+  height: 16px;
 }
 
-/* ─── Wi-Fi Dynamic State Animations ────────────────────────────────────── */
+/* ─── Network Dynamic State Animations (Ethernet & Wi-Fi) ────────────── */
 
-.wifi-icon {
+.network-icon {
   display: block;
   transition: opacity 0.2s ease, stroke 0.2s ease, transform 0.2s ease;
+}
+
+.network-icon--ethernet.network-icon--connecting {
+  animation: ethernetPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ethernetPulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.7));
+  }
 }
 
 .wifi-icon--connecting .wifi-wave {
@@ -1628,15 +1652,16 @@ html, body {
   }
 }
 
-.wifi-icon--disconnected {
+.wifi-icon--disconnected,
+.network-icon--disconnected {
   color: #94a3b8;
-  opacity: 0.85;
 }
 
 .fluent-battery-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 16px;
 }
 
 .fluent-battery-svg {

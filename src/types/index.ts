@@ -36,6 +36,7 @@ export interface SystemMetrics {
   net_sent_speed_bps?: number;
   net_recv_formatted?: string;
   net_sent_formatted?: string;
+  net_type?: "ethernet" | "wifi" | "disconnected" | "unknown";
 }
 
 // Backwards compatibility alias
