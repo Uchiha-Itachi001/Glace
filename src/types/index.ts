@@ -88,6 +88,7 @@ export interface DockAppItem {
 
 export type MediaLocation = "notch" | "taskbar" | "none";
 export type BarAlignment = "center" | "left" | "right";
+export type NotchPeekKey = "shift" | "ctrl" | "space" | "tab";
 
 export interface Settings {
   theme_id: ThemeId;
@@ -109,6 +110,7 @@ export interface Settings {
   island_show_hardware?: boolean;
   island_show_battery?: boolean;
   media_location?: MediaLocation;
+  notch_peek_key?: NotchPeekKey;
   margin_top?: number;
   margin_bottom?: number;
   margin_left?: number;

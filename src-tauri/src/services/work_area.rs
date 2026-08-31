@@ -275,6 +275,28 @@ pub fn restore(_screen_height: i32, _screen_width: i32) {
     }
 }
 
+static NOTCH_PEEK_THROUGH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_notch_peek_through(peek: bool) {
+    let prev = NOTCH_PEEK_THROUGH.swap(peek, std::sync::atomic::Ordering::Relaxed);
+    if prev != peek {
+        if let Ok(guard) = GLACE_CONFIG.lock() {
+            if let Some(config) = guard.as_ref() {
+                let hwnd = HWND(config.hwnd as *mut _);
+                update_window_region(
+                    hwnd,
+                    config.monitor_w,
+                    config.monitor_h,
+                    config.bar_height_physical,
+                    false,
+                    0,
+                    0,
+                );
+            }
+        }
+    }
+}
+
 pub fn update_window_region(
     hwnd: HWND,
     monitor_w: i32,
@@ -296,21 +318,22 @@ pub fn update_window_region(
             // 1. Bottom taskbar / macOS dock: (0, monitor_h - bar_height, monitor_w, monitor_h)
             // 2. Top header / Dynamic Island:
             //    - In macOS mode: full top bar (0, 0, monitor_w, 36)
-            //    - In Windows mode: ONLY center notch area (420px wide centered at top)
+            //    - In Windows mode: ONLY center notch area (236px wide centered at top)
             //      leaving the left & right (Minimize, Maximize, Close buttons, window tabs) 100% click-through!
             let bar_top = monitor_h - bar_height;
             let rgn_bar = CreateRectRgn(0, bar_top, monitor_w, monitor_h);
 
             let settings = crate::config::settings::load();
             let is_macos_mode = settings.bar_position == "macos" || settings.bar_position == "top";
+            let is_peek = NOTCH_PEEK_THROUGH.load(std::sync::atomic::Ordering::Relaxed);
 
             let rgn_top = if is_macos_mode {
                 CreateRectRgn(0, 0, monitor_w, 38)
-            } else if settings.enable_dynamic_island {
-                let notch_w = 236;
+            } else if settings.enable_dynamic_island && !is_peek {
+                let notch_w = 240;
                 let notch_left = ((monitor_w - notch_w) / 2).max(0);
                 let notch_right = (notch_left + notch_w).min(monitor_w);
-                CreateRectRgn(notch_left, 0, notch_right, 40)
+                CreateRectRgn(notch_left, 0, notch_right, 42)
             } else {
                 CreateRectRgn(0, 0, 0, 0)
             };
@@ -340,6 +363,14 @@ static GLACE_CONFIG: std::sync::Mutex<Option<GlaceWindowConfig>> = std::sync::Mu
 pub fn get_glace_hwnd() -> Option<HWND> {
     if let Ok(guard) = GLACE_CONFIG.lock() {
         guard.map(|c| HWND(c.hwnd as *mut _))
+    } else {
+        None
+    }
+}
+
+pub fn get_glace_config() -> Option<GlaceWindowConfig> {
+    if let Ok(guard) = GLACE_CONFIG.lock() {
+        *guard
     } else {
         None
     }

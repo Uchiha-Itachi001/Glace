@@ -107,6 +107,33 @@ const MEDIA_LOCATIONS: { id: "notch" | "taskbar" | "none"; name: string; badge: 
   },
 ];
 
+const PEEK_KEYS: Array<{ id: "shift" | "ctrl" | "space" | "tab"; name: string; badge: string; desc: string }> = [
+  {
+    id: "shift",
+    name: "Shift Key",
+    badge: "Default",
+    desc: "Hold Shift while hovering over notch to peek & click behind it",
+  },
+  {
+    id: "ctrl",
+    name: "Ctrl Key",
+    badge: "Ctrl",
+    desc: "Hold Ctrl while hovering over notch to peek & click behind it",
+  },
+  {
+    id: "space",
+    name: "Spacebar",
+    badge: "Space",
+    desc: "Hold Space while hovering over notch to peek & click behind it",
+  },
+  {
+    id: "tab",
+    name: "Tab Key",
+    badge: "Tab",
+    desc: "Hold Tab while hovering over notch to peek & click behind it",
+  },
+];
+
 export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const { settings, updateSettings, setTheme, toggleWidget, toggleTrayItem, setSysMonMode, setMediaLocation } = useSettings();
   const [activeTab, setActiveTab] = useState<"appearance" | "taskbar" | "island" | "tray" | "performance" | "about">("appearance");
@@ -877,7 +904,52 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 </div>
               )}
 
-              {/* 3. Media Player Location Routing (Single Authoritative Selector) */}
+              {/* 3. Hover Peek-Through Key Selector */}
+              {islandEnabled && !isMacStyle && currentMarginTop === 0 && (
+                <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                  <span className="settings-block-label">
+                    Hover Peek-Through Key
+                  </span>
+                  <div className="sysmon-mode-options-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+                    {PEEK_KEYS.map((pk) => {
+                      const isSelected = (settings?.notch_peek_key || "shift") === pk.id;
+                      return (
+                        <div
+                          key={pk.id}
+                          className={`sysmon-mode-card ${
+                            isSelected ? "sysmon-mode-card--active" : ""
+                          }`}
+                          onClick={() => updateSettings({ notch_peek_key: pk.id })}
+                        >
+                          <div className="sysmon-mode-header">
+                            <span className="sysmon-mode-name">{pk.name}</span>
+                            <span className="sysmon-mode-badge">{pk.badge}</span>
+                          </div>
+                          <span className="sysmon-mode-desc">{pk.desc}</span>
+                          {isSelected && (
+                            <div className="sysmon-mode-check">
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Media Player Location Routing (Single Authoritative Selector) */}
               {islandEnabled && (
                 <div className="settings-section-block" style={{ marginTop: "16px" }}>
                   <span className="settings-block-label">

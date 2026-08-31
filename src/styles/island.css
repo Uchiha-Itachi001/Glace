@@ -13,6 +13,22 @@
   pointer-events: auto;
   user-select: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Roboto, sans-serif;
+  transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Shift-to-Peek Glass Transparency for Windows Overlap Mode */
+.dynamic-notch-wrapper--peek-through {
+  opacity: 0.15 !important;
+  pointer-events: none !important;
+}
+
+.dynamic-notch-wrapper--peek-through .dynamic-notch {
+  pointer-events: none !important;
+  filter: blur(0.3px) !important;
+}
+
+.dynamic-notch-wrapper--peek-through .notch-ear {
+  opacity: 0.15 !important;
 }
 
 .island-backdrop {
@@ -275,10 +291,10 @@
 
 .dynamic-notch--compact {
   width: auto;
-  min-width: 165px;
-  max-width: 195px;
+  min-width: 145px;
+  max-width: 175px;
   height: 26px;
-  padding: 0 11px;
+  padding: 0 10px;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
   animation: notch-activate-bounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -289,7 +305,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  gap: 12px;
+  gap: 10px;
   animation: notchContentFadeIn var(--glace-duration-base) var(--glace-ease-spring) both;
 }
 
@@ -326,10 +342,10 @@
 
 .dynamic-notch--activity {
   width: auto;
-  min-width: 165px;
-  max-width: 200px;
+  min-width: 150px;
+  max-width: 185px;
   height: 26px;
-  padding: 0 10px;
+  padding: 0 9px;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
   animation: notch-activate-bounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -397,7 +413,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 110px;
+  max-width: 90px;
   letter-spacing: 0.15px;
 }
 
@@ -412,7 +428,7 @@
 .notch-split-container {
   display: flex;
   align-items: flex-start;
-  gap: 16px; /* Distinct, clean separation between main notch and secondary notch */
+  gap: 8px; /* Compact separation between main notch and secondary notch */
   position: relative;
   top: 0;
   transition: all var(--glace-duration-base) var(--glace-ease-spring) !important;
@@ -429,9 +445,9 @@
 
 /* Compact Left Section when Media is active on main (Matches Ref Image 3) */
 .notch-split-main--media {
-  min-width: 120px;
-  max-width: 145px;
-  padding: 0 10px;
+  min-width: 110px;
+  max-width: 130px;
+  padding: 0 9px;
 }
 
 .notch-split-media-layout {

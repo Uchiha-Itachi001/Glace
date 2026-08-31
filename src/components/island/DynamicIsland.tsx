@@ -4,9 +4,12 @@ import { useBluetooth } from "../../hooks/useBluetooth";
 import { useSystemMetrics } from "../../hooks/useSystemMetrics";
 import { windowExpansion } from "../../services/windowExpansion";
 import { useMediaSession } from "../../hooks/useMediaSession";
+import { tauriBridge } from "../../services/tauriBridge";
 
 export const DynamicIsland: React.FC = () => {
   const { settings } = useSettings();
+  const barPosition = settings?.bar_position || "bottom";
+  const isMacStyle = barPosition === "macos" || barPosition === "top";
   const isIslandEnabled = settings?.enable_dynamic_island ?? true;
   const showMedia = isIslandEnabled && (settings?.media_location ?? "notch") === "notch" && (settings?.island_show_media ?? true);
   const showBluetooth = isIslandEnabled && (settings?.island_show_bluetooth ?? true);
@@ -72,6 +75,90 @@ export const DynamicIsland: React.FC = () => {
   const hasMediaSession = showMedia && hasLiveMedia;
   // Multi-activity is active when real media exists AND a real bluetooth device is connected!
   const isMultiActivity = hasMediaSession && showBluetooth && isBtConnected && activeBtDevice !== null;
+
+  // Notch is unexpanded in any compact mode (idle, media player, bluetooth status, or split activity)
+  const isNotchUnexpanded = expandedType === null;
+
+  const [isShiftDown, setIsShiftDown] = useState(false);
+  const [isNotchHovered, setIsNotchHovered] = useState(false);
+
+  // Transparency is active on ANY unexpanded compact notch (idle, media, bluetooth) when hovered + Shift pressed
+  const isShiftPeek = !isMacStyle && isNotchUnexpanded && isShiftDown && isNotchHovered;
+
+  useEffect(() => {
+    if (isMacStyle) {
+      tauriBridge.setNotchPeek(false);
+      return;
+    }
+    tauriBridge.setNotchPeek(isShiftPeek);
+  }, [isShiftPeek, isMacStyle]);
+
+  const peekKey = settings?.notch_peek_key || "shift";
+
+  const isMatchingKey = (e: KeyboardEvent, target: string) => {
+    switch (target) {
+      case "ctrl":
+        return e.key === "Control";
+      case "space":
+        return e.key === " " || e.code === "Space";
+      case "tab":
+        return e.key === "Tab";
+      case "shift":
+      default:
+        return e.key === "Shift";
+    }
+  };
+
+  useEffect(() => {
+    if (isMacStyle) {
+      setIsShiftDown(false);
+      return;
+    }
+
+    let unlisten: (() => void) | undefined;
+    tauriBridge
+      .onNotchShiftState((payload) => {
+        setIsShiftDown(payload.is_down);
+        if (payload.is_down && payload.in_notch) {
+          setIsNotchHovered(true);
+        } else if (!payload.is_down) {
+          setIsNotchHovered(false);
+        }
+      })
+      .then((unsub) => {
+        unlisten = unsub;
+      })
+      .catch(console.error);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isMatchingKey(e, peekKey)) {
+        setIsShiftDown(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (isMatchingKey(e, peekKey)) {
+        setIsShiftDown(false);
+        setIsNotchHovered(false);
+      }
+    };
+
+    const handleBlur = () => {
+      setIsShiftDown(false);
+      setIsNotchHovered(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      if (unlisten) unlisten();
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [isMacStyle, peekKey]);
 
   const activeTitle = liveMedia?.title?.trim() || (hasLiveMedia ? "Connecting Audio..." : "No Media Playing");
   const activeArtist = liveMedia?.artist?.trim() || (hasLiveMedia ? "Resolving Stream..." : "Ready to play");
@@ -248,7 +335,15 @@ export const DynamicIsland: React.FC = () => {
         <div className="island-backdrop" onClick={() => handleCollapse()} />
       )}
 
-      <div className="dynamic-notch-wrapper">
+      <div
+        className={`dynamic-notch-wrapper ${isShiftPeek ? "dynamic-notch-wrapper--peek-through" : ""}`}
+        onMouseEnter={() => setIsNotchHovered(true)}
+        onMouseLeave={() => {
+          if (!isShiftDown) {
+            setIsNotchHovered(false);
+          }
+        }}
+      >
         {/* ─── CASE A: EXPANDED BLUETOOTH CARD ─── */}
         {expandedType === "bluetooth" && (
           <div

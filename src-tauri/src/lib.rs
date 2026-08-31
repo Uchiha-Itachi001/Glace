@@ -60,6 +60,7 @@ pub fn run() {
             commands::taskbar::launch_app,
             commands::taskbar::power_action,
             commands::taskbar::update_work_area,
+            commands::taskbar::set_notch_peek,
             commands::windows::get_open_windows,
             commands::windows::focus_window,
             commands::windows::minimize_window,
@@ -203,6 +204,7 @@ pub fn run() {
             services::window_watcher::start(app.handle().clone());
             services::pinned_apps::start_watcher(app.handle().clone());
             services::bluetooth::start();
+            services::keyboard_hook::start(app.handle().clone());
 
             // Background working set trimmer: flushes unused heap pages every 45s to minimize RAM footprint
             std::thread::spawn(|| {

@@ -343,3 +343,12 @@ pub fn update_work_area(
     }
     Ok(())
 }
+
+#[tauri::command]
+pub fn set_notch_peek(peek: bool) {
+    let settings = crate::config::settings::load();
+    let is_macos_mode = settings.bar_position == "macos" || settings.bar_position == "top";
+    if !is_macos_mode && settings.enable_dynamic_island {
+        crate::services::work_area::set_notch_peek_through(peek);
+    }
+}

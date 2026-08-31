@@ -102,6 +102,10 @@ fn default_margin_zero() -> u32 {
     0
 }
 
+fn default_notch_peek_key() -> String {
+    "shift".into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub theme_id: String,
@@ -134,6 +138,8 @@ pub struct Settings {
     pub island_show_battery: bool,
     #[serde(default = "default_media_location")]
     pub media_location: String,
+    #[serde(default = "default_notch_peek_key")]
+    pub notch_peek_key: String,
     #[serde(default = "default_margin_top")]
     pub margin_top: u32,
     #[serde(default = "default_margin_bottom")]
@@ -179,6 +185,7 @@ impl Default for Settings {
             island_show_hardware: true,
             island_show_battery: true,
             media_location: "notch".into(),
+            notch_peek_key: "shift".into(),
             margin_top: 0,
             margin_bottom: 48,
             margin_left: 0,
