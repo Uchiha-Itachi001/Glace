@@ -258,27 +258,8 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
 
         // 1. Direct native asset resolution for Windows Settings (ImmersiveControlPanel) & UWP apps
         if exe_lower.contains("systemsettings") || path_lower.contains("immersivecontrolpanel") {
-            // Read the authentic Windows 11/10 Settings logo PNG directly from the OS disk
-            let settings_icon_paths = [
-                "C:\\Windows\\ImmersiveControlPanel\\images\\logo.targetsize-256_altform-unplated.png",
-                "C:\\Windows\\ImmersiveControlPanel\\images\\logo.targetsize-256.png",
-                "C:\\Windows\\ImmersiveControlPanel\\images\\logo.targetsize-48_altform-unplated.png",
-                "C:\\Windows\\ImmersiveControlPanel\\images\\logo.png",
-            ];
-            for p in &settings_icon_paths {
-                if let Ok(bytes) = std::fs::read(p) {
-                    use base64::Engine;
-                    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
-                    return format!("data:image/png;base64,{}", b64);
-                }
-            }
-
-            let icon = crate::services::pinned_apps::extract_icon_from_shell_target(
-                "shell:AppsFolder\\windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel",
-            );
-            if !icon.is_empty() {
-                return icon;
-            }
+            // Authentic standalone Windows 11 Fluent Settings Gear icon (transparent background)
+            return "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\"><defs><linearGradient id=\"win11_gear\" x1=\"15%\" y1=\"10%\" x2=\"85%\" y2=\"90%\"><stop offset=\"0%\" stop-color=\"%2300A2FF\"/><stop offset=\"35%\" stop-color=\"%230078D4\"/><stop offset=\"70%\" stop-color=\"%23005A9E\"/><stop offset=\"100%\" stop-color=\"%23004578\"/></linearGradient><radialGradient id=\"win11_hub\" cx=\"45%\" cy=\"40%\" r=\"60%\"><stop offset=\"0%\" stop-color=\"%2370E4FF\"/><stop offset=\"50%\" stop-color=\"%230086F0\"/><stop offset=\"85%\" stop-color=\"%23004E8C\"/><stop offset=\"100%\" stop-color=\"%23002D54\"/></radialGradient><linearGradient id=\"win11_hole\" x1=\"30%\" y1=\"20%\" x2=\"70%\" y2=\"80%\"><stop offset=\"0%\" stop-color=\"%23002244\"/><stop offset=\"100%\" stop-color=\"%23003A70\"/></linearGradient></defs><path fill=\"url(%23win11_gear)\" d=\"M28.6 4.7c1.8-1 5-1 6.8 0l2.2 5.5c1.7.6 3.2 1.4 4.6 2.4l5.8-1.6c1.7.8 3.1 2 4.2 3.4l-1.8 5.8c1.1 1.4 2 2.9 2.6 4.6l5.5 2.2c1 1.8 1 5 0 6.8l-5.5 2.2c-.6 1.7-1.4 3.2-2.6 4.6l1.8 5.8c-1.1 1.4-2.5 2.6-4.2 3.4l-5.8-1.6c-1.4 1-2.9 1.8-4.6 2.4l-2.2 5.5c-1.8 1-5 1-6.8 0l-2.2-5.5c-1.7-.6-3.2-1.4-4.6-2.4l-5.8 1.6c-1.7-.8-3.1-2-4.2-3.4l1.8-5.8c-1.1-1.4-2-2.9-2.6-4.6l-5.5-2.2c-1-1.8-1-5 0-6.8l5.5-2.2c.6-1.7 1.4-3.2 2.6-4.6l-1.8-5.8c1.1-1.4 2.5-2.6 4.2-3.4l5.8 1.6c1.4-1 2.9-1.8 4.6-2.4l2.2-5.5z\"/><circle cx=\"32\" cy=\"32\" r=\"14\" fill=\"url(%23win11_hub)\"/><circle cx=\"32\" cy=\"32\" r=\"7\" fill=\"url(%23win11_hole)\"/></svg>".to_string();
         } else if exe_lower.contains("calculator") {
             let icon = crate::services::pinned_apps::extract_icon_from_shell_target(
                 "shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",

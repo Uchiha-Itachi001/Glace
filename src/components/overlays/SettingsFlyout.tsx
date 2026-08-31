@@ -315,6 +315,25 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             <span>About & Credits</span>
           </button>
         </nav>
+
+        {/* Sidebar Footer with Quit Action */}
+        <div className="settings-sidebar-footer">
+          <button
+            type="button"
+            className="settings-exit-btn"
+            onClick={() => {
+              tauriBridge.quitApp();
+            }}
+            title="Exit Glace and restore Windows Taskbar"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span>Exit Glace</span>
+          </button>
+        </div>
       </aside>
 
       {/* Right Content View */}
@@ -1272,6 +1291,32 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               >
                 ↺ Reset All Settings to Factory Defaults
               </button>
+
+              {/* 5. Quit Application Action */}
+              <span className="settings-block-label" style={{ marginTop: "18px" }}>
+                Exit Application
+              </span>
+              <div className="about-exit-card">
+                <div className="about-exit-info">
+                  <span className="about-exit-title">Turn Off Glace Desktop Environment</span>
+                  <p className="about-exit-desc">
+                    Safely restores the native Windows Taskbar (Shell_TrayWnd) and resets the desktop work area to standard full screen.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="about-exit-btn"
+                  onClick={() => {
+                    tauriBridge.quitApp();
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+                    <line x1="12" y1="2" x2="12" y2="12" />
+                  </svg>
+                  <span>Exit & Restore Taskbar</span>
+                </button>
+              </div>
             </div>
           )}
 

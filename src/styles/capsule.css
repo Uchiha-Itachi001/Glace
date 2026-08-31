@@ -664,7 +664,7 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 32px;
+  height: 34px;
   width: 36px;
   cursor: pointer;
   border-radius: 6px;
@@ -732,6 +732,7 @@ html, body {
   height: 26px;
   position: relative;
   z-index: 1;
+  margin-bottom: 3.5px;
   transition: transform 0.22s var(--glace-ease-spring) !important;
   animation: app-icon-spring-in 0.44s var(--glace-ease-spring) backwards;
   animation-delay: calc(var(--item-index, 0) * 35ms);
@@ -783,9 +784,9 @@ html, body {
 
 .open-indicator {
   position: absolute;
-  bottom: 2px;
+  bottom: 1.5px;
   width: 6px;
-  height: 3px;
+  height: 2.5px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.55);
   z-index: 2;
@@ -794,9 +795,9 @@ html, body {
 
 .active-indicator {
   position: absolute;
-  bottom: 2px;
+  bottom: 1.5px;
   width: 16px;
-  height: 3px;
+  height: 2.5px;
   border-radius: 2px;
   background: var(--glace-accent);
   box-shadow: 0 0 8px var(--glace-accent-glow);
@@ -4758,6 +4759,166 @@ html, body {
 .launcher-flyout--pos-bottom {
   bottom: 56px !important;
   top: auto !important;
+}
+
+/* Settings Sidebar Footer & Exit Button */
+.settings-sidebar-footer {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-exit-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.settings-exit-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+/* About Tab Exit Card */
+.about-exit-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  margin-top: 10px;
+  box-sizing: border-box;
+}
+
+.about-exit-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.about-exit-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--glace-text-primary);
+}
+
+.about-exit-desc {
+  font-size: 11px;
+  color: var(--glace-text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.about-exit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.about-exit-btn:hover {
+  background: rgba(239, 68, 68, 0.35);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Start Button Context Menu */
+.start-context-menu {
+  position: absolute;
+  bottom: 52px;
+  left: 0;
+  min-width: 190px;
+  background: var(--glace-bg-capsule, rgba(16, 18, 27, 0.95));
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: flyoutEnter 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.start-context-header {
+  padding: 6px 10px 4px 10px;
+}
+
+.start-context-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--glace-text-secondary, rgba(255, 255, 255, 0.5));
+}
+
+.start-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--glace-text-primary, #ffffff);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.12s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.start-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--glace-text-primary, #ffffff);
+}
+
+.start-menu-item--danger {
+  color: #fca5a5;
+}
+
+.start-menu-item--danger:hover {
+  background: rgba(239, 68, 68, 0.18);
+  color: #ffffff;
+}
+
+.start-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 2px;
 }
 
 
