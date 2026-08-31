@@ -235,14 +235,44 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
     unsafe {
         let is_browser = {
             let n = exe_name.to_lowercase();
-            n.contains("msedge") || n.contains("chrome") || n.contains("brave") || n.contains("opera") || n.contains("vivaldi")
+            n.contains("msedge")
+                || n.contains("chrome")
+                || n.contains("brave")
+                || n.contains("opera")
+                || n.contains("vivaldi")
+                || n.contains("firefox")
+                || n.contains("arc")
+                || n.contains("zen")
+                || n.contains("thorium")
+                || n.contains("waterfox")
+                || n.contains("librewolf")
+                || n.contains("floorp")
+                || n.contains("chromium")
+                || n.contains("yandex")
+                || n.contains("duckduckgo")
+                || n.contains("tor")
         };
 
         let exe_lower = exe_name.to_lowercase();
         let path_lower = exe_path.to_lowercase();
 
-        // 1. Direct AUMID resolution for Windows UWP / immersive apps with no native PE icon
+        // 1. Direct native asset resolution for Windows Settings (ImmersiveControlPanel) & UWP apps
         if exe_lower.contains("systemsettings") || path_lower.contains("immersivecontrolpanel") {
+            // Read the authentic Windows 11/10 Settings logo PNG directly from the OS disk
+            let settings_icon_paths = [
+                "C:\\Windows\\ImmersiveControlPanel\\images\\logo.targetsize-256_altform-unplated.png",
+                "C:\\Windows\\ImmersiveControlPanel\\images\\logo.targetsize-256.png",
+                "C:\\Windows\\ImmersiveControlPanel\\images\\logo.targetsize-48_altform-unplated.png",
+                "C:\\Windows\\ImmersiveControlPanel\\images\\logo.png",
+            ];
+            for p in &settings_icon_paths {
+                if let Ok(bytes) = std::fs::read(p) {
+                    use base64::Engine;
+                    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                    return format!("data:image/png;base64,{}", b64);
+                }
+            }
+
             let icon = crate::services::pinned_apps::extract_icon_from_shell_target(
                 "shell:AppsFolder\\windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel",
             );
@@ -253,16 +283,18 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
             let icon = crate::services::pinned_apps::extract_icon_from_shell_target(
                 "shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
             );
-            if !icon.is_empty() {
+            if !icon.is_empty() && !icon.starts_with("data:image/png;base64,iVBORw0KGgo") {
                 return icon;
             }
-        } else if exe_lower.contains("windowsterminal") {
+            return "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><defs><linearGradient id=\"calcGrad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"%230284C7\"/><stop offset=\"100%\" stop-color=\"%230369A1\"/></linearGradient></defs><rect width=\"100\" height=\"100\" rx=\"22\" fill=\"url(%23calcGrad)\"/><rect x=\"24\" y=\"20\" width=\"52\" height=\"18\" rx=\"4\" fill=\"%23082F49\"/><rect x=\"24\" y=\"44\" width=\"12\" height=\"10\" rx=\"3\" fill=\"%23BAE6FD\"/><rect x=\"44\" y=\"44\" width=\"12\" height=\"10\" rx=\"3\" fill=\"%23BAE6FD\"/><rect x=\"64\" y=\"44\" width=\"12\" height=\"10\" rx=\"3\" fill=\"%2338BDF8\"/><rect x=\"24\" y=\"58\" width=\"12\" height=\"10\" rx=\"3\" fill=\"%23BAE6FD\"/><rect x=\"44\" y=\"58\" width=\"12\" height=\"10\" rx=\"3\" fill=\"%23BAE6FD\"/><rect x=\"64\" y=\"58\" width=\"12\" height=\"10\" rx=\"3\" fill=\"%2338BDF8\"/><rect x=\"24\" y=\"72\" width=\"12\" height=\"10\" rx=\"3\" fill=\"%23BAE6FD\"/><rect x=\"44\" y=\"72\" width=\"12\" height=\"10\" rx=\"3\" fill=\"%23BAE6FD\"/><rect x=\"64\" y=\"72\" width=\"12\" height=\"10\" rx=\"3\" fill=\"%23F97316\"/></svg>".to_string();
+        } else if exe_lower.contains("windowsterminal") || exe_lower == "wt.exe" {
             let icon = crate::services::pinned_apps::extract_icon_from_shell_target(
                 "shell:AppsFolder\\Microsoft.WindowsTerminal_8wekyb3d8bbwe!App",
             );
             if !icon.is_empty() {
                 return icon;
             }
+            return "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" rx=\"22\" fill=\"%2318181B\"/><path fill=\"none\" stroke=\"%234ADE80\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M30 32 L48 50 L30 68\"/><line x1=\"56\" y1=\"68\" x2=\"72\" y2=\"68\" stroke=\"%23F4F4F5\" stroke-width=\"8\" stroke-linecap=\"round\"/></svg>".to_string();
         }
 
         // 2. For browsers/PWAs, ALWAYS query live HWND icon first (captures PWA icons: Manus, DeepSeek, Claude, YouTube Music, WhatsApp, etc.)

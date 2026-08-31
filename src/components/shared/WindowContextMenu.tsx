@@ -30,8 +30,8 @@ export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
   }, [onClose]);
 
   const isBrowser =
-    (item.exe && /chrome|msedge|brave|firefox|opera/i.test(item.exe)) ||
-    (item.title && /chrome|edge|brave|browser/i.test(item.title));
+    (item.exe && /msedge|chrome|brave|opera|vivaldi|firefox|arc|zen|thorium|waterfox|librewolf|floorp|chromium|yandex|duckduckgo|tor/i.test(item.exe)) ||
+    (item.title && /chrome|edge|brave|firefox|opera|vivaldi|arc|zen|browser/i.test(item.title));
 
   const handleNewWindow = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -43,8 +43,12 @@ export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
   const handleIncognitoWindow = (e: React.MouseEvent) => {
     e.stopPropagation();
     let cmd = item.lnk_path || item.exe || item.title;
-    if (/chrome|msedge|brave/i.test(cmd)) {
+    if (/chrome|brave|opera|vivaldi|arc|thorium|chromium|yandex/i.test(cmd)) {
       cmd = `${cmd} --incognito`;
+    } else if (/msedge|edge/i.test(cmd)) {
+      cmd = `${cmd} -inprivate`;
+    } else if (/firefox|zen|waterfox|librewolf|floorp|tor/i.test(cmd)) {
+      cmd = `${cmd} -private-window`;
     }
     tauriBridge.launchApp(cmd);
     onClose();

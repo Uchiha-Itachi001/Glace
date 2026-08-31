@@ -31,9 +31,10 @@ function getSharedCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingCon
 
 export const PLATFORM_BADGES: Record<string, string> = {
   // Video & Social Platforms
+  "youtube music": 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23030303"/><circle cx="50" cy="50" r="32" fill="%23FF0000"/><circle cx="50" cy="50" r="22" fill="none" stroke="%23fff" stroke-width="4"/><polygon points="46,40 46,60 62,50" fill="%23fff"/></svg>',
+  youtube: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%230f0f0f"/><rect x="15" y="27" width="70" height="46" rx="14" fill="%23FF0000"/><polygon points="43,38 43,62 64,50" fill="%23fff"/></svg>',
   instagram: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><radialGradient id="ig" cx="30%" cy="107%" r="150%"><stop offset="0%" stop-color="%23fdf497"/><stop offset="5%" stop-color="%23fdf497"/><stop offset="45%" stop-color="%23fd5949"/><stop offset="60%" stop-color="%23d6249f"/><stop offset="90%" stop-color="%23285AEB"/></radialGradient></defs><rect width="100" height="100" rx="22" fill="url(%23ig)"/><path fill="none" stroke="%23fff" stroke-width="6.5" d="M 28 17 H 72 A 11 11 0 0 1 83 28 V 72 A 11 11 0 0 1 72 83 H 28 A 11 11 0 0 1 17 72 V 28 A 11 11 0 0 1 28 17 Z"/><circle cx="50" cy="50" r="16" fill="none" stroke="%23fff" stroke-width="6.5"/><circle cx="69" cy="31" r="3.5" fill="%23fff"/></svg>',
   facebook: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%231877F2"/><path fill="%23fff" d="M 64 52 L 66 38 H 53 V 29 C 53 25 55 21 61 21 H 67 V 9 C 66 9 62 8 57 8 C 47 8 40 14 40 25 V 38 H 28 V 52 H 40 V 92 H 53 V 52 Z"/></svg>',
-  youtube: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%230f0f0f"/><rect x="15" y="27" width="70" height="46" rx="14" fill="%23FF0000"/><polygon points="43,38 43,62 64,50" fill="%23fff"/></svg>',
   tiktok: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23010101"/><path fill="%2325F4EE" d="M68 34c-4-3-6-7-7-12h-8v42a10 10 0 1 1-7-10c1 0 2 0 3 1v-9a19 19 0 1 0 13 18V45a23 23 0 0 0 15 6v-9a15 15 0 0 1-9-8z"/><path fill="%23FE2C55" d="M65 32a15 15 0 0 1-9-8h-6v42a10 10 0 1 1-7-10c1 0 2 0 3 1v-7a17 17 0 1 0 11 16V43a21 21 0 0 0 15 6v-7a13 13 0 0 1-7-6z"/></svg>',
   twitch: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%239146FF"/><path fill="%23fff" d="M 22 18 L 18 28 V 74 H 30 V 84 L 40 74 H 49 L 71 52 V 18 H 22 Z M 64 48 L 54 58 H 45 L 37 66 V 58 H 27 V 25 H 64 V 48 Z M 40 34 H 47 V 49 H 40 Z M 55 34 H 62 V 49 H 55 Z"/></svg>',
   twitter: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23000000"/><path fill="%23fff" d="M 28 22 L 45 46 L 27 68 H 31 L 47 49 L 59 68 H 73 L 55 42 L 71 22 H 67 L 53 40 L 42 22 Z M 34 25 H 40 L 67 65 H 61 Z"/></svg>',
@@ -69,14 +70,15 @@ export function detectPlatformBadge(title: string, artist?: string): string | nu
   const normTitle = title.toLowerCase().replace(/^\(\d+\+?\)\s*/, "").trim();
   const normArtist = (artist || "").toLowerCase().trim();
 
-  // 1. Direct artist match (e.g. Brave, Chrome, Spotify, Instagram, Edge, VLC, Media Player)
+  // 1. Direct artist match (e.g. YouTube Music, Brave, Chrome, Spotify, Instagram, Edge, VLC, Media Player)
+  if (normArtist === "youtube music" || normArtist.includes("youtube music")) return PLATFORM_BADGES["youtube music"];
   for (const [key, badge] of Object.entries(PLATFORM_BADGES)) {
     if (normArtist === key) return badge;
   }
 
   // 2. Pure exact application name match on title
   const PURE_APP_NAMES = [
-    "instagram", "facebook", "tiktok", "twitter", "x", "reddit",
+    "youtube music", "instagram", "facebook", "tiktok", "twitter", "x", "reddit",
     "twitch", "netflix", "spotify", "brave", "edge", "microsoft edge",
     "chrome", "google chrome", "firefox", "opera", "arc", "vivaldi", "soundcloud",
     "vlc", "vlc media player", "media player", "windows media player", "movies & tv",
@@ -96,6 +98,7 @@ export function detectFallbackBadge(title: string, artist?: string): string | nu
   const normArtist = (artist || "").toLowerCase().trim();
   const combined = `${normTitle} ${normArtist}`;
 
+  if (combined.includes("youtube music")) return PLATFORM_BADGES["youtube music"];
   if (combined.includes("youtube")) return PLATFORM_BADGES.youtube;
   if (combined.includes("facebook")) return PLATFORM_BADGES.facebook;
   if (combined.includes("instagram")) return PLATFORM_BADGES.instagram;
@@ -125,14 +128,16 @@ export function detectFallbackBadge(title: string, artist?: string): string | nu
 function cleanQueryString(title: string, artist?: string): string {
   let cleanedTitle = title
     .replace(/^\(\d+\+?\)\s*/, "")
-    .replace(/\s*-\s*(youtube|facebook|instagram|tiktok|twitch|netflix|brave|edge|chrome|firefox|opera|vlc|mpc-hc|potplayer|mpv|foobar2000|aimp)$/i, "")
-    .replace(/\s*\|\s*(youtube|facebook|instagram|tiktok|twitch|netflix|brave|edge|chrome|firefox|opera|vlc|mpc-hc|potplayer|mpv|foobar2000|aimp)$/i, "")
+    .replace(/^youtube\s*music\s*-\s*/i, "")
+    .replace(/\s*-\s*(youtube music|youtube|facebook|instagram|tiktok|twitch|netflix|brave|edge|chrome|firefox|opera|vlc|mpc-hc|potplayer|mpv|foobar2000|aimp)$/i, "")
+    .replace(/\s*\|\s*(youtube music|youtube|facebook|instagram|tiktok|twitch|netflix|brave|edge|chrome|firefox|opera|vlc|mpc-hc|potplayer|mpv|foobar2000|aimp)$/i, "")
     .replace(/\s*\([^)]*(official|video|audio|lyrics|from|feat|ft\.|remix|version|ost|hd|4k)[^)]*\)/gi, "")
     .replace(/\s*\[[^\]]*(official|video|audio|lyrics|from|feat|ft\.|remix|version|ost|hd|4k|foobar2000)[^\]]*\]/gi, "")
     .replace(/\.(mp3|mp4|mkv|wav|flac|avi|mov|webm|m4a|aac|opus|ogg|wma|wmv|m4v)/gi, "")
     .trim();
 
   let cleanedArtist = (artist || "")
+    .replace(/^youtube\s*music$/i, "")
     .replace(/\s*(feat\.|ft\.|with|,|&)\s*.*/gi, "")
     .trim();
 

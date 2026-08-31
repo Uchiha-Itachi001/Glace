@@ -28,12 +28,18 @@ struct MediaCache {
     manager: Option<GlobalSystemMediaTransportControlsSessionManager>,
     last_fetch: Option<Instant>,
     cached_session: Option<MediaSessionInfo>,
+    active_session: Option<GlobalSystemMediaTransportControlsSession>,
+    active_app_id: String,
+    active_title: String,
 }
 
 static MEDIA_CACHE: Mutex<MediaCache> = Mutex::new(MediaCache {
     manager: None,
     last_fetch: None,
     cached_session: None,
+    active_session: None,
+    active_app_id: String::new(),
+    active_title: String::new(),
 });
 
 struct SendThumb(windows::Storage::Streams::IRandomAccessStreamReference);
@@ -514,8 +520,10 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
     }
 
     let mut session_info: Option<MediaSessionInfo> = None;
+    let mut resolved_app_id = String::new();
+    let mut resolved_title = String::new();
 
-    if let Some(session) = selected_session {
+    if let Some(ref session) = selected_session {
         let playback_info = session.GetPlaybackInfo().ok();
         let is_playing = if let Some(info) = playback_info {
             if let Ok(status) = info.PlaybackStatus() {
@@ -552,6 +560,9 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
         } else {
             get_friendly_source_name(&app_id)
         };
+
+        resolved_app_id = app_id.clone();
+        resolved_title = title.clone();
 
         // Extract clean artist or fallback to application/source name
         let artist = if !raw_artist.trim().is_empty() {
@@ -709,6 +720,9 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
 
     cache.last_fetch = Some(now);
     cache.cached_session = final_session.clone();
+    cache.active_session = selected_session;
+    cache.active_app_id = resolved_app_id;
+    cache.active_title = resolved_title;
 
     final_session
 }
@@ -716,11 +730,20 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
 pub fn toggle_play_pause() {
     let mut sent = false;
     if let Ok(guard) = MEDIA_CACHE.lock() {
-        if let Some(ref mgr) = guard.manager {
-            if let Ok(session) = mgr.GetCurrentSession() {
-                if let Ok(op) = session.TryTogglePlayPauseAsync() {
-                    if let Ok(success) = op.get() {
-                        sent = success;
+        if let Some(ref session) = guard.active_session {
+            if let Ok(op) = session.TryTogglePlayPauseAsync() {
+                if let Ok(success) = op.get() {
+                    sent = success;
+                }
+            }
+        }
+        if !sent {
+            if let Some(ref mgr) = guard.manager {
+                if let Ok(session) = mgr.GetCurrentSession() {
+                    if let Ok(op) = session.TryTogglePlayPauseAsync() {
+                        if let Ok(success) = op.get() {
+                            sent = success;
+                        }
                     }
                 }
             }
@@ -738,11 +761,20 @@ pub fn toggle_play_pause() {
 pub fn next_track() {
     let mut sent = false;
     if let Ok(guard) = MEDIA_CACHE.lock() {
-        if let Some(ref mgr) = guard.manager {
-            if let Ok(session) = mgr.GetCurrentSession() {
-                if let Ok(op) = session.TrySkipNextAsync() {
-                    if let Ok(success) = op.get() {
-                        sent = success;
+        if let Some(ref session) = guard.active_session {
+            if let Ok(op) = session.TrySkipNextAsync() {
+                if let Ok(success) = op.get() {
+                    sent = success;
+                }
+            }
+        }
+        if !sent {
+            if let Some(ref mgr) = guard.manager {
+                if let Ok(session) = mgr.GetCurrentSession() {
+                    if let Ok(op) = session.TrySkipNextAsync() {
+                        if let Ok(success) = op.get() {
+                            sent = success;
+                        }
                     }
                 }
             }
@@ -760,11 +792,20 @@ pub fn next_track() {
 pub fn prev_track() {
     let mut sent = false;
     if let Ok(guard) = MEDIA_CACHE.lock() {
-        if let Some(ref mgr) = guard.manager {
-            if let Ok(session) = mgr.GetCurrentSession() {
-                if let Ok(op) = session.TrySkipPreviousAsync() {
-                    if let Ok(success) = op.get() {
-                        sent = success;
+        if let Some(ref session) = guard.active_session {
+            if let Ok(op) = session.TrySkipPreviousAsync() {
+                if let Ok(success) = op.get() {
+                    sent = success;
+                }
+            }
+        }
+        if !sent {
+            if let Some(ref mgr) = guard.manager {
+                if let Ok(session) = mgr.GetCurrentSession() {
+                    if let Ok(op) = session.TrySkipPreviousAsync() {
+                        if let Ok(success) = op.get() {
+                            sent = success;
+                        }
                     }
                 }
             }
@@ -805,10 +846,18 @@ pub fn volume_mute() {
 
 pub fn seek_media(position_sec: u64) {
     if let Ok(guard) = MEDIA_CACHE.lock() {
-        if let Some(ref mgr) = guard.manager {
-            if let Ok(session) = mgr.GetCurrentSession() {
-                let ticks = (position_sec as i64) * 10_000_000;
-                let _ = session.TryChangePlaybackPositionAsync(ticks);
+        let ticks = (position_sec as i64) * 10_000_000;
+        let mut sought = false;
+        if let Some(ref session) = guard.active_session {
+            if session.TryChangePlaybackPositionAsync(ticks).is_ok() {
+                sought = true;
+            }
+        }
+        if !sought {
+            if let Some(ref mgr) = guard.manager {
+                if let Ok(session) = mgr.GetCurrentSession() {
+                    let _ = session.TryChangePlaybackPositionAsync(ticks);
+                }
             }
         }
     }
@@ -819,7 +868,10 @@ pub fn focus_media_app() {
     let mut session_title = String::new();
 
     if let Ok(guard) = MEDIA_CACHE.lock() {
-        if let Some(ref mgr) = guard.manager {
+        if !guard.active_app_id.is_empty() || !guard.active_title.is_empty() {
+            app_id = guard.active_app_id.to_lowercase();
+            session_title = guard.active_title.to_lowercase();
+        } else if let Some(ref mgr) = guard.manager {
             if let Ok(session) = mgr.GetCurrentSession() {
                 if let Ok(src) = session.SourceAppUserModelId() {
                     app_id = src.to_string().to_lowercase();
@@ -862,12 +914,20 @@ pub fn focus_media_app() {
             String::new()
         };
 
-        let matched = if !state.app_id.is_empty() && (state.app_id.contains(&exe_lower) || (!exe_lower.is_empty() && state.app_id.contains(&exe_lower.replace(".exe", "")))) {
+        // Priority 1: Direct window title match with playing track/video (e.g. YouTube Music tab, PWA window, Spotify title)
+        let matched = if !state.session_title.is_empty() && !win_title.is_empty() && win_title.contains(&state.session_title) {
             true
-        } else if !state.session_title.is_empty() && !win_title.is_empty() && win_title.contains(&state.session_title) {
+        // Priority 2: Standalone dedicated media players (VLC, Spotify, PotPlayer, MPV, foobar2000, AIMP, MusicBee)
+        } else if exe_lower == "spotify.exe" || exe_lower == "vlc.exe" || exe_lower.starts_with("potplayer") || exe_lower == "mpv.exe" || exe_lower == "musicbee.exe" || exe_lower == "aimp.exe" {
             true
-        } else if exe_lower == "vlc.exe" || exe_lower == "spotify.exe" || exe_lower.starts_with("potplayer") || exe_lower == "mpv.exe" || exe_lower == "musicbee.exe" || exe_lower == "aimp.exe" {
-            true
+        // Priority 3: AppUserModelID / executable match (only if title matches or non-generic browser)
+        } else if !state.app_id.is_empty() && (state.app_id.contains(&exe_lower) || (!exe_lower.is_empty() && state.app_id.contains(&exe_lower.replace(".exe", "")))) {
+            let is_browser = exe_lower.contains("chrome") || exe_lower.contains("edge") || exe_lower.contains("brave") || exe_lower.contains("opera") || exe_lower.contains("vivaldi") || exe_lower.contains("firefox");
+            if is_browser {
+                win_title.contains("music") || win_title.contains("youtube") || win_title.contains("spotify") || win_title.contains("sound")
+            } else {
+                true
+            }
         } else {
             false
         };
