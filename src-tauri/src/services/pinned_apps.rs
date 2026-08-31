@@ -569,30 +569,17 @@ pub fn scan_windows_taskbar_dir() -> Vec<PinnedApp> {
     pinned
 }
 
-/// Discovers all native Windows Taskbar pinned apps and merges supplemental shortcuts
+/// Discovers all native Windows Taskbar pinned apps in their exact Windows order
 pub fn scan_windows_taskbar_pins() -> Vec<PinnedApp> {
-    // Primary: Taskband binary stream from HKCU
+    // Primary: Taskband binary stream from HKCU (authoritative source of truth for pinned apps & exact order)
     let bin = read_taskband_binary();
-    let mut primary_pins = bin.map(|b| parse_taskband_pins(&b)).unwrap_or_default();
+    let primary_pins = bin.map(|b| parse_taskband_pins(&b)).unwrap_or_default();
 
-    // Secondary: User Pinned\TaskBar shortcuts directory
-    let supplemental_pins = scan_windows_taskbar_dir();
-
-    // If primary registry stream was found, merge any missing supplemental pins
     if !primary_pins.is_empty() {
-        for supp in supplemental_pins {
-            let already_present = primary_pins.iter().any(|p| {
-                p.id == supp.id
-                    || (!p.exe.is_empty() && p.exe.eq_ignore_ascii_case(&supp.exe))
-                    || p.title.eq_ignore_ascii_case(&supp.title)
-            });
-            if !already_present {
-                primary_pins.push(supp);
-            }
-        }
         primary_pins
     } else {
-        supplemental_pins
+        // Fallback only if Taskband registry key couldn't be parsed
+        scan_windows_taskbar_dir()
     }
 }
 
@@ -614,22 +601,92 @@ pub fn get_pinned_apps() -> Vec<PinnedApp> {
         }
     }
 
-    // Append any custom user-added pins that aren't Windows shortcuts
-    for saved in &cfg.pinned_apps {
-        let already_present = scanned.iter().any(|s| {
-            s.id == saved.id
-                || (!saved.lnk_path.is_empty() && s.lnk_path.eq_ignore_ascii_case(&saved.lnk_path))
-        });
-        if !already_present {
-            scanned.push(saved.clone());
-        }
-    }
-
     // Persist the updated list
     cfg.pinned_apps = scanned.clone();
     settings::save(&cfg);
 
     scanned
+}
+
+/// Starts real-time Win32 Taskband registry watcher to detect newly pinned/unpinned apps with zero latency
+pub fn start_watcher(app: tauri::AppHandle) {
+    use std::thread;
+    use std::time::Duration;
+    use tauri::Emitter;
+    use windows::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
+    use windows::Win32::System::Registry::{KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET, RegNotifyChangeKeyValue};
+    use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
+
+    thread::spawn(move || {
+        let subkey: Vec<u16> = "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Taskband\0"
+            .encode_utf16()
+            .collect();
+
+        let mut last_pins = get_pinned_apps();
+
+        loop {
+            let mut hkey = HKEY::default();
+            let open_res = unsafe {
+                RegOpenKeyExW(
+                    HKEY_CURRENT_USER,
+                    PCWSTR(subkey.as_ptr()),
+                    Some(0),
+                    KEY_NOTIFY,
+                    &mut hkey,
+                )
+            };
+
+            if open_res.is_err() {
+                thread::sleep(Duration::from_millis(1500));
+                let current_pins = get_pinned_apps();
+                if current_pins != last_pins {
+                    let _ = app.emit("pinned-apps-updated", &current_pins);
+                    last_pins = current_pins;
+                }
+                continue;
+            }
+
+            let event = unsafe {
+                match CreateEventW(None, false, false, PCWSTR::null()) {
+                    Ok(e) => e,
+                    Err(_) => {
+                        let _ = RegCloseKey(hkey);
+                        thread::sleep(Duration::from_millis(1500));
+                        continue;
+                    }
+                }
+            };
+
+            unsafe {
+                let _ = RegNotifyChangeKeyValue(
+                    hkey,
+                    true,
+                    REG_NOTIFY_CHANGE_LAST_SET,
+                    Some(event),
+                    true,
+                );
+            }
+
+            // Wait for registry notification with 1500ms timeout fallback
+            let wait_res = unsafe { WaitForSingleObject(event, 1500) };
+
+            if wait_res == WAIT_OBJECT_0 || wait_res.0 == 0 {
+                // Short debounce to allow Explorer to finish writing binary stream
+                thread::sleep(Duration::from_millis(150));
+            }
+
+            unsafe {
+                let _ = CloseHandle(event);
+                let _ = RegCloseKey(hkey);
+            }
+
+            let current_pins = get_pinned_apps();
+            if current_pins != last_pins {
+                let _ = app.emit("pinned-apps-updated", &current_pins);
+                last_pins = current_pins;
+            }
+        }
+    });
 }
 
 /// Pins an application to Glace taskbar

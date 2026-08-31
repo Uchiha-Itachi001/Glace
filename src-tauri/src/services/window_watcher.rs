@@ -238,7 +238,34 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
             n.contains("msedge") || n.contains("chrome") || n.contains("brave") || n.contains("opera") || n.contains("vivaldi")
         };
 
-        // 1. For browsers/PWAs, ALWAYS query live HWND icon first (captures PWA icons: Manus, DeepSeek, Claude, YouTube Music, WhatsApp, etc.)
+        let exe_lower = exe_name.to_lowercase();
+        let path_lower = exe_path.to_lowercase();
+
+        // 1. Direct AUMID resolution for Windows UWP / immersive apps with no native PE icon
+        if exe_lower.contains("systemsettings") || path_lower.contains("immersivecontrolpanel") {
+            let icon = crate::services::pinned_apps::extract_icon_from_shell_target(
+                "shell:AppsFolder\\windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel",
+            );
+            if !icon.is_empty() {
+                return icon;
+            }
+        } else if exe_lower.contains("calculator") {
+            let icon = crate::services::pinned_apps::extract_icon_from_shell_target(
+                "shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+            );
+            if !icon.is_empty() {
+                return icon;
+            }
+        } else if exe_lower.contains("windowsterminal") {
+            let icon = crate::services::pinned_apps::extract_icon_from_shell_target(
+                "shell:AppsFolder\\Microsoft.WindowsTerminal_8wekyb3d8bbwe!App",
+            );
+            if !icon.is_empty() {
+                return icon;
+            }
+        }
+
+        // 2. For browsers/PWAs, ALWAYS query live HWND icon first (captures PWA icons: Manus, DeepSeek, Claude, YouTube Music, WhatsApp, etc.)
         let mut found_b64: Option<String> = None;
 
         if !hwnd.0.is_null() {
@@ -283,7 +310,7 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
             return b64;
         }
 
-        // 2. Fast-path: Check in-memory icon cache for standard non-browser applications
+        // 3. Fast-path: Check in-memory icon cache for standard non-browser applications
         let cache_key = if !exe_path.is_empty() {
             exe_path
         } else {
@@ -300,8 +327,16 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
             }
         }
 
-        // 3. Fallback: Extract from executable file path
+        // 4. Try IShellItemImageFactory on the exe_path directly
         if !exe_path.is_empty() {
+            let shell_icon = crate::services::pinned_apps::extract_icon_from_shell_target(exe_path);
+            if !shell_icon.is_empty() {
+                found_b64 = Some(shell_icon);
+            }
+        }
+
+        // 5. Fallback: Extract from executable file path via Win32 ExtractIconExW / SHGetFileInfoW
+        if found_b64.is_none() && !exe_path.is_empty() {
             let exe_w: Vec<u16> = exe_path.encode_utf16().chain(std::iter::once(0)).collect();
             let mut large_icon = HICON::default();
             let mut small_icon = HICON::default();
@@ -785,21 +820,28 @@ unsafe extern "system" fn win_event_proc(
     }
 }
 
-pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum FullscreenState {
+    Fullscreen,
+    NotFullscreen,
+    Ignore,
+}
+
+pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> FullscreenState {
     unsafe {
         let mut fg = GetForegroundWindow();
         if fg.0.is_null() {
-            return false;
+            return FullscreenState::Ignore;
         }
 
         if fg == glace_hwnd {
-            return false;
+            return FullscreenState::Ignore;
         }
 
         let mut fg_pid: u32 = 0;
         GetWindowThreadProcessId(fg, Some(&mut fg_pid));
         if fg_pid == 0 || fg_pid == current_pid {
-            return false;
+            return FullscreenState::Ignore;
         }
 
         let root = GetAncestor(fg, GA_ROOT);
@@ -807,13 +849,13 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
             let mut root_pid: u32 = 0;
             GetWindowThreadProcessId(root, Some(&mut root_pid));
             if root_pid == current_pid || root == glace_hwnd {
-                return false;
+                return FullscreenState::Ignore;
             }
             fg = root;
         }
 
         if !IsWindow(Some(fg)).as_bool() || !IsWindowVisible(fg).as_bool() || IsIconic(fg).as_bool() {
-            return false;
+            return FullscreenState::Ignore;
         }
 
         let mut cloaked: u32 = 0;
@@ -824,7 +866,7 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
             std::mem::size_of::<u32>() as u32,
         );
         if cloaked != 0 {
-            return false;
+            return FullscreenState::Ignore;
         }
 
         let mut class_buf = [0u16; 256];
@@ -846,7 +888,7 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
                 || class_lower.contains("directui")
                 || class_lower.contains("overlay")
             {
-                return false;
+                return FullscreenState::Ignore;
             }
         }
 
@@ -884,7 +926,7 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
                         || exe_name == "flameshot.exe"
                         || exe_name == "greenshot.exe"
                     {
-                        return false;
+                        return FullscreenState::Ignore;
                     }
                 }
             }
@@ -893,7 +935,7 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
         let fg_monitor = MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST);
         let glace_monitor = MonitorFromWindow(glace_hwnd, MONITOR_DEFAULTTONEAREST);
         if fg_monitor != glace_monitor {
-            return false;
+            return FullscreenState::NotFullscreen;
         }
 
         let mut mi = MONITORINFO {
@@ -901,7 +943,7 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
             ..Default::default()
         };
         if !GetMonitorInfoW(fg_monitor, &mut mi).as_bool() {
-            return false;
+            return FullscreenState::NotFullscreen;
         }
 
         let mon_rect = mi.rcMonitor;
@@ -917,10 +959,16 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> bool {
             let _ = windows::Win32::UI::WindowsAndMessaging::GetWindowRect(fg, &mut rc);
         }
 
-        rc.left <= mon_rect.left
+        let is_fs = rc.left <= mon_rect.left
             && rc.top <= mon_rect.top
             && rc.right >= mon_rect.right
-            && rc.bottom >= mon_rect.bottom
+            && rc.bottom >= mon_rect.bottom;
+
+        if is_fs {
+            FullscreenState::Fullscreen
+        } else {
+            FullscreenState::NotFullscreen
+        }
     }
 }
 
@@ -936,13 +984,24 @@ pub fn start(app_handle: AppHandle) {
         let mut last_fullscreen_state = false;
 
         loop {
-            thread::sleep(Duration::from_millis(200));
+            thread::sleep(Duration::from_millis(150));
 
             if let Some(glace_hwnd) = crate::services::work_area::get_glace_hwnd() {
-                let is_fs = is_foreground_fullscreen(glace_hwnd, current_pid);
-                if is_fs != last_fullscreen_state {
-                    last_fullscreen_state = is_fs;
-                    crate::services::work_area::set_fullscreen_hidden(is_fs);
+                let state = is_foreground_fullscreen(glace_hwnd, current_pid);
+                let should_hide = match state {
+                    FullscreenState::Fullscreen => true,
+                    FullscreenState::NotFullscreen => false,
+                    FullscreenState::Ignore => last_fullscreen_state,
+                };
+
+                if should_hide != last_fullscreen_state {
+                    last_fullscreen_state = should_hide;
+                    crate::services::work_area::set_fullscreen_hidden(should_hide);
+                }
+
+                // Continuously ensure native taskbar remains hidden when Glace is active
+                if !last_fullscreen_state {
+                    crate::services::work_area::ensure_native_taskbar_hidden();
                 }
             }
         }

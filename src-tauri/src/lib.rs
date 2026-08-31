@@ -197,6 +197,7 @@ pub fn run() {
             services::autostart::sync_autostart(initial_settings.autostart);
             services::bluetooth::set_enabled(initial_settings.enable_dynamic_island && initial_settings.island_show_bluetooth);
             services::window_watcher::start(app.handle().clone());
+            services::pinned_apps::start_watcher(app.handle().clone());
             services::bluetooth::start();
 
             // Background working set trimmer: flushes unused heap pages every 45s to minimize RAM footprint

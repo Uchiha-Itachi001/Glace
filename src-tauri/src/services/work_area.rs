@@ -477,27 +477,41 @@ fn find_windows() -> Vec<HWND> {
 pub fn hide_native_taskbar() {
     for hwnd in find_windows() {
         unsafe {
+            let mut rc = RECT::default();
+            let _ = GetWindowRect(hwnd, &mut rc);
+            if rc.bottom > rc.top && rc.right > rc.left && rc.top < 5000 {
+                if let Ok(mut guard) = ORIGINAL_TRAY_RECTS.lock() {
+                    if !guard.iter().any(|(h, _)| *h == hwnd.0 as isize) {
+                        guard.push((hwnd.0 as isize, rc));
+                    }
+                }
+            }
+
+            let _ = ShowWindow(hwnd, SW_HIDE);
+            let _ = SetWindowPos(
+                hwnd,
+                None,
+                0,
+                10000,
+                0,
+                0,
+                SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSIZE,
+            );
+        }
+    }
+}
+
+/// Proactively ensures Windows native taskbar remains hidden if Explorer attempts to unhide it via Auto-Hide edge hover.
+pub fn ensure_native_taskbar_hidden() {
+    for hwnd in find_windows() {
+        unsafe {
             if IsWindowVisible(hwnd).as_bool() {
                 let mut rc = RECT::default();
                 let _ = GetWindowRect(hwnd, &mut rc);
-                if rc.bottom > rc.top && rc.right > rc.left && rc.top < 5000 {
-                    if let Ok(mut guard) = ORIGINAL_TRAY_RECTS.lock() {
-                        if !guard.iter().any(|(h, _)| *h == hwnd.0 as isize) {
-                            guard.push((hwnd.0 as isize, rc));
-                        }
-                    }
+                if rc.top < 5000 {
+                    hide_native_taskbar();
+                    break;
                 }
-
-                let _ = ShowWindow(hwnd, SW_HIDE);
-                let _ = SetWindowPos(
-                    hwnd,
-                    None,
-                    0,
-                    10000,
-                    0,
-                    0,
-                    SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSIZE,
-                );
             }
         }
     }

@@ -397,4 +397,10 @@ export const tauriBridge = {
       callback(event.payload);
     });
   },
+
+  onPinnedAppsUpdated: (callback: (pinnedApps: PinnedApp[]) => void): Promise<UnlistenFn> => {
+    return listen<PinnedApp[]>("pinned-apps-updated", (event) => {
+      callback(event.payload);
+    });
+  },
 };

@@ -197,7 +197,8 @@ export function useApps() {
 
   // Initial fetch and subscription
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlistenWindows: (() => void) | undefined;
+    let unlistenPins: (() => void) | undefined;
 
     Promise.all([tauriBridge.getPinnedApps(), tauriBridge.getOpenWindows()])
       .then(([pinned, wins]) => {
@@ -215,14 +216,26 @@ export function useApps() {
         setWindows(updatedWindows);
       })
       .then((fn) => {
-        unlisten = fn;
+        unlistenWindows = fn;
       })
       .catch((err) => {
         console.error("Failed to subscribe to windows-updated:", err);
       });
 
+    tauriBridge
+      .onPinnedAppsUpdated((updatedPins) => {
+        setPinnedApps(updatedPins);
+      })
+      .then((fn) => {
+        unlistenPins = fn;
+      })
+      .catch((err) => {
+        console.error("Failed to subscribe to pinned-apps-updated:", err);
+      });
+
     return () => {
-      if (unlisten) unlisten();
+      if (unlistenWindows) unlistenWindows();
+      if (unlistenPins) unlistenPins();
     };
   }, []);
 
