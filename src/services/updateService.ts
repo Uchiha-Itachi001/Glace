@@ -34,6 +34,14 @@ export function isRemoteNewer(current: string, remote: string): boolean {
  * Checks GitHub Releases API for newer version of Glace.
  */
 export async function checkForUpdate(force = false): Promise<UpdateInfo> {
+  if (force) {
+    try {
+      localStorage.removeItem(CACHE_KEY);
+    } catch {
+      // Ignore
+    }
+  }
+
   // Check cached result if not forced
   if (!force) {
     try {
@@ -83,14 +91,16 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo> {
     const latestVersion = rawTag.replace(/^v/i, "") || CURRENT_APP_VERSION;
     const hasUpdate = isRemoteNewer(CURRENT_APP_VERSION, latestVersion);
 
-    // Find installer asset if available (.exe or .msi)
+    // Find installer asset if available (prioritize setup installer over portable exe)
     let downloadUrl = data.html_url || `https://github.com/${GITHUB_REPO}/releases`;
     if (Array.isArray(data.assets)) {
-      const exeAsset = data.assets.find((a: { name?: string; browser_download_url?: string }) =>
-        a.name?.endsWith(".exe") || a.name?.endsWith(".msi")
-      );
-      if (exeAsset?.browser_download_url) {
-        downloadUrl = exeAsset.browser_download_url;
+      const installerAsset =
+        data.assets.find((a: { name?: string }) => a.name?.toLowerCase().includes("setup.exe")) ||
+        data.assets.find((a: { name?: string }) => a.name?.toLowerCase().endsWith(".msi")) ||
+        data.assets.find((a: { name?: string }) => a.name?.toLowerCase().endsWith(".exe"));
+
+      if (installerAsset?.browser_download_url) {
+        downloadUrl = installerAsset.browser_download_url;
       }
     }
 

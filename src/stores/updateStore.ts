@@ -35,12 +35,10 @@ async function runCheck(force = false) {
   notify();
 }
 
-// Auto-check once on app startup after 3 seconds delay
-setTimeout(() => {
-  if (!state.updateInfo && !state.isChecking) {
-    runCheck(false);
-  }
-}, 3000);
+// Auto-check once on app startup immediately
+if (!state.updateInfo && !state.isChecking) {
+  runCheck(false);
+}
 
 export function useUpdate() {
   const [current, setCurrent] = useState<UpdateState>(state);
@@ -48,6 +46,9 @@ export function useUpdate() {
   useEffect(() => {
     const handler = (next: UpdateState) => setCurrent(next);
     listeners.add(handler);
+    if (!state.updateInfo && !state.isChecking) {
+      runCheck(false);
+    }
     return () => {
       listeners.delete(handler);
     };

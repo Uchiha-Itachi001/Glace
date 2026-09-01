@@ -208,6 +208,12 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
     };
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab === "about") {
+      checkUpdate(true);
+    }
+  }, [activeTab, checkUpdate]);
+
   const formatUptime = (sec: number) => {
     const hrs = Math.floor(sec / 3600);
     const mins = Math.floor((sec % 3600) / 60);
@@ -219,6 +225,97 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
 
   const openExternalLink = (url: string) => {
     tauriBridge.launchApp(url).catch(console.error);
+  };
+
+  const renderInlineMarkdown = (text: string): React.ReactNode[] => {
+    const regex = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+    const parts = text.split(regex);
+    return parts.map((part, index) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return (
+          <strong key={index} className="md-bold">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      if (part.startsWith("`") && part.endsWith("`")) {
+        return (
+          <code key={index} className="md-code">
+            {part.slice(1, -1)}
+          </code>
+        );
+      }
+      return part;
+    });
+  };
+
+  const renderReleaseNotes = (notes: string) => {
+    if (!notes) return null;
+    const lines = notes.split(/\r?\n/);
+    return lines.map((line, idx) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        return <div key={idx} style={{ height: "4px" }} />;
+      }
+      if (trimmed.startsWith("### ")) {
+        return (
+          <div key={idx} className="md-h3">
+            {renderInlineMarkdown(trimmed.replace(/^###\s+/, ""))}
+          </div>
+        );
+      }
+      if (trimmed.startsWith("## ")) {
+        return (
+          <div key={idx} className="md-h2">
+            {renderInlineMarkdown(trimmed.replace(/^##\s+/, ""))}
+          </div>
+        );
+      }
+      if (trimmed.startsWith("# ")) {
+        return (
+          <div key={idx} className="md-h1">
+            {renderInlineMarkdown(trimmed.replace(/^#\s+/, ""))}
+          </div>
+        );
+      }
+      if (trimmed === "---" || trimmed === "***") {
+        return <hr key={idx} className="md-divider" />;
+      }
+      if (/^(\s{2,}|\t)[-*]\s+/.test(line)) {
+        const content = line.replace(/^\s*[-*]\s+/, "");
+        return (
+          <div key={idx} className="md-subli">
+            <span className="md-bullet">◦</span>
+            <span>{renderInlineMarkdown(content)}</span>
+          </div>
+        );
+      }
+      if (/^\d+\.\s+/.test(trimmed)) {
+        const match = trimmed.match(/^(\d+)\.\s+(.*)$/);
+        const num = match ? match[1] : "•";
+        const content = match ? match[2] : trimmed;
+        return (
+          <div key={idx} className="md-li">
+            <span className="md-bullet">{num}.</span>
+            <span>{renderInlineMarkdown(content)}</span>
+          </div>
+        );
+      }
+      if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+        const content = trimmed.replace(/^[-*]\s+/, "");
+        return (
+          <div key={idx} className="md-li">
+            <span className="md-bullet">•</span>
+            <span>{renderInlineMarkdown(content)}</span>
+          </div>
+        );
+      }
+      return (
+        <div key={idx} className="md-p">
+          {renderInlineMarkdown(trimmed)}
+        </div>
+      );
+    });
   };
 
   return (
@@ -1367,7 +1464,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                   <>
                     {updateInfo?.releaseNotes && (
                       <div className="about-update-notes-preview">
-                        {updateInfo.releaseNotes}
+                        {renderReleaseNotes(updateInfo.releaseNotes)}
                       </div>
                     )}
                     <div className="about-update-actions">
