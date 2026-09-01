@@ -62,7 +62,7 @@ export function useUpdate() {
     isChecking: current.isChecking,
     error: current.error,
     currentVersion: CURRENT_APP_VERSION,
-    hasUpdate: current.updateInfo?.hasUpdate ?? false,
+    hasUpdate: Boolean(current.updateInfo?.latestVersion && isRemoteNewer(CURRENT_APP_VERSION, current.updateInfo.latestVersion)),
     check,
   };
 }

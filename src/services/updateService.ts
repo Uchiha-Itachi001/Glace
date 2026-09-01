@@ -41,7 +41,12 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo> {
       if (cached) {
         const parsed: CachedUpdateData = JSON.parse(cached);
         if (Date.now() - parsed.timestamp < CACHE_TTL_MS) {
-          return parsed.info;
+          const hasUpdate = isRemoteNewer(CURRENT_APP_VERSION, parsed.info?.latestVersion || "");
+          return {
+            ...parsed.info,
+            currentVersion: CURRENT_APP_VERSION,
+            hasUpdate,
+          };
         }
       }
     } catch {
