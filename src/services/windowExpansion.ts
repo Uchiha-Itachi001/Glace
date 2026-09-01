@@ -6,7 +6,8 @@ export type ExpansionSource =
   | "media-capsule"
   | "apps-hover"
   | "apps-context"
-  | "apps-overflow";
+  | "apps-overflow"
+  | "start-context";
 
 const activeExpansions = new Map<ExpansionSource, number>();
 const listeners = new Set<(isExpanded: boolean) => void>();

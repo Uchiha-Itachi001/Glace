@@ -2591,24 +2591,51 @@ html, body {
 
 .settings-brand-info {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2.5px;
+  min-width: 0;
 }
 
 .settings-brand-name {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--glace-text-primary);
   letter-spacing: 0.2px;
+  line-height: 1.1;
+}
+
+.settings-brand-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .settings-brand-badge {
-  font-size: 8.5px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  font-size: 8px;
+  font-weight: 600;
+  padding: 1px 4.5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
   color: var(--glace-text-secondary);
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.settings-beta-tag {
+  font-size: 7.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+  line-height: 1.2;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
 }
 
 .settings-nav {

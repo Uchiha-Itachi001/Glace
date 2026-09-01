@@ -217,7 +217,10 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
           </div>
           <div className="settings-brand-info">
             <span className="settings-brand-name">Glace</span>
-            <span className="settings-brand-badge">v0.2</span>
+            <div className="settings-brand-meta">
+              <span className="settings-beta-tag">BETA</span>
+              <span className="settings-brand-badge">v0.1.0</span>
+            </div>
           </div>
         </div>
 
@@ -1245,8 +1248,11 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 <div className="about-hero-brand">
                   <img src="/logo.png" alt="Glace Logo" className="about-hero-logo" />
                   <div className="about-hero-titles">
-                    <div className="about-hero-title">Glace Desktop Environment</div>
-                    <span className="about-hero-edition">v0.2.0 · Glass Edition</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div className="about-hero-title">Glace Desktop Environment</div>
+                      <span className="settings-beta-tag">BETA</span>
+                    </div>
+                    <span className="about-hero-edition">v0.1.0 · Public Beta Edition</span>
                   </div>
                 </div>
                 <p className="about-hero-desc">
@@ -1291,32 +1297,6 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               >
                 ↺ Reset All Settings to Factory Defaults
               </button>
-
-              {/* 5. Quit Application Action */}
-              <span className="settings-block-label" style={{ marginTop: "18px" }}>
-                Exit Application
-              </span>
-              <div className="about-exit-card">
-                <div className="about-exit-info">
-                  <span className="about-exit-title">Turn Off Glace Desktop Environment</span>
-                  <p className="about-exit-desc">
-                    Safely restores the native Windows Taskbar (Shell_TrayWnd) and resets the desktop work area to standard full screen.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="about-exit-btn"
-                  onClick={() => {
-                    tauriBridge.quitApp();
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-                    <line x1="12" y1="2" x2="12" y2="12" />
-                  </svg>
-                  <span>Exit & Restore Taskbar</span>
-                </button>
-              </div>
             </div>
           )}
 
