@@ -1,15 +1,13 @@
 import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
 import { DockAppItem } from "../../types";
 import { WindowContextMenu } from "./WindowContextMenu";
-import { WindowPreviewCard } from "./WindowPreviewCard";
+import { WindowPreviewCard, windowThumbnailCache } from "./WindowPreviewCard";
 import { tauriBridge } from "../../services/tauriBridge";
 
 interface AppIconProps {
   app: DockAppItem;
   index?: number;
   onClick: (app: DockAppItem) => void;
-  onPin?: (app: DockAppItem) => void;
-  onUnpin?: (id: string) => void;
   isHovered?: boolean;
   isContextMenuOpen?: boolean;
   onHoverStart?: (id: string) => void;
@@ -23,8 +21,6 @@ export const AppIcon = React.memo<AppIconProps>(
     app,
     index = 0,
     onClick,
-    onPin,
-    onUnpin,
     isHovered = false,
     isContextMenuOpen = false,
     onHoverStart,
@@ -52,6 +48,7 @@ export const AppIcon = React.memo<AppIconProps>(
         : [];
 
     const hasMultipleWindows = windowList.length > 1;
+    const hasRunningWindows = windowList.length > 0;
 
     const sortedWindows = useMemo(() => {
       if (!hasMultipleWindows) return windowList;
@@ -62,12 +59,12 @@ export const AppIcon = React.memo<AppIconProps>(
 
     // Viewport Boundary Clamping & Anti-Cutout Calculation for Multi-Window Previews
     useEffect(() => {
-      if (isHovered && hasMultipleWindows && containerRef.current) {
+      if (isHovered && hasRunningWindows && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         const screenW = window.innerWidth || document.documentElement.clientWidth;
 
         const cardCount = windowList.length;
-        const estimatedCardW = 200;
+        const estimatedCardW = 204;
         const totalEstimatedW = Math.min(cardCount * (estimatedCardW + 8) + 16, screenW - 32);
 
         const iconCenterX = rect.left + rect.width / 2;
@@ -85,11 +82,21 @@ export const AppIcon = React.memo<AppIconProps>(
       } else {
         setPreviewStyle({});
       }
-    }, [isHovered, windowList.length, hasMultipleWindows]);
+    }, [isHovered, windowList.length, hasRunningWindows]);
 
     const handleMouseEnter = useCallback(() => {
+      // 0ms instant prefetch on hover start
+      if (windowList.length > 0) {
+        windowList.forEach((w) => {
+          if (w.hwnd && !windowThumbnailCache.has(w.hwnd)) {
+            tauriBridge.getWindowThumbnail(w.hwnd).then((thumb) => {
+              if (thumb) windowThumbnailCache.set(w.hwnd, thumb);
+            }).catch(() => {});
+          }
+        });
+      }
       if (onHoverStart) onHoverStart(app.id);
-    }, [onHoverStart, app.id]);
+    }, [onHoverStart, app.id, windowList]);
 
     const handleMouseLeave = useCallback(() => {
       if (onHoverEnd) onHoverEnd(app.id);
@@ -182,14 +189,14 @@ export const AppIcon = React.memo<AppIconProps>(
         {isHovered && !isContextMenuOpen && (
           <div
             className={`fluent-dock-preview-container ${
-              hasMultipleWindows
+              hasRunningWindows
                 ? "fluent-dock-preview-container--multi"
                 : "fluent-dock-preview-container--single"
             }`}
-            style={hasMultipleWindows ? previewStyle : undefined}
+            style={hasRunningWindows ? previewStyle : undefined}
             onClick={(e) => e.stopPropagation()}
           >
-            {hasMultipleWindows ? (
+            {hasRunningWindows ? (
               <div className="fluent-window-cards-row">
                 {sortedWindows.map((win) => (
                   <WindowPreviewCard
@@ -213,8 +220,6 @@ export const AppIcon = React.memo<AppIconProps>(
           <WindowContextMenu
             item={app}
             onClose={onCloseContextMenu || (() => {})}
-            onPin={onPin}
-            onUnpin={onUnpin}
           />
         )}
       </div>

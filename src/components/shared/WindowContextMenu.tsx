@@ -5,15 +5,11 @@ import { tauriBridge } from "../../services/tauriBridge";
 interface WindowContextMenuProps {
   item: DockAppItem;
   onClose: () => void;
-  onPin?: (item: DockAppItem) => void;
-  onUnpin?: (id: string) => void;
 }
 
 export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
   item,
   onClose,
-  onPin,
-  onUnpin,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -61,16 +57,6 @@ export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
     } else {
       const cmd = item.lnk_path || item.exe || item.title;
       tauriBridge.launchApp(cmd);
-    }
-    onClose();
-  };
-
-  const handleTogglePin = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (item.is_pinned) {
-      if (onUnpin) onUnpin(item.id);
-    } else {
-      if (onPin) onPin(item);
     }
     onClose();
   };
@@ -137,29 +123,7 @@ export const WindowContextMenu: React.FC<WindowContextMenuProps> = ({
         <span className="jumplist-item-label">{item.title || "Application"}</span>
       </button>
 
-      {/* 4. Pin / Unpin from Taskbar */}
-      <button className="jumplist-item icon-hover" onClick={handleTogglePin}>
-        <div className="jumplist-item-icon-svg">
-          {item.is_pinned ? (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="2" y1="2" x2="22" y2="22" />
-              <path d="M12 17v5" />
-              <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h11" />
-              <path d="M15 9.34V5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v1.34" />
-            </svg>
-          ) : (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="17" x2="12" y2="22" />
-              <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
-            </svg>
-          )}
-        </div>
-        <span className="jumplist-item-label">
-          {item.is_pinned ? "Unpin from taskbar" : "Pin to taskbar"}
-        </span>
-      </button>
-
-      {/* 5. End task & Close window if running */}
+      {/* 4. End task & Close window if running */}
       {item.is_running && (
         <>
           <button className="jumplist-item icon-hover" onClick={handleEndTask}>

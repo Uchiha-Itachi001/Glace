@@ -5,7 +5,7 @@ import { AppIcon } from "../shared/AppIcon";
 import { windowExpansion } from "../../services/windowExpansion";
 
 export const AppsCapsule: React.FC = () => {
-  const { dockApps, loading, launchOrFocus, pinApp, unpinApp } = useApps();
+  const { dockApps, loading, launchOrFocus } = useApps();
   const { settings } = useSettings();
 
   const [activeContextMenuAppId, setActiveContextMenuAppId] = useState<string | null>(null);
@@ -374,8 +374,6 @@ export const AppsCapsule: React.FC = () => {
               app={app}
               index={index}
               onClick={handleIconClick}
-              onPin={pinApp}
-              onUnpin={unpinApp}
               isHovered={!isOverflowOpen && hoveredAppId === app.id}
               isContextMenuOpen={!isOverflowOpen && activeContextMenuAppId === app.id}
               onHoverStart={handleIconMouseEnter}
@@ -438,8 +436,6 @@ export const AppsCapsule: React.FC = () => {
                 app={app}
                 index={index}
                 onClick={handleIconClick}
-                onPin={pinApp}
-                onUnpin={unpinApp}
                 isHovered={hoveredAppId === app.id}
                 isContextMenuOpen={activeContextMenuAppId === app.id}
                 onHoverStart={handleIconMouseEnter}

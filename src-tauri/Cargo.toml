@@ -1,6 +1,6 @@
 [package]
 name = "glace"
-version = "0.1.0"
+version = "0.3.0"
 description = "Glace — Custom Windows Taskbar"
 authors = ["Pankoj Roy"]
 edition = "2021"
