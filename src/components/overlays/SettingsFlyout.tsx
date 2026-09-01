@@ -219,7 +219,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             <span className="settings-brand-name">Glace</span>
             <div className="settings-brand-meta">
               <span className="settings-beta-tag">BETA</span>
-              <span className="settings-brand-badge">v0.3.0</span>
+              <span className="settings-brand-badge">v0.3.1</span>
             </div>
           </div>
         </div>
@@ -1252,7 +1252,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                       <div className="about-hero-title">Glace Desktop Environment</div>
                       <span className="settings-beta-tag">BETA</span>
                     </div>
-                    <span className="about-hero-edition">v0.3.0 · Public Beta Edition</span>
+                    <span className="about-hero-edition">v0.3.1 · Public Beta Edition</span>
                   </div>
                 </div>
                 <p className="about-hero-desc">

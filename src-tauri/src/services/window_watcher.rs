@@ -887,14 +887,19 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> Fullscree
         if class_len > 0 {
             let class_name = String::from_utf16_lossy(&class_buf[..class_len as usize]);
             let class_lower = class_name.to_lowercase();
-            if class_name == "Progman"
-                || class_name == "WorkerW"
-                || class_name == "Shell_TrayWnd"
+
+            // Windows Desktop should always ensure Glace is visible, never treated as fullscreen or ignored
+            if class_name == "Progman" || class_name == "WorkerW" {
+                return FullscreenState::NotFullscreen;
+            }
+
+            if class_name == "Shell_TrayWnd"
                 || class_name == "Shell_SecondaryTrayWnd"
                 || class_name == "Windows.UI.Core.CoreWindow"
                 || class_name == "XamlExplorerHostIslandWindow"
                 || class_name == "MultitaskingViewFrame"
                 || class_name == "Shell_LightDismissOverlayWindow"
+                || class_name == "ZoomItClass"
                 || class_lower.contains("snipping")
                 || class_lower.contains("clipping")
                 || class_lower.contains("screensketch")
@@ -938,11 +943,25 @@ pub fn is_foreground_fullscreen(glace_hwnd: HWND, current_pid: u32) -> Fullscree
                         || exe_name == "lightshot.exe"
                         || exe_name == "flameshot.exe"
                         || exe_name == "greenshot.exe"
+                        || exe_name == "zoomit.exe"
+                        || exe_name == "zoomit64.exe"
+                        || exe_name == "magnify.exe"
+                        || exe_name.starts_with("powertoys")
+                        || exe_name == "obs64.exe"
+                        || exe_name == "obs32.exe"
                     {
                         return FullscreenState::Ignore;
                     }
                 }
             }
+        }
+
+        // Standard captioned windows with titlebars (e.g. maximized browser/editor) are not true fullscreen games/videos
+        let style = GetWindowLongW(fg, GWL_STYLE) as u32;
+        let has_caption = (style & windows::Win32::UI::WindowsAndMessaging::WS_CAPTION.0) == windows::Win32::UI::WindowsAndMessaging::WS_CAPTION.0;
+        let is_popup = (style & windows::Win32::UI::WindowsAndMessaging::WS_POPUP.0) != 0;
+        if has_caption && !is_popup {
+            return FullscreenState::NotFullscreen;
         }
 
         let fg_monitor = MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST);
