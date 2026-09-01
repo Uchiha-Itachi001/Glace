@@ -1,97 +1,144 @@
 # Glace — Modern Desktop Environment & Dynamic Island for Windows
 
 <div align="center">
-  <img src="public/logo.png" alt="Glace Logo" width="112" height="112" />
-  <p><strong>A modular, low-overhead desktop environment and dynamic island for Windows.</strong></p>
-  <p>Engineered with Tauri v2, Rust, Win32 APIs, and React 19.</p>
+  <img src="public/logo.png" alt="Glace Logo" width="120" height="120" />
+  
+  <h3>A modular, ultra-lightweight desktop environment & dynamic island for Windows.</h3>
+  <p>Engineered with Tauri v2, Rust, Win32 / WinRT APIs, and React 19.</p>
 
   <p>
-    <a href="https://v2.tauri.app/"><img src="https://img.shields.io/badge/Tauri-v2.0-24C8D8?style=flat-square&logo=tauri&logoColor=white" alt="Tauri v2" /></a>
-    <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.80+-DEA584?style=flat-square&logo=rust&logoColor=white" alt="Rust" /></a>
-    <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19.0-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" /></a>
-    <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
-    <a href="https://www.microsoft.com/windows"><img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" /></a>
-    <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" />
+    <a href="https://v2.tauri.app/"><img src="https://img.shields.io/badge/Tauri-v2.0-24C8D8?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri v2" /></a>
+    <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.80+-DEA584?style=for-the-badge&logo=rust&logoColor=white" alt="Rust" /></a>
+    <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19.0-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" /></a>
+    <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" /></a>
+    <a href="https://www.microsoft.com/windows"><img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows" /></a>
+    <img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" alt="License" />
+  </p>
+
+  <p>
+    <code>⚡ ~25–35 MB RAM Idle</code> &nbsp;•&nbsp;
+    <code>🔋 0% GPU Idle Sleep</code> &nbsp;•&nbsp;
+    <code>🎵 GSMTC + Win32 Media</code> &nbsp;•&nbsp;
+    <code>🪟 Live DWM Thumbnails</code> &nbsp;•&nbsp;
+    <code>📊 Live Network Speeds</code>
   </p>
 </div>
 
 ---
 
-## Visual Showcase
+## 🌟 Visual Showcase
 
-### Dynamic Notch & Media Integration
 <div align="center">
-  <img src="docs/assets/hero_notch_media.png" alt="Glace Dynamic Notch Expanded Media on Desktop" width="100%" style="border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+  <img src="docs/assets/hero_notch_media.png" alt="Glace Dynamic Island — Media Session Active" width="100%" />
+  <p><sub>Dynamic Island in action — expanded notch with live media session, album artwork extraction, animated waveform visualizer, and interactive scrubber.</sub></p>
 </div>
 
 <br/>
 
-### Modular Floating Taskbar Dock
+### macOS Bar Layout
 <div align="center">
-  <img src="docs/assets/taskbar_dock_panoramic.png" alt="Glace Modular Taskbar Capsules" width="100%" style="border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.4);" />
+  <img src="docs/assets/desktop_hero_macos_layout.jpg" alt="Glace macOS-Style Bar Layout" width="100%" />
+  <p><sub>Glace in macOS top-bar mode — unified status bar housing the Dynamic Island, system tray host, clock, and hardware telemetry all along the top edge of the display.</sub></p>
 </div>
 
 <br/>
 
-### Media Flyout & Appearance Settings
+### Dynamic Island Media Presentation Modes
 <table align="center" width="100%">
   <tr>
-    <td width="48%" align="center" valign="top">
-      <h4>Spring-Bounce Media Flyout</h4>
-      <img src="docs/assets/taskbar_media_flyout_card.png" alt="Media Capsule Spring Flyout" style="border-radius: 6px; width: 100%; box-shadow: 0 4px 16px rgba(0,0,0,0.4);" />
-      <p align="left"><small>Clicking the taskbar capsule expands a floating controls card with interactive timeline seeking and source app launcher <code>[↗]</code>.</small></p>
+    <td width="50%" align="center" valign="top">
+      <h4>🖤 Solid OLED Black (Default)</h4>
+      <img src="docs/assets/dynamic_notch_black.png" alt="Dynamic Notch — OLED Black Mode" style="border-radius: 10px; width: 100%;" />
+      <p align="left"><sub>Pure pitch-black OLED background with animated audio visualizer bars, high-contrast typography, and source-app launcher <code>[↗]</code>.</sub></p>
     </td>
-    <td width="52%" align="center" valign="top">
-      <h4>Theme & Geometry Settings</h4>
-      <img src="docs/assets/settings_appearance.png" alt="Glace Settings & Appearance Hub" style="border-radius: 6px; width: 100%; box-shadow: 0 4px 16px rgba(0,0,0,0.4);" />
-      <p align="left"><small>Preset themes, live accent selection, and configurable glass corner curvature.</small></p>
+    <td width="50%" align="center" valign="top">
+      <h4>🎨 Dynamic Album Art Backdrop</h4>
+      <img src="docs/assets/dynamic_notch_album_bg.png" alt="Dynamic Notch — Album Artwork Backdrop" style="border-radius: 10px; width: 100%;" />
+      <p align="left"><sub>Immersive blurred album cover fill with calibrated saturation and legibility tint. Top curve ear preserved for seamless bezel blending.</sub></p>
     </td>
   </tr>
 </table>
 
 <br/>
 
-### Split-Notch Status & Telemetry
+### Modular Floating Taskbar Dock
 <div align="center">
-  <img src="docs/assets/desktop_idle_split.png" alt="Glace Idle Split Notch with Battery and Bluetooth" width="100%" style="border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+  <img src="docs/assets/taskbar_dock_panoramic.png" alt="Glace Modular Taskbar Dock" width="100%" />
+  <p><sub>Segmented liquid glass capsule dock — from left to right: Start launcher, active apps with native icons, system tray host, and a live telemetry pill showing real-time CPU %, RAM %, and network upload/download speeds. All capsules support hover lift animations with spring-physics.</sub></p>
+</div>
+
+<br/>
+
+### Multi-Window Live Thumbnail Previews
+<div align="center">
+  <img src="docs/assets/taskbar_window_previews.png" alt="Multi-Window Live DWM Thumbnail Previews" width="100%" />
+  <p><sub>High-fidelity live DWM thumbnail previews for multi-instance applications — hover to preview, click to focus, or dismiss a window directly from the card.</sub></p>
+</div>
+
+<br/>
+
+### Media Flyout & Appearance Hub
+<table align="center" width="100%">
+  <tr>
+    <td width="48%" align="center" valign="top">
+      <h4>🎛️ Spring Media Flyout</h4>
+      <img src="docs/assets/taskbar_media_flyout_card.png" alt="Spring-Physics Media Flyout Card" style="border-radius: 10px; width: 100%;" />
+      <p align="left"><sub>Clicking the taskbar media capsule spawns a spring-physics floating card with full transport controls, interactive timeline scrubbing, and quick app-focus.</sub></p>
+    </td>
+    <td width="52%" align="center" valign="top">
+      <h4>🎨 Appearance & Theme Customizer</h4>
+      <img src="docs/assets/settings_appearance.png" alt="Glace Appearance & Theme Hub" style="border-radius: 10px; width: 100%;" />
+      <p align="left"><sub>Curated preset themes, live accent color generator, glass corner curvature, and notch background style — all applied instantly without restart.</sub></p>
+    </td>
+  </tr>
+</table>
+
+<br/>
+
+### Desktop Idle — Split-Notch Status
+<div align="center">
+  <img src="docs/assets/desktop_idle_split.png" alt="Glace Idle Split-Notch with Battery & Bluetooth" width="100%" />
+  <p><sub>During idle, the notch splits subtly to show battery health, charging state, and connected Bluetooth device status — no full expansion needed.</sub></p>
 </div>
 
 ---
 
-## Core Capabilities
+## ✨ Feature Overview
 
-### Dynamic Notch & Island
-- **Concave Wing Geometry**: Seamless organic curvature matching modern display bezels.
-- **Multi-Activity Routing**: Concurrently handles active media sessions, Bluetooth device status, and real-time hardware telemetry.
-- **Animated Border Beam**: Flowing refractive light border with automatic compositor suspension during idle states to ensure 0% GPU load.
-- **Interactive Scrubber & App Launcher**: Clickable timeline track with seek commands and direct focus window restoration for active players.
+### 🏝️ Dynamic Island & Notch
+- **Concave Wing Geometry** — pixel-perfect organic curvature matching modern display bezels.
+- **Multi-Activity Routing** — concurrently surfaces media sessions, Bluetooth state, and hardware telemetry.
+- **Animated Border Beam** — refractive light border with automatic GPU compositor sleep at **0% load**.
+- **OLED Black / Album Art Modes** — toggle between pure `#000000` black and immersive blurred album artwork.
+- **Interactive Scrubber** — clickable seek track with direct focus restoration to the active player window.
 
-### Universal Media Engine
-- **GSMTC + Win32 Tracking**: Integrates Windows Media Session Manager with a top-level `EnumWindows` scanner. Tracks Spotify, Apple Music, YouTube (Chrome/Edge), VLC, MPC-HC, PotPlayer, MPV, and foobar2000 even when minimized.
-- **Direct WinRT Transport**: Commands (`Play/Pause`, `Next`, `Previous`) route directly through Windows OS Session IPC with fallback to virtual input hooks.
-- **Dynamic HSL Palette Normalization**: Automatically extracts vibrant accent gradients from album artwork without dark brown color artifacts.
-- **Spring-Physics Flyout**: 176px fixed taskbar dock with smooth spring-animated card (`cubic-bezier(0.34, 1.56, 0.64, 1)`).
+### 🎵 Universal Media Engine
+- **GSMTC + Win32 Tracking** — tracks Spotify, Apple Music, YouTube (Chrome/Edge/Brave), VLC, MPC-HC, PotPlayer, MPV, and foobar2000 even when minimized.
+- **Direct WinRT Transport** — `Play/Pause/Next/Prev` commands route through Windows OS Session IPC with virtual-input fallback.
+- **HSL Palette Extraction** — extracts vibrant accent gradients from album art without muddy brown color artifacts.
+- **Spring-Physics Card** — `cubic-bezier(0.34, 1.56, 0.64, 1)` spring easing on flyout expansion.
 
-### Modular Taskbar Capsules
-- **Start Launcher**: Keyboard-driven app indexing, inline mathematical evaluation, and shell command execution (`> cmd`).
-- **Active Applications Dock**: High-fidelity `SHGetFileInfoW` native icon extraction matching Windows Explorer with running indicators.
-- **Tiling Window Management (TWM)**: Context menu window snapping (Left/Right Half, 4 Quadrants, Maximize, Center Float).
-- **System Telemetry & Control Center**: Real-time network throughput, CPU utilization, RAM usage, audio controls, and quick toggles.
+### 🚀 Modular Taskbar Capsules
+- **Start Launcher** — keyboard-indexed app search, inline math evaluation, and shell passthrough (`> cmd`).
+- **Native Icon Dock** — `SHGetFileInfoW` icon extraction matching Windows Explorer fidelity, with running indicators and instance badges.
+- **Live DWM Thumbnail Previews** — multi-instance window cards with persistent in-memory snapshot cache for minimized apps.
+- **Tiling Window Management** — snap to Left/Right Half, 4 Quadrants, Maximize, or Center Float via right-click context menu.
+- **Telemetry Pill** — real-time CPU %, RAM %, and upload/download network throughput inline in the dock.
 
-### Low Resource Consumption
-- **Minimal Footprint**: Idles at **~25–35 MB RAM**, significantly lower than the default Windows 11 taskbar stack.
-- **Zero-GPU Compositor Sleep**: Suspends CSS keyframes and filter operations when the desktop is calm, waking immediately upon events.
-- **Non-Destructive Taskbar Suppression**: Reversible `Shell_TrayWnd` hook that reserves desktop work areas with automatic fail-safe restoration on process termination.
+### ⚡ Resource-Conscious Architecture
+- **~25–35 MB RAM idle** — significantly lower than the default Windows 11 taskbar stack.
+- **Zero-GPU compositor sleep** — CSS keyframes and backdrop-filter suspended when desktop is calm.
+- **Non-destructive taskbar suppression** — reversible `Shell_TrayWnd` hook with automatic work-area restoration on exit.
 
 ---
 
-## Architecture
+## 🏛️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    REACT 19 FRONTEND                        │
 │   DynamicIsland (Notch)   │   Modular Taskbar Capsules     │
-│   • useMediaSession       │   • Window Snapping Menu        │
+│   • useMediaSession       │   • Window Snapping & Previews  │
 │   • useBluetooth          │   • Start Launcher & Calc       │
 │   • useSystemMetrics      │   • Glassmorphic Design System  │
 └──────────────────────────────┬──────────────────────────────┘
@@ -107,84 +154,86 @@
 │  ┌──────────────────────┐        ┌───────────────────────┐  │
 │  │    SysInfo Engine    │        │      Tray / Win32     │  │
 │  │ • CPU & RAM Polling  │        │ • System Tray Host    │  │
-│  │ • Battery & BT Stats │        │ • WorkArea Automanage │  │
+│  │ • Network Bandwidth  │        │ • Live DWM Thumbnails │  │
+│  │ • Battery & BT State │        │ • WorkArea Automanage │  │
 │  └──────────────────────┘        └───────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-| Layer | Technologies |
+| Layer | Technology |
 | :--- | :--- |
-| **Runtime Framework** | [Tauri v2](https://v2.tauri.app/) (Rust + Microsoft WebView2) |
-| **Frontend UI** | React 19, TypeScript, Vanilla CSS Design System |
-| **System Layer** | Windows WinRT (`windows-rs` 0.61), Win32 API, GSMTC |
-| **Styling & Motion** | Pure CSS Variables, Liquid Glassmorphism, Spring Easing Functions |
-| **Build System** | Vite, Cargo, PowerShell Scripts |
+| **Runtime** | [Tauri v2](https://v2.tauri.app/) — Rust core + Microsoft WebView2 renderer |
+| **Frontend** | React 19, TypeScript 5.6, Vanilla CSS Design System |
+| **System APIs** | `windows-rs` 0.61 — WinRT, Win32, GSMTC, DWM, Shell |
+| **Motion** | CSS spring variables, `cubic-bezier` physics, `backdrop-filter` compositor |
+| **Build** | Vite 7, Cargo, PowerShell automation scripts |
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- **Node.js** (v18 or higher) — [Download](https://nodejs.org/)
-- **Rust & Cargo** — [Install Rust](https://www.rust-lang.org/tools/install)
-- **Visual Studio C++ Build Tools** (Desktop development with C++) — [Download](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+| Tool | Minimum Version | Install |
+| :--- | :--- | :--- |
+| **Node.js** | v18+ | [nodejs.org](https://nodejs.org/) |
+| **Rust** | 1.80+ | [rustup.rs](https://rustup.rs/) |
+| **VS Build Tools** | 2022 | [visualstudio.microsoft.com](https://visualstudio.microsoft.com/visual-cpp-build-tools/) |
 
-### Development
+> **Windows 10 / 11** required. Install **Desktop development with C++** workload in VS Build Tools.
+
+### Clone & Run
 
 ```powershell
-# 1. Clone the repository
 git clone https://github.com/Uchiha-Itachi001/Glace.git
 cd Glace
-
-# 2. Install dependencies
 npm install
 
-# 3. Start development server
+# Start dev server
 $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 npm run tauri dev
 ```
 
 ### Production Build
 
-To build the optimized native Windows binary (`.exe` / `.msi`):
-
 ```powershell
 npm run tauri build
+# → src-tauri/target/release/bundle/
 ```
-
-Generated outputs are placed in `src-tauri/target/release/bundle/`.
 
 ---
 
-## Controls & Shortcuts
+## ⌨️ Shortcuts
 
 | Action | Input |
 | :--- | :--- |
-| Toggle Quick Start Launcher | `Win + Space` |
-| Expand Notch / Capsule Card | Left Click on Notch or Capsule |
-| Volume Adjust | Scroll Wheel over Dynamic Notch |
-| Window Snapping Menu | Right Click on any Taskbar App Icon |
-| Timeline Seeking | Click on Scrubber Track |
-| Focus Playing App | Click `[↗]` Button in Media Controls |
+| Toggle Start Launcher | `Win + Space` |
+| Expand Dynamic Notch | Left-click on notch |
+| Expand Taskbar Capsule | Left-click on capsule |
+| Volume Control | Scroll wheel over notch |
+| Window Snap Menu | Right-click any app icon |
+| Timeline Seek | Click / drag scrubber |
+| Focus Active Player | `[↗]` button in media card |
 
 ---
 
-## Built-in Themes
+## 🎨 Themes
 
-- **Obsidian Dark**: High-contrast OLED dark background with luminous cyan/magenta accents.
-- **Seelen Cyberpunk**: Vibrant yellow and electric purple highlights.
-- **Catppuccin Mocha**: Pastel mauve, blue, and peach palette.
-- **Nord Frost**: Minimalist arctic slate and white tones.
-- **Liquid Glass**: Translucent frosted blur with refractive light borders.
-- **Sunset Amber**: Warm gradient tones with golden orange accents.
+| Theme | Description |
+| :--- | :--- |
+| **Obsidian Dark** | OLED black with luminous cyan & magenta accents |
+| **Seelen Cyberpunk** | Vibrant electric yellow & purple |
+| **Catppuccin Mocha** | Pastel mauve, blue, and peach |
+| **Nord Frost** | Arctic slate & white minimalism |
+| **Liquid Glass** | Translucent frosted blur with refractive borders |
+| **Sunset Amber** | Warm golden orange gradient tones |
 
 ---
 
-## License
+## 📄 License
 
-MIT License. Copyright (c) 2026.
+MIT License © 2026
