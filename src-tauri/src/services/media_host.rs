@@ -206,7 +206,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
     let mut media_windows: Vec<LocalMediaWin> = Vec::new();
 
     unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        if !IsWindow(Some(hwnd)).as_bool() {
+        if !IsWindow(Some(hwnd)).as_bool() || !IsWindowVisible(hwnd).as_bool() {
             return BOOL(1);
         }
 
@@ -485,14 +485,15 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
         // Priority 1: Prioritize session that is ACTIVELY PLAYING across all apps & local players
         if let Ok(sessions) = mgr.GetSessions() {
             for session in sessions {
-                let is_playing = if let Ok(playback_info) = session.GetPlaybackInfo() {
-                    playback_info
-                        .PlaybackStatus()
-                        .map(|s| s == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing)
-                        .unwrap_or(false)
-                } else {
-                    false
-                };
+                let playback_status = session.GetPlaybackInfo().ok().and_then(|info| info.PlaybackStatus().ok());
+                let is_closed_or_stopped = playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Closed)
+                    || playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Stopped);
+
+                if is_closed_or_stopped {
+                    continue;
+                }
+
+                let is_playing = playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing);
 
                 let props_opt = session.TryGetMediaPropertiesAsync().ok().and_then(|op| op.get().ok());
                 let t = props_opt.as_ref().and_then(|p| p.Title().ok()).map(|s| s.to_string()).unwrap_or_default();
@@ -515,7 +516,17 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
 
         // Priority 2: Fallback to Windows current session or first valid session
         if selected_session.is_none() {
-            selected_session = mgr.GetCurrentSession().ok().or(fallback_session);
+            if let Ok(curr) = mgr.GetCurrentSession() {
+                let curr_status = curr.GetPlaybackInfo().ok().and_then(|info| info.PlaybackStatus().ok());
+                if curr_status != Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Closed)
+                    && curr_status != Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Stopped)
+                {
+                    selected_session = Some(curr);
+                }
+            }
+            if selected_session.is_none() {
+                selected_session = fallback_session;
+            }
         }
     }
 
@@ -525,171 +536,170 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
 
     if let Some(ref session) = selected_session {
         let playback_info = session.GetPlaybackInfo().ok();
-        let is_playing = if let Some(info) = playback_info {
-            if let Ok(status) = info.PlaybackStatus() {
-                status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing
+        let playback_status = playback_info.and_then(|info| info.PlaybackStatus().ok());
+        let is_closed_or_stopped = playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Closed)
+            || playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Stopped);
+
+        if !is_closed_or_stopped {
+            let is_playing = playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing);
+
+            let app_id = session.SourceAppUserModelId().map(|s| s.to_string()).unwrap_or_default();
+            let props = session.TryGetMediaPropertiesAsync().ok().and_then(|op| op.get().ok());
+
+            let (raw_title, raw_artist, album_title, send_thumb_opt) = if let Some(ref p) = props {
+                let t = p.Title().map(|s| s.to_string()).unwrap_or_default();
+                let a = p.Artist().map(|s| s.to_string()).unwrap_or_default();
+                let alb = p.AlbumTitle().map(|s| s.to_string()).ok();
+                let thumb = p.Thumbnail().ok().map(SendThumb);
+                (t, a, alb, thumb)
             } else {
-                false
-            }
-        } else {
-            false
-        };
-
-        let app_id = session.SourceAppUserModelId().map(|s| s.to_string()).unwrap_or_default();
-        let props = session.TryGetMediaPropertiesAsync().ok().and_then(|op| op.get().ok());
-
-        let (raw_title, raw_artist, album_title, send_thumb_opt) = if let Some(ref p) = props {
-            let t = p.Title().map(|s| s.to_string()).unwrap_or_default();
-            let a = p.Artist().map(|s| s.to_string()).unwrap_or_default();
-            let alb = p.AlbumTitle().map(|s| s.to_string()).ok();
-            let thumb = p.Thumbnail().ok().map(SendThumb);
-            (t, a, alb, thumb)
-        } else {
-            (String::new(), String::new(), None, None)
-        };
-
-        // Extract clean title with local path/extension filtering
-        let title = if !raw_title.trim().is_empty() {
-            clean_media_title(&raw_title)
-        } else if let Some(ref alb) = album_title {
-            if !alb.trim().is_empty() {
-                clean_media_title(alb)
-            } else {
-                get_friendly_source_name(&app_id)
-            }
-        } else {
-            get_friendly_source_name(&app_id)
-        };
-
-        resolved_app_id = app_id.clone();
-        resolved_title = title.clone();
-
-        // Extract clean artist or fallback to application/source name
-        let artist = if !raw_artist.trim().is_empty() {
-            raw_artist.trim().to_string()
-        } else {
-            get_friendly_source_name(&app_id)
-        };
-
-        if !title.trim().is_empty() || is_playing {
-            let timeline = session.GetTimelineProperties().ok();
-            let (current_sec, duration_sec) = if let Some(tl) = timeline {
-                let start_ticks = tl.StartTime().map(|d| d.Duration).unwrap_or(0);
-                let end_ticks = tl.EndTime().map(|d| d.Duration).unwrap_or(0);
-                let pos_ticks = tl.Position().map(|d| d.Duration).unwrap_or(0);
-                let last_updated = tl.LastUpdatedTime().map(|d| d.UniversalTime).unwrap_or(0);
-
-                let duration_ticks = if end_ticks > start_ticks {
-                    end_ticks - start_ticks
-                } else if let Ok(max_seek) = tl.MaxSeekTime() {
-                    max_seek.Duration
-                } else {
-                    0
-                };
-
-                let duration_sec = if duration_ticks > 0 {
-                    (duration_ticks / 10_000_000) as u64
-                } else {
-                    0
-                };
-
-                let mut current_ticks = if pos_ticks >= start_ticks {
-                    pos_ticks - start_ticks
-                } else {
-                    pos_ticks
-                };
-
-                // If playing and LastUpdatedTime is valid, project forward with real elapsed wall clock time
-                if is_playing && last_updated > 0 {
-                    let now_filetime = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .map(|d| (d.as_nanos() / 100) as i64 + 116_444_736_000_000_000)
-                        .unwrap_or(0);
-
-                    if now_filetime > last_updated {
-                        let elapsed = now_filetime - last_updated;
-                        current_ticks += elapsed;
-                    }
-                }
-
-                if duration_ticks > 0 && current_ticks > duration_ticks {
-                    current_ticks = duration_ticks;
-                }
-
-                let current_sec = if current_ticks > 0 {
-                    (current_ticks / 10_000_000) as u64
-                } else {
-                    0
-                };
-
-                (current_sec, duration_sec)
-            } else {
-                (0, 0)
+                (String::new(), String::new(), None, None)
             };
 
-            // Check if we already have the thumbnail in cache
-            let mut album_art_base64: Option<String> = None;
-            let mut needs_fetch = false;
-
-            if let Ok(art_guard) = ART_CACHE.lock() {
-                if let Some(ref entry) = *art_guard {
-                    if entry.title == title && entry.artist == artist {
-                        album_art_base64 = entry.art_base64.clone();
-                    } else {
-                        needs_fetch = true;
-                    }
+            // Extract clean title with local path/extension filtering
+            let title = if !raw_title.trim().is_empty() {
+                clean_media_title(&raw_title)
+            } else if let Some(ref alb) = album_title {
+                if !alb.trim().is_empty() {
+                    clean_media_title(alb)
                 } else {
-                    needs_fetch = true;
+                    get_friendly_source_name(&app_id)
                 }
-            }
+            } else {
+                get_friendly_source_name(&app_id)
+            };
 
-            // Spawn non-blocking background thread to extract thumbnail without stalling UI
-            if needs_fetch {
-                if let Some(send_thumb) = send_thumb_opt {
-                    let key = (title.clone(), artist.clone());
-                    let mut should_spawn = false;
-                    if let Ok(mut fetch_guard) = ART_FETCHING_KEY.lock() {
-                        if *fetch_guard != Some(key.clone()) {
-                            *fetch_guard = Some(key);
-                            should_spawn = true;
+            resolved_app_id = app_id.clone();
+            resolved_title = title.clone();
+
+            // Extract clean artist or fallback to application/source name
+            let artist = if !raw_artist.trim().is_empty() {
+                raw_artist.trim().to_string()
+            } else {
+                get_friendly_source_name(&app_id)
+            };
+
+            let has_track_details = !raw_title.trim().is_empty() || !raw_artist.trim().is_empty();
+            if has_track_details || is_playing {
+                let timeline = session.GetTimelineProperties().ok();
+                let (current_sec, duration_sec) = if let Some(tl) = timeline {
+                    let start_ticks = tl.StartTime().map(|d| d.Duration).unwrap_or(0);
+                    let end_ticks = tl.EndTime().map(|d| d.Duration).unwrap_or(0);
+                    let pos_ticks = tl.Position().map(|d| d.Duration).unwrap_or(0);
+                    let last_updated = tl.LastUpdatedTime().map(|d| d.UniversalTime).unwrap_or(0);
+
+                    let duration_ticks = if end_ticks > start_ticks {
+                        end_ticks - start_ticks
+                    } else if let Ok(max_seek) = tl.MaxSeekTime() {
+                        max_seek.Duration
+                    } else {
+                        0
+                    };
+
+                    let duration_sec = if duration_ticks > 0 {
+                        (duration_ticks / 10_000_000) as u64
+                    } else {
+                        0
+                    };
+
+                    let mut current_ticks = if pos_ticks >= start_ticks {
+                        pos_ticks - start_ticks
+                    } else {
+                        pos_ticks
+                    };
+
+                    // If playing and LastUpdatedTime is valid, project forward with real elapsed wall clock time
+                    if is_playing && last_updated > 0 {
+                        let now_filetime = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| (d.as_nanos() / 100) as i64 + 116_444_736_000_000_000)
+                            .unwrap_or(0);
+
+                        if now_filetime > last_updated {
+                            let elapsed = now_filetime - last_updated;
+                            current_ticks += elapsed;
                         }
                     }
 
-                    if should_spawn {
-                        let t_clone = title.clone();
-                        let a_clone = artist.clone();
-                        std::thread::spawn(move || {
-                            unsafe {
-                                let _ = windows::Win32::System::Com::CoInitializeEx(
-                                    None,
-                                    windows::Win32::System::Com::COINIT_MULTITHREADED,
-                                );
-                            }
-                            let art = send_thumb.extract();
-                            if let Ok(mut art_guard) = ART_CACHE.lock() {
-                                *art_guard = Some(ArtCacheEntry {
-                                    title: t_clone,
-                                    artist: a_clone,
-                                    art_base64: art,
-                                });
-                            }
-                            if let Ok(mut fetch_guard) = ART_FETCHING_KEY.lock() {
-                                *fetch_guard = None;
-                            }
-                        });
+                    if duration_ticks > 0 && current_ticks > duration_ticks {
+                        current_ticks = duration_ticks;
+                    }
+
+                    let current_sec = if current_ticks > 0 {
+                        (current_ticks / 10_000_000) as u64
+                    } else {
+                        0
+                    };
+
+                    (current_sec, duration_sec)
+                } else {
+                    (0, 0)
+                };
+
+                // Check if we already have the thumbnail in cache
+                let mut album_art_base64: Option<String> = None;
+                let mut needs_fetch = false;
+
+                if let Ok(art_guard) = ART_CACHE.lock() {
+                    if let Some(ref entry) = *art_guard {
+                        if entry.title == title && entry.artist == artist {
+                            album_art_base64 = entry.art_base64.clone();
+                        } else {
+                            needs_fetch = true;
+                        }
+                    } else {
+                        needs_fetch = true;
                     }
                 }
-            }
 
-            session_info = Some(MediaSessionInfo {
-                title,
-                artist,
-                album_title,
-                is_playing,
-                duration_sec,
-                current_sec,
-                album_art_base64,
-            });
+                // Spawn non-blocking background thread to extract thumbnail without stalling UI
+                if needs_fetch {
+                    if let Some(send_thumb) = send_thumb_opt {
+                        let key = (title.clone(), artist.clone());
+                        let mut should_spawn = false;
+                        if let Ok(mut fetch_guard) = ART_FETCHING_KEY.lock() {
+                            if *fetch_guard != Some(key.clone()) {
+                                *fetch_guard = Some(key);
+                                should_spawn = true;
+                            }
+                        }
+
+                        if should_spawn {
+                            let t_clone = title.clone();
+                            let a_clone = artist.clone();
+                            std::thread::spawn(move || {
+                                unsafe {
+                                    let _ = windows::Win32::System::Com::CoInitializeEx(
+                                        None,
+                                        windows::Win32::System::Com::COINIT_MULTITHREADED,
+                                    );
+                                }
+                                let art = send_thumb.extract();
+                                if let Ok(mut art_guard) = ART_CACHE.lock() {
+                                    *art_guard = Some(ArtCacheEntry {
+                                        title: t_clone,
+                                        artist: a_clone,
+                                        art_base64: art,
+                                    });
+                                }
+                                if let Ok(mut fetch_guard) = ART_FETCHING_KEY.lock() {
+                                    *fetch_guard = None;
+                                }
+                            });
+                        }
+                    }
+                }
+
+                session_info = Some(MediaSessionInfo {
+                    title,
+                    artist,
+                    album_title,
+                    is_playing,
+                    duration_sec,
+                    current_sec,
+                    album_art_base64,
+                });
+            }
         }
     }
 

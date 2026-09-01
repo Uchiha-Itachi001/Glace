@@ -231,7 +231,7 @@ pub(crate) fn hicon_to_base64_png(hicon: HICON) -> Option<String> {
     }
 }
 
-fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
+fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str, window_title: &str) -> String {
     unsafe {
         let is_browser = {
             let n = exe_name.to_lowercase();
@@ -278,7 +278,17 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str) -> String {
             return "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" rx=\"22\" fill=\"%2318181B\"/><path fill=\"none\" stroke=\"%234ADE80\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M30 32 L48 50 L30 68\"/><line x1=\"56\" y1=\"68\" x2=\"72\" y2=\"68\" stroke=\"%23F4F4F5\" stroke-width=\"8\" stroke-linecap=\"round\"/></svg>".to_string();
         }
 
-        // 2. For browsers/PWAs, ALWAYS query live HWND icon first (captures PWA icons: Manus, DeepSeek, Claude, YouTube Music, WhatsApp, etc.)
+        // 2. If it's a browser process, check if it's an installed PWA first to avoid flashing generic browser icon
+        if is_browser && !window_title.is_empty() {
+            if let Some(pwa_lnk) = crate::services::pinned_apps::find_pwa_shortcut(window_title) {
+                let pwa_icon = crate::services::pinned_apps::extract_icon_from_shell_target(&pwa_lnk);
+                if !pwa_icon.is_empty() {
+                    return pwa_icon;
+                }
+            }
+        }
+
+        // 3. For browsers/PWAs, ALWAYS query live HWND icon (captures PWA icons: Manus, DeepSeek, Claude, YouTube Music, WhatsApp, etc.)
         let mut found_b64: Option<String> = None;
 
         if !hwnd.0.is_null() {
@@ -531,7 +541,7 @@ pub fn get_window_info(hwnd: HWND, fg_hwnd: HWND, current_pid: u32) -> Option<Wi
         };
 
         let (exe_name, exe_path) = get_window_exe_path(hwnd);
-        let icon_b64 = get_window_icon(hwnd, &exe_path, &exe_name);
+        let icon_b64 = get_window_icon(hwnd, &exe_path, &exe_name, &title);
         let is_focused = hwnd == fg_hwnd;
         let is_minimized = IsIconic(hwnd).as_bool();
 

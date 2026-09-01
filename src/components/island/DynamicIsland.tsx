@@ -15,6 +15,7 @@ export const DynamicIsland: React.FC = () => {
   const showBluetooth = isIslandEnabled && (settings?.island_show_bluetooth ?? true);
   const showHardware = isIslandEnabled && (settings?.island_show_hardware ?? true);
   const showBattery = isIslandEnabled && (settings?.island_show_battery ?? true);
+  const mediaBgMode = settings?.island_media_bg_mode || "black";
 
   const bluetooth = useBluetooth();
   const systemMetrics = useSystemMetrics(isIslandEnabled);
@@ -328,6 +329,22 @@ export const DynamicIsland: React.FC = () => {
     </div>
   );
 
+  const renderNotchBgCover = (isMedia = false) => {
+    const showCover = isMedia && mediaBgMode === "cover" && Boolean(liveMedia?.album_art_base64);
+    if (!showCover) return null;
+    return (
+      <div className="notch-bg-cover notch-bg-cover--media" aria-hidden="true">
+        <img
+          src={liveMedia?.album_art_base64}
+          alt=""
+          className="notch-media-thumbnail-bg"
+          draggable={false}
+        />
+        <div className="notch-media-thumbnail-overlay" />
+      </div>
+    );
+  };
+
   return (
     <>
       {/* Backdrop for click-outside collapse */}
@@ -356,6 +373,8 @@ export const DynamicIsland: React.FC = () => {
             <div className="notch-ear notch-ear--right" />
             {/* Moving Light Border Beam */}
             {renderLightBorder()}
+            {/* Ambient Background Cover with Top 0% Opacity Mask */}
+            {renderNotchBgCover(false)}
 
             <div className="notch-bluetooth-expanded-card">
               {/* Left Badge: Dark Circle with Bluetooth Emblem & Side Bars */}
@@ -436,6 +455,8 @@ export const DynamicIsland: React.FC = () => {
             <div className="notch-ear notch-ear--right" />
             {/* Moving Light Border Beam */}
             {renderLightBorder()}
+            {/* Ambient Background Cover with Top 0% Opacity Mask */}
+            {renderNotchBgCover(true)}
 
             <div className="notch-expanded-card">
               {/* Row 1: Album Art + Track Info + Top-Right Waveform */}
@@ -570,6 +591,8 @@ export const DynamicIsland: React.FC = () => {
             <div className="notch-ear notch-ear--right" />
             {/* Moving Light Border Beam */}
             {renderLightBorder()}
+            {/* Ambient Background Cover with Top 0% Opacity Mask */}
+            {renderNotchBgCover(false)}
 
             <div className="notch-hardware-card">
               {/* Header: Chip Icon + Title + Collapse Button */}
@@ -687,6 +710,8 @@ export const DynamicIsland: React.FC = () => {
               <div className="notch-ear notch-ear--right" />
               {/* Moving Light Border Beam */}
               {renderLightBorder()}
+              {/* Ambient Background Cover with Top 0% Opacity Mask */}
+              {renderNotchBgCover(splitViewMode === "media_main")}
 
               {/* Sub-State: Media on Main Pill */}
               {splitViewMode === "media_main" ? (
@@ -769,6 +794,8 @@ export const DynamicIsland: React.FC = () => {
               <div className="notch-ear notch-ear--right" />
               {/* Moving Light Border Beam */}
               {renderLightBorder()}
+              {/* Ambient Background Cover with Top 0% Opacity Mask */}
+              {renderNotchBgCover(splitViewMode !== "media_main")}
 
               {splitViewMode === "media_main" ? (
                 <div className="notch-mini-battery-ring">
@@ -830,6 +857,8 @@ export const DynamicIsland: React.FC = () => {
             <div className="notch-ear notch-ear--right" />
             {/* Moving Light Border Beam */}
             {renderLightBorder()}
+            {/* Ambient Background Cover with Top 0% Opacity Mask */}
+            {renderNotchBgCover(true)}
 
             {/* Sub-State: Media Single Activity */}
             <div className="notch-activity-layout">
@@ -880,6 +909,8 @@ export const DynamicIsland: React.FC = () => {
               <div className="notch-ear notch-ear--right" />
               {/* Moving Light Border Beam */}
               {renderLightBorder()}
+              {/* Ambient Background Cover with Top 0% Opacity Mask */}
+              {renderNotchBgCover(false)}
 
               <div className="notch-compact-layout" style={{ gap: "8px", padding: "0 8px", width: "auto" }}>
                 <span className="notch-compact-time">{currentTime}</span>
@@ -917,6 +948,8 @@ export const DynamicIsland: React.FC = () => {
               <div className="notch-ear notch-ear--right" />
               {/* Moving Light Border Beam */}
               {renderLightBorder()}
+              {/* Ambient Background Cover with Top 0% Opacity Mask */}
+              {renderNotchBgCover(false)}
 
               <div className="notch-mini-battery-ring" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
                 <svg width="14" height="14" viewBox="0 0 14 14" style={{ display: "block" }}>
@@ -963,6 +996,8 @@ export const DynamicIsland: React.FC = () => {
             <div className="notch-ear notch-ear--right" />
             {/* Moving Light Border Beam */}
             {renderLightBorder()}
+            {/* Ambient Background Cover with Top 0% Opacity Mask */}
+            {renderNotchBgCover(false)}
 
             <div className="notch-compact-layout">
               <div className="notch-compact-left">

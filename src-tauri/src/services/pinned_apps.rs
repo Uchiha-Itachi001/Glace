@@ -689,9 +689,63 @@ pub fn start_watcher(app: tauri::AppHandle) {
     });
 }
 
+/// Searches user Start Menu directories for installed PWA / Web App shortcuts (Edge Apps, Chrome Apps, Brave Apps)
+pub fn find_pwa_shortcut(app_title: &str) -> Option<String> {
+    let clean_title = app_title.trim().to_lowercase();
+    if clean_title.is_empty() {
+        return None;
+    }
+
+    let app_data = std::env::var("APPDATA").unwrap_or_default();
+    if app_data.is_empty() {
+        return None;
+    }
+
+    let search_dirs = [
+        PathBuf::from(&app_data).join("Microsoft").join("Windows").join("Start Menu").join("Programs").join("Edge Apps"),
+        PathBuf::from(&app_data).join("Microsoft").join("Windows").join("Start Menu").join("Programs").join("Chrome Apps"),
+        PathBuf::from(&app_data).join("Microsoft").join("Windows").join("Start Menu").join("Programs").join("Brave Apps"),
+        PathBuf::from(&app_data).join("Microsoft").join("Windows").join("Start Menu").join("Programs"),
+    ];
+
+    let clean_norm = clean_title
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect::<String>();
+
+    for dir in &search_dirs {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(ext) = path.extension() {
+                        if ext.to_string_lossy().eq_ignore_ascii_case("lnk") {
+                            let stem = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                            let stem_norm = stem.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect::<String>();
+                            if !stem_norm.is_empty() && (stem_norm == clean_norm || stem_norm.contains(&clean_norm) || clean_norm.contains(&stem_norm)) {
+                                return Some(path.to_string_lossy().to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Pins an application to Glace taskbar
-pub fn pin_app(app: PinnedApp) -> Result<(), String> {
+pub fn pin_app(mut app: PinnedApp) -> Result<(), String> {
     let mut cfg = settings::load();
+
+    // If it's a PWA or web app and lnk_path is empty, attempt to link the authentic PWA shortcut
+    if app.lnk_path.is_empty() {
+        if let Some(pwa_lnk) = find_pwa_shortcut(&app.title) {
+            app.lnk_path = pwa_lnk;
+        }
+    }
+
     if let Some(existing) = cfg.pinned_apps.iter_mut().find(|p| p.id == app.id) {
         *existing = app;
     } else {

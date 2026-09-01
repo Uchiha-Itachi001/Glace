@@ -98,6 +98,7 @@ const DEFAULT_SETTINGS: Settings = {
   island_show_bluetooth: true,
   island_show_hardware: true,
   island_show_battery: true,
+  island_media_bg_mode: "black",
   media_location: "notch",
   margin_top: 0,
   margin_bottom: 48,
@@ -106,6 +107,8 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 let globalSettings: Settings = DEFAULT_SETTINGS;
+let hasLocalUpdates = false;
+let initPromise: Promise<Settings> | null = null;
 const listeners = new Set<(settings: Settings) => void>();
 
 function notify(newSettings: Settings) {
@@ -113,6 +116,25 @@ function notify(newSettings: Settings) {
   applyThemeToDOM(newSettings);
   listeners.forEach((fn) => fn(newSettings));
 }
+
+function initSettingsStore(): Promise<Settings> {
+  if (initPromise) return initPromise;
+  initPromise = tauriBridge.getSettings()
+    .then((loaded) => {
+      if (!hasLocalUpdates && loaded && loaded.theme_id) {
+        notify({ ...DEFAULT_SETTINGS, ...loaded });
+      }
+      return globalSettings;
+    })
+    .catch((err) => {
+      console.error("Failed to fetch initial settings:", err);
+      return globalSettings;
+    });
+  return initPromise;
+}
+
+// Initial fetch on module startup
+initSettingsStore();
 
 export function applyThemeToDOM(settings: Settings) {
   const root = document.documentElement;
@@ -147,12 +169,7 @@ export function useSettings() {
   const [settings, setSettingsState] = useState<Settings>(globalSettings);
 
   useEffect(() => {
-    // Initial fetch from backend
-    tauriBridge.getSettings().then((loaded) => {
-      if (loaded && loaded.theme_id) {
-        notify({ ...DEFAULT_SETTINGS, ...loaded });
-      }
-    }).catch(console.error);
+    initSettingsStore();
 
     const handler = (newSettings: Settings) => {
       setSettingsState(newSettings);
@@ -165,6 +182,7 @@ export function useSettings() {
   }, []);
 
   const updateSettings = useCallback((updater: Partial<Settings> | ((prev: Settings) => Settings)) => {
+    hasLocalUpdates = true;
     const next = typeof updater === "function" ? updater(globalSettings) : { ...globalSettings, ...updater };
     notify(next);
     tauriBridge.saveSettings(next).catch(console.error);

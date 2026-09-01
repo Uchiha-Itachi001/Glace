@@ -135,6 +135,21 @@ const PEEK_KEYS: Array<{ id: "shift" | "ctrl" | "space" | "tab"; name: string; b
   },
 ];
 
+const NOTCH_BG_MODES: Array<{ id: "black" | "cover"; name: string; badge: string; desc: string }> = [
+  {
+    id: "black",
+    name: "Pitch Black",
+    badge: "Default",
+    desc: "Clean, classic obsidian black background with seamless curve corners",
+  },
+  {
+    id: "cover",
+    name: "Album Art Cover",
+    badge: "Artwork",
+    desc: "Displays active song thumbnail as the background with top opacity curve fade",
+  },
+];
+
 export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const { settings, updateSettings, setTheme, toggleWidget, toggleTrayItem, setSysMonMode, setMediaLocation } = useSettings();
   const { updateInfo, isChecking, hasUpdate, check: checkUpdate, currentVersion } = useUpdate();
@@ -1021,7 +1036,52 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 </div>
               )}
 
-              {/* 4. Sub-Features & Activity HUDs */}
+              {/* 5. Media Notch Background Style (Black vs Album Art Cover) */}
+              {islandEnabled && currentMediaLocation !== "none" && (
+                <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                  <span className="settings-block-label">
+                    Media Notch Background Style
+                  </span>
+                  <div className="sysmon-mode-options-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+                    {NOTCH_BG_MODES.map((bgMode) => {
+                      const isSelected = (settings?.island_media_bg_mode || "black") === bgMode.id;
+                      return (
+                        <div
+                          key={bgMode.id}
+                          className={`sysmon-mode-card ${
+                            isSelected ? "sysmon-mode-card--active" : ""
+                          }`}
+                          onClick={() => updateSettings({ island_media_bg_mode: bgMode.id })}
+                        >
+                          <div className="sysmon-mode-header">
+                            <span className="sysmon-mode-name">{bgMode.name}</span>
+                            <span className="sysmon-mode-badge">{bgMode.badge}</span>
+                          </div>
+                          <span className="sysmon-mode-desc">{bgMode.desc}</span>
+                          {isSelected && (
+                            <div className="sysmon-mode-check">
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 6. Sub-Features & Activity HUDs */}
               {islandEnabled && (
                 <div className="settings-section-block" style={{ marginTop: "16px" }}>
                   <span className="settings-block-label">Notch Features & Activity HUDs</span>

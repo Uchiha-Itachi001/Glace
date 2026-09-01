@@ -125,6 +125,48 @@
   transform-origin: top center !important;
 }
 
+/* ─── Notch Ambient Glass & Song Thumbnail Background Cover ─────────────────── */
+.notch-bg-cover {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 9px, rgba(0, 0, 0, 0.5) 22px, rgba(0, 0, 0, 1) 45px, rgba(0, 0, 0, 1) 100%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 9px, rgba(0, 0, 0, 0.5) 22px, rgba(0, 0, 0, 1) 45px, rgba(0, 0, 0, 1) 100%);
+  transition: opacity 0.3s ease;
+}
+
+.notch-bg-cover--media {
+  background: #000000;
+}
+
+/* Song Thumbnail Artwork as Notch Background */
+.notch-media-thumbnail-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: blur(6px) brightness(0.62) saturate(130%);
+  transform: scale(1.06);
+  pointer-events: none;
+}
+
+/* Contrast Protection Overlay so all text and playback controls remain crystal sharp */
+.notch-media-thumbnail-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.25) 22px,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+}
+
 /* ─── Dynamic Luminous Moving Light Border (Edge-Hugging Masked Comets) ─── */
 
 .notch-light-border {
@@ -301,6 +343,8 @@
 }
 
 .notch-compact-layout {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -352,6 +396,8 @@
 }
 
 .notch-activity-layout {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -541,6 +587,8 @@
 }
 
 .notch-bluetooth-expanded-card {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -636,6 +684,8 @@
 }
 
 .notch-expanded-card {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1002,6 +1052,8 @@
 }
 
 .notch-hardware-card {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

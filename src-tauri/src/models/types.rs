@@ -77,6 +77,10 @@ fn default_media_location() -> String {
     "notch".into()
 }
 
+fn default_island_media_bg_mode() -> String {
+    "black".into()
+}
+
 fn default_bar_alignment() -> String {
     "center".into()
 }
@@ -138,6 +142,8 @@ pub struct Settings {
     pub island_show_battery: bool,
     #[serde(default = "default_media_location")]
     pub media_location: String,
+    #[serde(default = "default_island_media_bg_mode")]
+    pub island_media_bg_mode: String,
     #[serde(default = "default_notch_peek_key")]
     pub notch_peek_key: String,
     #[serde(default = "default_margin_top")]
@@ -185,6 +191,7 @@ impl Default for Settings {
             island_show_hardware: true,
             island_show_battery: true,
             media_location: "notch".into(),
+            island_media_bg_mode: "black".into(),
             notch_peek_key: "shift".into(),
             margin_top: 0,
             margin_bottom: 48,

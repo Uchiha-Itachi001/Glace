@@ -109,6 +109,7 @@ export interface Settings {
   island_show_bluetooth?: boolean;
   island_show_hardware?: boolean;
   island_show_battery?: boolean;
+  island_media_bg_mode?: "black" | "cover";
   media_location?: MediaLocation;
   notch_peek_key?: NotchPeekKey;
   margin_top?: number;

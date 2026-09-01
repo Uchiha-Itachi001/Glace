@@ -276,6 +276,11 @@ pub fn restore(_screen_height: i32, _screen_width: i32) {
 }
 
 static NOTCH_PEEK_THROUGH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static IS_WINDOW_EXPANDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn is_window_expanded() -> bool {
+    IS_WINDOW_EXPANDED.load(std::sync::atomic::Ordering::Relaxed)
+}
 
 pub fn set_notch_peek_through(peek: bool) {
     let prev = NOTCH_PEEK_THROUGH.swap(peek, std::sync::atomic::Ordering::Relaxed);
@@ -288,7 +293,7 @@ pub fn set_notch_peek_through(peek: bool) {
                     config.monitor_w,
                     config.monitor_h,
                     config.bar_height_physical,
-                    false,
+                    is_window_expanded(),
                     0,
                     0,
                 );
@@ -307,6 +312,8 @@ pub fn update_window_region(
     _flyout_h: i32,
 ) {
     use windows::Win32::Graphics::Gdi::{CombineRgn, CreateRectRgn, SetWindowRgn, RGN_OR};
+
+    IS_WINDOW_EXPANDED.store(flyout_expanded, std::sync::atomic::Ordering::Relaxed);
 
     unsafe {
         if flyout_expanded {
@@ -417,7 +424,7 @@ pub fn set_fullscreen_hidden(hide: bool) {
                     h,
                     SWP_SHOWWINDOW | SWP_NOACTIVATE,
                 );
-                update_window_region(hwnd, w, h, bar_h, false, 0, 0);
+                update_window_region(hwnd, w, h, bar_h, is_window_expanded(), 0, 0);
                 hide_native_taskbar();
             }
         }

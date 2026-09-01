@@ -220,14 +220,114 @@ pub fn open_widgets_panel() {
 
 #[tauri::command]
 pub fn launch_app(cmd: String) -> Result<(), String> {
+    use std::path::Path;
     use windows::core::PCWSTR;
     use windows::Win32::UI::Shell::ShellExecuteW;
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
-    let op: Vec<u16> = "open\0".encode_utf16().collect();
-    let file: Vec<u16> = cmd.encode_utf16().chain(std::iter::once(0)).collect();
+    let trimmed = cmd.trim();
+    if trimmed.is_empty() {
+        return Ok(());
+    }
 
+    // 1. If it's a URL (e.g. https://...), launch with browser --app= to force standalone app window
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        let edge_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe";
+        let chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe";
+        let browser = if Path::new(edge_path).exists() {
+            Some(edge_path)
+        } else if Path::new(chrome_path).exists() {
+            Some(chrome_path)
+        } else {
+            None
+        };
+
+        if let Some(b) = browser {
+            let _ = Command::new(b)
+                .arg(format!("--app={}", trimmed))
+                .spawn();
+            return Ok(());
+        }
+    }
+
+    // 2. If it's a direct file path on disk (e.g. .lnk shortcut or .exe path without arguments)
+    if Path::new(trimmed).exists() {
+        let op: Vec<u16> = "open\0".encode_utf16().collect();
+        let file: Vec<u16> = trimmed.encode_utf16().chain(std::iter::once(0)).collect();
+
+        unsafe {
+            let res = ShellExecuteW(
+                None,
+                PCWSTR(op.as_ptr()),
+                PCWSTR(file.as_ptr()),
+                PCWSTR::null(),
+                PCWSTR::null(),
+                SW_SHOWNORMAL,
+            );
+            if (res.0 as isize) > 32 {
+                return Ok(());
+            }
+        }
+    }
+
+    // 3. If it's a shell protocol (e.g. shell:AppsFolder\...)
+    if trimmed.starts_with("shell:") {
+        let op: Vec<u16> = "open\0".encode_utf16().collect();
+        let file: Vec<u16> = trimmed.encode_utf16().chain(std::iter::once(0)).collect();
+        unsafe {
+            let _ = ShellExecuteW(
+                None,
+                PCWSTR(op.as_ptr()),
+                PCWSTR(file.as_ptr()),
+                PCWSTR::null(),
+                PCWSTR::null(),
+                SW_SHOWNORMAL,
+            );
+        }
+        return Ok(());
+    }
+
+    // 4. Try parsing command line into program path and arguments
+    let (prog, args) = if trimmed.starts_with('"') {
+        if let Some(end_quote) = trimmed[1..].find('"') {
+            let prog = &trimmed[1..=end_quote];
+            let rest = trimmed[end_quote + 2..].trim();
+            (prog, rest)
+        } else {
+            (trimmed, "")
+        }
+    } else if let Some(space_idx) = trimmed.find(' ') {
+        let prog = &trimmed[..space_idx];
+        let rest = trimmed[space_idx + 1..].trim();
+        (prog, rest)
+    } else {
+        (trimmed, "")
+    };
+
+    if !args.is_empty() {
+        let op: Vec<u16> = "open\0".encode_utf16().collect();
+        let file: Vec<u16> = prog.encode_utf16().chain(std::iter::once(0)).collect();
+        let params: Vec<u16> = args.encode_utf16().chain(std::iter::once(0)).collect();
+
+        unsafe {
+            let res = ShellExecuteW(
+                None,
+                PCWSTR(op.as_ptr()),
+                PCWSTR(file.as_ptr()),
+                PCWSTR(params.as_ptr()),
+                PCWSTR::null(),
+                SW_SHOWNORMAL,
+            );
+            if (res.0 as isize) > 32 {
+                return Ok(());
+            }
+        }
+    }
+
+    // 5. Fallback via Windows Shell or cmd start
     unsafe {
+        let op: Vec<u16> = "open\0".encode_utf16().collect();
+        let file: Vec<u16> = trimmed.encode_utf16().chain(std::iter::once(0)).collect();
         let res = ShellExecuteW(
             None,
             PCWSTR(op.as_ptr()),
@@ -236,10 +336,9 @@ pub fn launch_app(cmd: String) -> Result<(), String> {
             PCWSTR::null(),
             SW_SHOWNORMAL,
         );
-        // ShellExecute returns HINSTANCE > 32 on success
         if (res.0 as isize) <= 32 {
             let _ = Command::new("cmd")
-                .args(["/C", "start", "", &cmd])
+                .args(["/C", "start", "", trimmed])
                 .spawn()
                 .map_err(|e| e.to_string())?;
         }
@@ -339,6 +438,20 @@ pub fn update_work_area(
                 size.width as i32,
                 size.height as i32,
             );
+
+            // Synchronize Win32 window hit-test / click-through region immediately with new layout/margins
+            if let Ok(hwnd) = window.hwnd() {
+                let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as _);
+                work_area::update_window_region(
+                    win32_hwnd,
+                    size.width as i32,
+                    size.height as i32,
+                    bottom,
+                    work_area::is_window_expanded(),
+                    0,
+                    0,
+                );
+            }
         }
     }
     Ok(())

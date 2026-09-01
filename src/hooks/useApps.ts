@@ -394,11 +394,16 @@ export function useApps() {
         const title = pinned.title || (isPwa ? extractWebAppName(activeWin.title || "") : isBrowser ? getBrowserDisplayName(activeWin.exe) : getCleanAppTitle(activeWin.title));
         const exe = pinned.exe || activeWin.exe;
 
+        const icon_b64 =
+          pinned.icon_b64 && (isBrowser || isPwa || !activeWin.icon_b64)
+            ? pinned.icon_b64
+            : activeWin.icon_b64 || pinned.icon_b64 || resolveAppIcon(exe, title, activeWin.icon_b64);
+
         items.push({
           id: pinned.id,
           title,
           exe,
-          icon_b64: activeWin.icon_b64 || resolveAppIcon(exe, title, pinned.icon_b64 || activeWin.icon_b64),
+          icon_b64,
           is_pinned: true,
           is_running: true,
           is_focused: matchedWins.some((w) => w.is_focused),
@@ -522,17 +527,23 @@ export function useApps() {
     };
 
     tauriBridge.pinApp(toPin).then(() => {
-      setPinnedApps((prev) => {
-        if (
-          prev.some(
-            (p) =>
-              p.id === toPin.id ||
-              (toPin.exe && p.exe.toLowerCase() === toPin.exe.toLowerCase())
-          )
-        ) {
-          return prev;
+      tauriBridge.getPinnedApps().then((updatedPins) => {
+        if (updatedPins && updatedPins.length > 0) {
+          setPinnedApps(updatedPins);
         }
-        return [...prev, toPin];
+      }).catch(() => {
+        setPinnedApps((prev) => {
+          if (
+            prev.some(
+              (p) =>
+                p.id === toPin.id ||
+                (toPin.exe && p.exe.toLowerCase() === toPin.exe.toLowerCase())
+            )
+          ) {
+            return prev;
+          }
+          return [...prev, toPin];
+        });
       });
     });
   }, []);
