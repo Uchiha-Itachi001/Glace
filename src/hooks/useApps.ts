@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { DockAppItem, PinnedApp, WindowInfo } from "../types";
 import { tauriBridge } from "../services/tauriBridge";
+import { windowThumbnailCache } from "../components/shared/WindowPreviewCard";
 
 function normalizeName(name: string): string {
   return name
@@ -332,6 +333,7 @@ export function useApps() {
       .then(([pinned, wins]) => {
         setPinnedApps(pinned);
         setWindows(wins);
+        windowThumbnailCache.prune(wins.map((w) => w.hwnd));
         setLoading(false);
       })
       .catch((err) => {
@@ -342,6 +344,7 @@ export function useApps() {
     tauriBridge
       .onWindowsUpdated((updatedWindows) => {
         setWindows(updatedWindows);
+        windowThumbnailCache.prune(updatedWindows.map((w) => w.hwnd));
       })
       .then((fn) => {
         unlistenWindows = fn;

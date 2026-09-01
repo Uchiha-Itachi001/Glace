@@ -8,51 +8,49 @@ interface WindowPreviewCardProps {
   onClose: (hwnd: number) => void;
 }
 
-// Self-pruning Bounded LRU Cache: automatically expires entries after 4s & caps at max 8 items
-class AutoExpiringThumbnailCache {
-  private store = new Map<number, { data: string; ts: number }>();
-  private readonly MAX_SIZE = 8;
-  private readonly TTL_MS = 4000;
+// Persistent In-Memory Map Cache: stores window snapshots until the window/app is closed or terminated
+class PersistentWindowThumbnailCache {
+  private store = new Map<number, string>();
 
   get(hwnd: number): string | null {
-    const entry = this.store.get(hwnd);
-    if (!entry) return null;
-    if (Date.now() - entry.ts > this.TTL_MS) {
-      this.store.delete(hwnd);
-      return null;
-    }
-    return entry.data;
+    return this.store.get(hwnd) ?? null;
   }
 
   set(hwnd: number, data: string): void {
-    const now = Date.now();
-    // Auto-clean expired items to immediately free memory
-    for (const [key, val] of this.store.entries()) {
-      if (now - val.ts > this.TTL_MS) {
-        this.store.delete(key);
-      }
-    }
-    // Enforce strict size bound
-    if (this.store.size >= this.MAX_SIZE) {
-      const oldest = this.store.keys().next().value;
-      if (oldest !== undefined) this.store.delete(oldest);
-    }
-    this.store.set(hwnd, { data, ts: now });
+    if (!hwnd || !data) return;
+    this.store.set(hwnd, data);
   }
 
   has(hwnd: number): boolean {
-    return this.get(hwnd) !== null;
+    return this.store.has(hwnd);
+  }
+
+  delete(hwnd: number): void {
+    this.store.delete(hwnd);
+  }
+
+  prune(activeHwnds: Iterable<number>): void {
+    const activeSet = new Set(activeHwnds);
+    for (const hwnd of this.store.keys()) {
+      if (!activeSet.has(hwnd)) {
+        this.store.delete(hwnd);
+      }
+    }
+  }
+
+  clear(): void {
+    this.store.clear();
   }
 }
 
-export const windowThumbnailCache = new AutoExpiringThumbnailCache();
+export const windowThumbnailCache = new PersistentWindowThumbnailCache();
 
 export const WindowPreviewCard: React.FC<WindowPreviewCardProps> = ({
   win,
   onFocus,
   onClose,
 }) => {
-  // Initialize with cached thumbnail if valid, 0ms instant display
+  // Initialize with cached snapshot for 0ms instant display without gray flash
   const [liveThumb, setLiveThumb] = useState<string | null>(() => {
     return win.hwnd ? windowThumbnailCache.get(win.hwnd) : null;
   });
@@ -60,10 +58,21 @@ export const WindowPreviewCard: React.FC<WindowPreviewCardProps> = ({
   useEffect(() => {
     let isMounted = true;
     if (win.hwnd) {
+      const cached = windowThumbnailCache.get(win.hwnd);
+      if (cached && !liveThumb) {
+        setLiveThumb(cached);
+      }
+
       tauriBridge.getWindowThumbnail(win.hwnd).then((thumb) => {
         if (thumb) {
           windowThumbnailCache.set(win.hwnd, thumb);
           if (isMounted) setLiveThumb(thumb);
+        } else {
+          // If window is minimized or inactive, retain the last known snapshot
+          const existing = windowThumbnailCache.get(win.hwnd);
+          if (existing && isMounted) {
+            setLiveThumb(existing);
+          }
         }
       }).catch(() => {});
     }
@@ -80,6 +89,9 @@ export const WindowPreviewCard: React.FC<WindowPreviewCardProps> = ({
 
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (win.hwnd) {
+      windowThumbnailCache.delete(win.hwnd);
+    }
     onClose(win.hwnd);
   };
 

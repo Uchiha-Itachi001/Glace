@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { WindowInfo } from "../types";
 import { tauriBridge } from "../services/tauriBridge";
+import { windowThumbnailCache } from "../components/shared/WindowPreviewCard";
 
 export function useWindows() {
   const [windows, setWindows] = useState<WindowInfo[]>([]);
@@ -14,6 +15,7 @@ export function useWindows() {
       .getOpenWindows()
       .then((initialWindows) => {
         setWindows(initialWindows);
+        windowThumbnailCache.prune(initialWindows.map((w) => w.hwnd));
         setLoading(false);
       })
       .catch((err) => {
@@ -25,6 +27,7 @@ export function useWindows() {
     tauriBridge
       .onWindowsUpdated((updatedWindows) => {
         setWindows(updatedWindows);
+        windowThumbnailCache.prune(updatedWindows.map((w) => w.hwnd));
       })
       .then((fn) => {
         unlisten = fn;

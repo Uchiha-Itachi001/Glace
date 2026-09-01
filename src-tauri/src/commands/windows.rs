@@ -72,16 +72,6 @@ static THUMBNAIL_CACHE: Mutex<Option<HashMap<u64, (Instant, String)>>> = Mutex::
 
 #[tauri::command]
 pub fn get_window_thumbnail(hwnd: u64) -> Option<String> {
-    // 1. Fast Cache Lookup (TTL: 1.5 seconds)
-    if let Ok(mut guard) = THUMBNAIL_CACHE.lock() {
-        let cache = guard.get_or_insert_with(HashMap::new);
-        if let Some((ts, base64_str)) = cache.get(&hwnd) {
-            if ts.elapsed() < Duration::from_millis(1500) {
-                return Some(base64_str.clone());
-            }
-        }
-    }
-
     unsafe {
         use windows::Win32::Foundation::{HWND, RECT};
         use windows::Win32::Graphics::Gdi::{
@@ -89,7 +79,7 @@ pub fn get_window_thumbnail(hwnd: u64) -> Option<String> {
             GetDIBits, ReleaseDC, SelectObject, SetStretchBltMode, StretchBlt, BITMAPINFO,
             BITMAPINFOHEADER, BI_RGB, COLORONCOLOR, DIB_RGB_COLORS, HDC, SRCCOPY,
         };
-        use windows::Win32::UI::WindowsAndMessaging::{GetWindowRect, IsWindow};
+        use windows::Win32::UI::WindowsAndMessaging::{GetWindowRect, IsIconic, IsWindow};
 
         extern "system" {
             fn PrintWindow(hwnd: HWND, hdcBlt: HDC, nFlags: u32) -> windows::core::BOOL;
@@ -97,18 +87,47 @@ pub fn get_window_thumbnail(hwnd: u64) -> Option<String> {
 
         let target_hwnd = HWND(hwnd as *mut core::ffi::c_void);
         if !IsWindow(Some(target_hwnd)).as_bool() {
+            // Window terminated/closed -> immediately purge from cache
+            if let Ok(mut guard) = THUMBNAIL_CACHE.lock() {
+                if let Some(cache) = guard.as_mut() {
+                    cache.remove(&hwnd);
+                }
+            }
             return None;
+        }
+
+        // Fast cache check: return cached snapshot if fresh or if minimized
+        let cached_snapshot: Option<String> = if let Ok(mut guard) = THUMBNAIL_CACHE.lock() {
+            let cache = guard.get_or_insert_with(HashMap::new);
+            // Prune any dead windows from memory
+            cache.retain(|&k, _| IsWindow(Some(HWND(k as *mut _))).as_bool());
+            if let Some((ts, base64_str)) = cache.get(&hwnd) {
+                // If captured recently (< 1000ms) or window is minimized, return cached snapshot immediately
+                if ts.elapsed() < Duration::from_millis(1000) || IsIconic(target_hwnd).as_bool() {
+                    return Some(base64_str.clone());
+                }
+                Some(base64_str.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // If window is currently minimized, PrintWindow cannot capture an offscreen surface; return cached snapshot
+        if IsIconic(target_hwnd).as_bool() {
+            return cached_snapshot;
         }
 
         let mut rect = RECT::default();
         if GetWindowRect(target_hwnd, &mut rect).is_err() {
-            return None;
+            return cached_snapshot;
         }
 
         let width = rect.right - rect.left;
         let height = rect.bottom - rect.top;
         if width <= 10 || height <= 10 {
-            return None;
+            return cached_snapshot;
         }
 
         // Thumbnail target size: 240px wide, proportional height
@@ -117,7 +136,7 @@ pub fn get_window_thumbnail(hwnd: u64) -> Option<String> {
 
         let hdc_screen = GetDC(Some(target_hwnd));
         if hdc_screen.is_invalid() {
-            return None;
+            return cached_snapshot;
         }
 
         // Capture full window in memory DC
@@ -187,7 +206,7 @@ pub fn get_window_thumbnail(hwnd: u64) -> Option<String> {
         let _ = ReleaseDC(Some(target_hwnd), hdc_screen);
 
         if res == 0 {
-            return None;
+            return cached_snapshot;
         }
 
         // Fast BGRA -> RGBA in-place swap
@@ -210,17 +229,16 @@ pub fn get_window_thumbnail(hwnd: u64) -> Option<String> {
             image::ColorType::Rgba8,
             image::ImageFormat::Png,
         ).is_err() {
-            return None;
+            return cached_snapshot;
         }
 
         use base64::Engine;
         let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
         let data_url = format!("data:image/png;base64,{b64}");
 
-        // Save to in-memory cache & auto-purge expired items to free memory
+        // Save persistent snapshot to in-memory cache until window is terminated
         if let Ok(mut guard) = THUMBNAIL_CACHE.lock() {
             let cache = guard.get_or_insert_with(HashMap::new);
-            cache.retain(|_, (ts, _)| ts.elapsed() < Duration::from_millis(3000));
             cache.insert(hwnd, (Instant::now(), data_url.clone()));
         }
 

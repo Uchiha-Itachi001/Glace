@@ -85,10 +85,10 @@ export const AppIcon = React.memo<AppIconProps>(
     }, [isHovered, windowList.length, hasRunningWindows]);
 
     const handleMouseEnter = useCallback(() => {
-      // 0ms instant prefetch on hover start
+      // 0ms instant prefetch & refresh in background on hover start
       if (windowList.length > 0) {
         windowList.forEach((w) => {
-          if (w.hwnd && !windowThumbnailCache.has(w.hwnd)) {
+          if (w.hwnd) {
             tauriBridge.getWindowThumbnail(w.hwnd).then((thumb) => {
               if (thumb) windowThumbnailCache.set(w.hwnd, thumb);
             }).catch(() => {});
