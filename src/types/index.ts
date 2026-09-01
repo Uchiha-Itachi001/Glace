@@ -146,3 +146,13 @@ export interface MediaSessionInfo {
   album_art_base64?: string;
 }
 
+export interface UpdateInfo {
+  hasUpdate: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  releaseUrl: string;
+  releaseNotes?: string;
+  publishedAt?: string;
+  downloadUrl?: string;
+}
+

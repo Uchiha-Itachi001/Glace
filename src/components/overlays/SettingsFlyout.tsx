@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSettings, THEME_PRESETS } from "../../stores/settingsStore";
+import { useUpdate } from "../../stores/updateStore";
 import { ThemeId, BarAlignment, AppResourceUsage } from "../../types";
 import { tauriBridge } from "../../services/tauriBridge";
 
@@ -136,6 +137,7 @@ const PEEK_KEYS: Array<{ id: "shift" | "ctrl" | "space" | "tab"; name: string; b
 
 export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const { settings, updateSettings, setTheme, toggleWidget, toggleTrayItem, setSysMonMode, setMediaLocation } = useSettings();
+  const { updateInfo, isChecking, hasUpdate, check: checkUpdate, currentVersion } = useUpdate();
   const [activeTab, setActiveTab] = useState<"appearance" | "taskbar" | "island" | "tray" | "performance" | "about">("appearance");
 
   const currentTheme = settings?.theme_id || "obsidian";
@@ -219,7 +221,9 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             <span className="settings-brand-name">Glace</span>
             <div className="settings-brand-meta">
               <span className="settings-beta-tag">BETA</span>
-              <span className="settings-brand-badge">v0.3.1</span>
+              <span className={`settings-brand-badge ${hasUpdate ? "settings-brand-badge--update" : ""}`}>
+                {hasUpdate ? `v${currentVersion} → v${updateInfo?.latestVersion}` : `v${currentVersion}`}
+              </span>
             </div>
           </div>
         </div>
@@ -316,6 +320,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
               <path d="M12 8h.01" />
             </svg>
             <span>About & Credits</span>
+            {hasUpdate && <span className="settings-nav-update-dot" />}
           </button>
         </nav>
 
@@ -1240,6 +1245,102 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 </div>
               </div>
 
+              {/* 2.5 Software Updates & Version Control */}
+              <span className="settings-block-label" style={{ marginTop: "16px" }}>
+                Software Updates
+              </span>
+              <div className={`about-update-card ${hasUpdate ? "about-update-card--has-update" : ""}`}>
+                <div className="about-update-header">
+                  <div className="about-update-left">
+                    <div className="about-update-icon-box">
+                      {hasUpdate ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="about-update-info">
+                      <span className="about-update-title">
+                        {hasUpdate
+                          ? `New Release Available: v${updateInfo?.latestVersion}`
+                          : `Glace is up to date (v${currentVersion})`}
+                      </span>
+                      <span className="about-update-sub">
+                        {hasUpdate
+                          ? updateInfo?.publishedAt
+                            ? `Published on ${new Date(updateInfo.publishedAt).toLocaleDateString()}`
+                            : "New version available on GitHub"
+                          : "You are running the latest public release"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="about-update-check-btn"
+                    onClick={() => checkUpdate(true)}
+                    disabled={isChecking}
+                    title="Check GitHub for latest Glace releases"
+                  >
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      className={isChecking ? "update-spin-icon" : ""}
+                    >
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                    </svg>
+                    <span>{isChecking ? "Checking..." : "Check for Updates"}</span>
+                  </button>
+                </div>
+
+                {hasUpdate && (
+                  <>
+                    {updateInfo?.releaseNotes && (
+                      <div className="about-update-notes-preview">
+                        {updateInfo.releaseNotes}
+                      </div>
+                    )}
+                    <div className="about-update-actions">
+                      <button
+                        type="button"
+                        className="about-update-download-btn"
+                        onClick={() => openExternalLink(updateInfo?.downloadUrl || updateInfo?.releaseUrl || "https://github.com/Uchiha-Itachi001/Glace/releases")}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        <span>Download v{updateInfo?.latestVersion}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="about-update-link-btn"
+                        onClick={() => openExternalLink(updateInfo?.releaseUrl || "https://github.com/Uchiha-Itachi001/Glace/releases")}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                          <polyline points="15 3 21 3 21 9" />
+                          <line x1="10" y1="14" x2="21" y2="3" />
+                        </svg>
+                        <span>Release Notes</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
               {/* 3. App Overview Hero */}
               <span className="settings-block-label" style={{ marginTop: "16px" }}>
                 Application Information
@@ -1252,7 +1353,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                       <div className="about-hero-title">Glace Desktop Environment</div>
                       <span className="settings-beta-tag">BETA</span>
                     </div>
-                    <span className="about-hero-edition">v0.3.1 · Public Beta Edition</span>
+                    <span className="about-hero-edition">v{currentVersion} · Public Beta Edition</span>
                   </div>
                 </div>
                 <p className="about-hero-desc">

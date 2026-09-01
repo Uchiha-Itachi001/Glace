@@ -5,11 +5,13 @@ import { useSettings, DEFAULT_TRAY_ITEMS } from "../../stores/settingsStore";
 import { useSystemMetrics } from "../../hooks/useSystemMetrics";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
 import { NetworkIcon, NetworkType } from "../common/NetworkIcon";
+import { useUpdate } from "../../stores/updateStore";
 
 export const TrayCapsule: React.FC = () => {
   const { activeFlyout, toggleFlyout } = useFlyout();
   const { settings } = useSettings();
   const { networkState } = useNetworkStatus();
+  const { hasUpdate, updateInfo } = useUpdate();
   const [keyboardLayout, setKeyboardLayout] = useState<{ lang: string; country: string }>({
     lang: "ENG",
     country: "IN",
@@ -113,16 +115,17 @@ export const TrayCapsule: React.FC = () => {
         {/* Glace App Settings Brand Button */}
         {isItemVisible("gear") && (
           <div
-            className={`tray-settings-btn icon-hover ${activeFlyout === "settings" ? "tray-settings-btn--active" : ""}`}
+            className={`tray-settings-btn icon-hover ${activeFlyout === "settings" ? "tray-settings-btn--active" : ""} ${hasUpdate ? "tray-settings-btn--has-update" : ""}`}
             onClick={handleSettingsClick}
             onContextMenu={handleSettingsContextMenu}
-            title="Glace Settings (Right-click: Windows Settings)"
+            title={hasUpdate ? `Update available: v${updateInfo?.latestVersion || ""} (Click for Glace Settings)` : "Glace Settings (Right-click: Windows Settings)"}
           >
             <img
               src="/logo.png"
               alt="Glace"
               className="tray-glace-logo"
             />
+            {hasUpdate && <span className="tray-update-dot" />}
           </div>
         )}
 
