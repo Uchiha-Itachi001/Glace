@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { UpdateInfo } from "../types";
-import { checkForUpdate, CURRENT_APP_VERSION } from "../services/updateService";
+import { checkForUpdate, CURRENT_APP_VERSION, isRemoteNewer } from "../services/updateService";
 
 interface UpdateState {
   updateInfo: UpdateInfo | null;
