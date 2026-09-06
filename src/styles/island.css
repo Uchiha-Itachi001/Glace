@@ -474,7 +474,7 @@
 .notch-split-container {
   display: flex;
   align-items: flex-start;
-  gap: 8px; /* Compact separation between main notch and secondary notch */
+  gap: 16px; /* Compact separation between main notch and secondary notch */
   position: relative;
   top: 0;
   transition: all var(--glace-duration-base) var(--glace-ease-spring) !important;
