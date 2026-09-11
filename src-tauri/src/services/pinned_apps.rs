@@ -195,6 +195,11 @@ pub fn resolve_shortcut_target(lnk_path: &str) -> Option<String> {
 
 /// Extract high-res icon from any shell path, .lnk, .exe, or shell:AppsFolder AUMID
 pub fn extract_icon_from_shell_target(target: &str) -> String {
+    let target_lower = target.to_lowercase();
+    if target_lower.contains("msedge") || target_lower.contains("microsoft.microsoftedge") {
+        return crate::services::window_watcher::get_crisp_edge_icon();
+    }
+
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
 

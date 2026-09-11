@@ -37,6 +37,9 @@ export interface SystemMetrics {
   net_recv_formatted?: string;
   net_sent_formatted?: string;
   net_type?: "ethernet" | "wifi" | "disconnected" | "unknown";
+  gpu_percent?: number;
+  storage_used_gb?: number;
+  storage_total_gb?: number;
 }
 
 // Backwards compatibility alias
@@ -145,6 +148,8 @@ export interface MediaSessionInfo {
   duration_sec: number;
   current_sec: number;
   album_art_base64?: string;
+  position_ms?: number;
+  duration_ms?: number;
 }
 
 export interface UpdateInfo {

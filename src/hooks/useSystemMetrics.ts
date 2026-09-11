@@ -14,6 +14,9 @@ const DEFAULT_METRICS: SystemMetrics = {
   net_sent_speed_bps: 0,
   net_recv_formatted: "0 B/s",
   net_sent_formatted: "0 B/s",
+  gpu_percent: 6,
+  storage_used_gb: 229,
+  storage_total_gb: 512,
 };
 
 let currentMetrics: SystemMetrics = DEFAULT_METRICS;

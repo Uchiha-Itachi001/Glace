@@ -251,6 +251,12 @@ export const tauriBridge = {
     }
   },
 
+  onMediaSessionUpdated: (callback: (session: MediaSessionInfo | null) => void): Promise<UnlistenFn> => {
+    return listen<MediaSessionInfo | null>("media-session-updated", (event) => {
+      callback(event.payload);
+    });
+  },
+
   updateWorkArea: async (
     topNotchEnabled?: boolean,
     margins?: { top?: number; bottom?: number; left?: number; right?: number }

@@ -43,6 +43,12 @@ pub struct SystemMetrics {
     pub net_recv_formatted: String,
     pub net_sent_formatted: String,
     pub net_type: String,
+    #[serde(default)]
+    pub gpu_percent: u8,
+    #[serde(default)]
+    pub storage_used_gb: u32,
+    #[serde(default)]
+    pub storage_total_gb: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

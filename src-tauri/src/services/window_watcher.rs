@@ -231,6 +231,61 @@ pub(crate) fn hicon_to_base64_png(hicon: HICON) -> Option<String> {
     }
 }
 
+pub fn get_crisp_edge_icon() -> String {
+    static EDGE_ICON: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+    if let Ok(guard) = EDGE_ICON.lock() {
+        if let Some(ref icon) = *guard {
+            return icon.clone();
+        }
+    }
+
+    // Extract authentic high-res icon directly from msedge.exe (fills 99% of bounding box, zero wasted padding)
+    let candidate_paths = [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    ];
+
+    for path in candidate_paths {
+        if std::path::Path::new(path).exists() {
+            unsafe {
+                use windows::Win32::UI::WindowsAndMessaging::{PrivateExtractIconsW, DestroyIcon, HICON};
+                let mut path_buf = [0u16; 260];
+                let encoded: Vec<u16> = path.encode_utf16().collect();
+                if encoded.len() < 260 {
+                    path_buf[..encoded.len()].copy_from_slice(&encoded);
+                    let mut hicons = [HICON::default(); 1];
+                    let count = PrivateExtractIconsW(
+                        &path_buf,
+                        0,
+                        128,
+                        128,
+                        Some(&mut hicons),
+                        None,
+                        0,
+                    );
+                    if count > 0 && !hicons[0].0.is_null() {
+                        let b64 = hicon_to_base64_png(hicons[0]);
+                        let _ = DestroyIcon(hicons[0]);
+                        if let Some(uri) = b64 {
+                            if let Ok(mut guard) = EDGE_ICON.lock() {
+                                *guard = Some(uri.clone());
+                            }
+                            return uri;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Authentic Microsoft Edge Fluent vector SVG with tight viewBox (14 14 228 228) so it fills the tile
+    let svg = "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"14 14 228 228\"><defs><radialGradient id=\"edg_a\" cx=\"77.9%\" cy=\"30.2%\" r=\"58.7%\"><stop offset=\"0%\" stop-color=\"%230c59a4\"/><stop offset=\"100%\" stop-color=\"%23114a8b\"/></radialGradient><linearGradient id=\"edg_b\" x1=\"21.5%\" y1=\"15.8%\" x2=\"84.2%\" y2=\"84.5%\"><stop offset=\"0%\" stop-color=\"%232be1be\"/><stop offset=\"25.5%\" stop-color=\"%231db0cb\"/><stop offset=\"60.3%\" stop-color=\"%230c63c2\"/><stop offset=\"100%\" stop-color=\"%230037a5\"/></linearGradient><radialGradient id=\"edg_c\" cx=\"21.8%\" cy=\"79.3%\" r=\"68.8%\"><stop offset=\"0%\" stop-color=\"%230bf48f\"/><stop offset=\"48.5%\" stop-color=\"%2300d6aa\"/><stop offset=\"100%\" stop-color=\"%2300a89a\"/></radialGradient></defs><path fill=\"url(%23edg_a)\" d=\"M239.5 164.5c-4.4 36.4-31.2 64.9-67 71.9-46.7 9.1-92.4-17-106.8-61.2 13.9 8.6 30.2 13.6 47.7 13.6 42.6 0 77.8-31.3 83.2-72.3 26 10.4 44.5 35.8 42.9 48z\"/><path fill=\"url(%23edg_b)\" d=\"M128 16c61.9 0 112 50.1 112 112 0 12.3-2 24.1-5.7 35.2-6.5-34.8-37.1-61.2-73.8-61.2-41.4 0-75 33.6-75 75 0 8.1 1.3 15.9 3.7 23.2-46.3-8.8-81.2-49.3-81.2-98 0-55.2 44.8-100 100-100 6.7 0 13.3.7 20 1.8z\"/><path fill=\"url(%23edg_c)\" d=\"M16.5 128C16.5 73.8 55.4 28.7 107 18.2 53.6 35.1 16.5 85.7 16.5 145c0 54.1 36.8 99.6 86.8 113.6-50.5-12.7-86.8-58.4-86.8-130.6z\"/></svg>".to_string();
+    if let Ok(mut guard) = EDGE_ICON.lock() {
+        *guard = Some(svg.clone());
+    }
+    svg
+}
+
 fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str, window_title: &str) -> String {
     unsafe {
         let is_browser = {
@@ -276,6 +331,28 @@ fn get_window_icon(hwnd: HWND, exe_path: &str, exe_name: &str, window_title: &st
                 return icon;
             }
             return "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" rx=\"22\" fill=\"%2318181B\"/><path fill=\"none\" stroke=\"%234ADE80\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M30 32 L48 50 L30 68\"/><line x1=\"56\" y1=\"68\" x2=\"72\" y2=\"68\" stroke=\"%23F4F4F5\" stroke-width=\"8\" stroke-linecap=\"round\"/></svg>".to_string();
+        } else if exe_lower.contains("msedge") || exe_lower == "msedge.exe" {
+            if !window_title.is_empty() {
+                if let Some(pwa_lnk) = crate::services::pinned_apps::find_pwa_shortcut(window_title) {
+                    let pwa_icon = crate::services::pinned_apps::extract_icon_from_shell_target(&pwa_lnk);
+                    if !pwa_icon.is_empty() {
+                        return pwa_icon;
+                    }
+                }
+            }
+            let is_standard_edge = window_title.is_empty()
+                || window_title.contains("Microsoft​ Edge")
+                || window_title.contains(" - Edge")
+                || window_title.contains("Personal - Microsoft")
+                || window_title.contains("Work - Microsoft")
+                || window_title.ends_with("Edge")
+                || window_title.contains(" - YouTube")
+                || window_title.contains("New tab")
+                || window_title.contains("New Tab");
+
+            if is_standard_edge {
+                return get_crisp_edge_icon();
+            }
         }
 
         // 2. If it's a browser process, check if it's an installed PWA first to avoid flashing generic browser icon

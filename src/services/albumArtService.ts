@@ -45,7 +45,7 @@ export const PLATFORM_BADGES: Record<string, string> = {
 
   // Web Browsers
   brave: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23FB542B"/><stop offset="100%" stop-color="%23FF2000"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(%23bg)"/><path fill="%23fff" d="M50 18 L68 28 L74 48 L64 74 L50 82 L36 74 L26 48 L32 28 Z M50 25 L36 32 L32 46 L40 66 L50 72 L60 66 L68 46 L64 32 Z M43 45 L50 40 L57 45 L54 55 L46 55 Z"/></svg>',
-  edge: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><radialGradient id="eg1" cx="65%" cy="30%" r="55%"><stop offset="0%" stop-color="%2300E887"/><stop offset="100%" stop-color="%2300C7FF"/></radialGradient><linearGradient id="eg2" x1="0%" y1="50%" x2="100%" y2="100%"><stop offset="0%" stop-color="%230078D7"/><stop offset="100%" stop-color="%23002050"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="%230c1017"/><path fill="url(%23eg1)" d="M50 18c18 0 32 14 32 32 0 4-1 8-2 11-3-11-13-19-25-19-14 0-26 11-26 25 0 5 1 9 4 13-9-4-15-13-15-24 0-21 14-38 32-38z"/><path fill="url(%23eg2)" d="M55 42c12 0 22 8 25 19-3 12-14 21-27 21-18 0-33-14-33-32 0-3 0-5 1-8 0 14 11 25 25 25 10 0 19-7 21-16-2-6-7-9-12-9z"/></svg>',
+  edge: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><defs><radialGradient id="edg_a" cx="77.9%" cy="30.2%" r="58.7%"><stop offset="0%" stop-color="%230c59a4"/><stop offset="100%" stop-color="%23114a8b"/></radialGradient><linearGradient id="edg_b" x1="21.5%" y1="15.8%" x2="84.2%" y2="84.5%"><stop offset="0%" stop-color="%232be1be"/><stop offset="25.5%" stop-color="%231db0cb"/><stop offset="60.3%" stop-color="%230c63c2"/><stop offset="100%" stop-color="%230037a5"/></linearGradient><radialGradient id="edg_c" cx="21.8%" cy="79.3%" r="68.8%"><stop offset="0%" stop-color="%230bf48f"/><stop offset="48.5%" stop-color="%2300d6aa"/><stop offset="100%" stop-color="%2300a89a"/></radialGradient></defs><path fill="url(%23edg_a)" d="M239.5 164.5c-4.4 36.4-31.2 64.9-67 71.9-46.7 9.1-92.4-17-106.8-61.2 13.9 8.6 30.2 13.6 47.7 13.6 42.6 0 77.8-31.3 83.2-72.3 26 10.4 44.5 35.8 42.9 48z"/><path fill="url(%23edg_b)" d="M128 16c61.9 0 112 50.1 112 112 0 12.3-2 24.1-5.7 35.2-6.5-34.8-37.1-61.2-73.8-61.2-41.4 0-75 33.6-75 75 0 8.1 1.3 15.9 3.7 23.2-46.3-8.8-81.2-49.3-81.2-98 0-55.2 44.8-100 100-100 6.7 0 13.3.7 20 1.8z"/><path fill="url(%23edg_c)" d="M16.5 128C16.5 73.8 55.4 28.7 107 18.2 53.6 35.1 16.5 85.7 16.5 145c0 54.1 36.8 99.6 86.8 113.6-50.5-12.7-86.8-58.4-86.8-130.6z"/></svg>',
   chrome: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%231a1a1a"/><circle cx="50" cy="50" r="32" fill="%23fff"/><path fill="%23EA4335" d="M50 18 A32 32 0 0 1 78 34 L50 50 Z"/><path fill="%23FBBC05" d="M78 34 A32 32 0 0 1 50 82 L50 50 Z"/><path fill="%2334A853" d="M50 82 A32 32 0 0 1 22 34 L50 50 Z"/><path fill="%234285F4" d="M22 34 A32 32 0 0 1 50 18 L50 50 Z"/><circle cx="50" cy="50" r="14" fill="%23fff"/><circle cx="50" cy="50" r="11" fill="%234285F4"/></svg>',
   firefox: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="ffg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23FF9400"/><stop offset="50%" stop-color="%23FF3D00"/><stop offset="100%" stop-color="%238000FF"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="%2318002a"/><circle cx="50" cy="50" r="32" fill="url(%23ffg)"/><circle cx="54" cy="46" r="22" fill="%2318002a"/><path fill="%23FF9400" d="M54 26c10 5 16 15 16 26 0 14-11 26-26 26-6 0-12-2-16-6 10 3 20-1 25-10 4-8 1-17-5-23 2-5 4-9 6-13z"/></svg>',
   opera: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%23121212"/><path fill="%23FF1B2D" d="M50 16c-19 0-34 15-34 34s15 34 34 34 34-15 34-34-15-34-34-34zm0 56c-10 0-18-10-18-22s8-22 18-22 18 10 18 22-8 22-18 22z"/></svg>',
@@ -70,24 +70,19 @@ export function detectPlatformBadge(title: string, artist?: string): string | nu
   const normTitle = title.toLowerCase().replace(/^\(\d+\+?\)\s*/, "").trim();
   const normArtist = (artist || "").toLowerCase().trim();
 
-  // 1. Direct artist match (e.g. YouTube Music, Brave, Chrome, Spotify, Instagram, Edge, VLC, Media Player)
-  if (normArtist === "youtube music" || normArtist.includes("youtube music")) return PLATFORM_BADGES["youtube music"];
-  for (const [key, badge] of Object.entries(PLATFORM_BADGES)) {
-    if (normArtist === key) return badge;
+  // 1. Only match dedicated streaming music services if title is empty or matching
+  if (normArtist === "youtube music" && (!normTitle || normTitle === "youtube music")) {
+    return PLATFORM_BADGES["youtube music"];
   }
 
-  // 2. Pure exact application name match on title
-  const PURE_APP_NAMES = [
+  // 2. Pure exact application name match on title (when tab is idle without a specific video/song)
+  const PURE_IDLE_TABS = [
     "youtube music", "instagram", "facebook", "tiktok", "twitter", "x", "reddit",
-    "twitch", "netflix", "spotify", "brave", "edge", "microsoft edge",
-    "chrome", "google chrome", "firefox", "opera", "arc", "vivaldi", "soundcloud",
-    "vlc", "vlc media player", "media player", "windows media player", "movies & tv",
-    "mpc-hc", "mpc-be", "potplayer", "mpv", "foobar2000", "aimp", "musicbee", "local media"
+    "twitch", "netflix", "spotify", "soundcloud"
   ];
   
-  if (PURE_APP_NAMES.includes(normTitle)) {
-    const key = normTitle.replace("microsoft ", "").replace("google ", "");
-    return PLATFORM_BADGES[key] || PLATFORM_BADGES[normTitle] || null;
+  if (PURE_IDLE_TABS.includes(normTitle)) {
+    return PLATFORM_BADGES[normTitle] || null;
   }
 
   return null;
@@ -96,32 +91,19 @@ export function detectPlatformBadge(title: string, artist?: string): string | nu
 export function detectFallbackBadge(title: string, artist?: string): string | null {
   const normTitle = title.toLowerCase().replace(/^\(\d+\+?\)\s*/, "").trim();
   const normArtist = (artist || "").toLowerCase().trim();
-  const combined = `${normTitle} ${normArtist}`;
 
-  if (combined.includes("youtube music")) return PLATFORM_BADGES["youtube music"];
-  if (combined.includes("youtube")) return PLATFORM_BADGES.youtube;
-  if (combined.includes("facebook")) return PLATFORM_BADGES.facebook;
-  if (combined.includes("instagram")) return PLATFORM_BADGES.instagram;
-  if (combined.includes("tiktok")) return PLATFORM_BADGES.tiktok;
-  if (combined.includes("twitch")) return PLATFORM_BADGES.twitch;
-  if (combined.includes("netflix")) return PLATFORM_BADGES.netflix;
-  if (combined.includes("soundcloud")) return PLATFORM_BADGES.soundcloud;
-  if (combined.includes("vlc")) return PLATFORM_BADGES.vlc;
-  if (combined.includes("media player") || combined.includes("movies & tv") || combined.includes("zune")) return PLATFORM_BADGES["media player"];
-  if (combined.includes("mpc")) return PLATFORM_BADGES["mpc-hc"];
-  if (combined.includes("potplayer")) return PLATFORM_BADGES.potplayer;
-  if (combined.includes("mpv")) return PLATFORM_BADGES.mpv;
-  if (combined.includes("foobar")) return PLATFORM_BADGES.foobar2000;
-  if (combined.includes("aimp")) return PLATFORM_BADGES.aimp;
-  if (combined.includes("musicbee")) return PLATFORM_BADGES.musicbee;
-  if (combined.includes("brave")) return PLATFORM_BADGES.brave;
-  if (combined.includes("edge")) return PLATFORM_BADGES.edge;
-  if (combined.includes("chrome")) return PLATFORM_BADGES.chrome;
-  if (combined.includes("firefox")) return PLATFORM_BADGES.firefox;
-  if (combined.includes("opera")) return PLATFORM_BADGES.opera;
-  if (combined.includes("arc")) return PLATFORM_BADGES.arc;
-  if (combined.includes("vivaldi")) return PLATFORM_BADGES.vivaldi;
+  // Only return platform badge if the playing item is literally a music streaming service tab without song art
+  if (normTitle === "youtube music" || normArtist === "youtube music") {
+    return PLATFORM_BADGES["youtube music"];
+  }
+  if (normTitle === "spotify" || normArtist === "spotify") {
+    return PLATFORM_BADGES.spotify;
+  }
+  if (normTitle === "soundcloud" || normArtist === "soundcloud") {
+    return PLATFORM_BADGES.soundcloud;
+  }
 
+  // Never return browser or player app icons (Edge, Chrome, VLC, WMP) as album art
   return null;
 }
 

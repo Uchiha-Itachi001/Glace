@@ -1039,15 +1039,15 @@
 /* ─── State 6: Full Expanded Hardware Quick Metrics Card ─────────────────── */
 
 .dynamic-notch--hardware-expanded {
-  width: 310px;
-  height: 154px;
-  padding: 11px 14px 10px;
-  border-bottom-left-radius: 18px;
-  border-bottom-right-radius: 18px;
+  width: 546px;
+  height: 226px;
+  padding: 8px 12px 10px;
+  border-bottom-left-radius: 24px;
+  border-bottom-right-radius: 24px;
   cursor: default;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   animation: notch-card-expand 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
@@ -1056,157 +1056,1148 @@
   z-index: 2;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   width: 100%;
   height: 100%;
-  gap: 8px;
+  gap: 3px;
   animation: notchCardContentFadeIn var(--glace-duration-base) var(--glace-ease-spring) both;
 }
 
-.notch-hw-header {
+/* ─── Telemetry Tabs Header (Ultra-Compact Pill Bar) ───────────────────── */
+
+.notch-telemetry-tabs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  padding: 2.5px 3px;
+  margin: 0 auto 3px;
+  position: relative;
+}
+
+.notch-telemetry-tab {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--glace-text-secondary, #94a3b8);
+  font-size: 10.5px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 3px 11px;
+  border-radius: 999px;
+  position: relative;
+  transition: all 0.16s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.notch-telemetry-tab svg {
+  stroke: currentColor;
+  flex-shrink: 0;
+  transition: stroke 0.16s ease;
+}
+
+.notch-telemetry-tab:hover {
+  color: var(--glace-text-primary, #f1f5f9);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.notch-telemetry-tab--active {
+  background: rgba(194, 65, 12, 0.22);
+  border-color: rgba(194, 65, 12, 0.45);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 8px rgba(194, 65, 12, 0.35);
+}
+
+.notch-telemetry-tab--active::after {
+  display: none;
+}
+
+/* ─── 3 Circular Telemetry Gauges Row ────────────────────────────────────── */
+
+.notch-telemetry-gauges-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  padding: 6px 2px 0;
+  gap: 6px;
+  flex: 1;
 }
 
-.notch-hw-title-group {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.notch-hw-chip-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.25);
+.notch-telemetry-gauge {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.notch-hw-title {
-  font-size: 11.5px;
+.notch-gauge-circle-wrap {
+  width: 130px;
+  height: 130px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notch-gauge-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+}
+
+.notch-gauge-center-content {
+  position: absolute;
+  top: 48%;
+  left: 45%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.notch-gauge-primary-val {
+  font-size: 22px;
   font-weight: 700;
-  color: #f1f5f9;
-  letter-spacing: 0.15px;
+  color: var(--glace-text-primary, #ffffff);
+  line-height: 1;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
 }
 
-.notch-hw-collapse-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+.notch-gauge-primary-lbl {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--glace-text-secondary, #94a3b8);
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+.notch-gauge-secondary-content {
+  position: absolute;
+  right: 5px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.notch-gauge-secondary-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--glace-text-primary, #ffffff);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.notch-gauge-secondary-lbl {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--glace-text-secondary, #94a3b8);
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+/* ─── Caelestia Shell Bento Grid Dashboard ─────────────────────────────── */
+
+.notch-bento-grid {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  width: 100%;
+  height: 180px;
+  gap: 8px;
+  margin-top: 6px;
+  animation: notchCardContentFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.notch-bento-grid--proper {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  width: 100%;
+  height: 180px;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* ─── 1. Card 1: 12-Hour Clock ─── */
+.bento-card--clock12 {
+  width: 118px;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 8px 8px;
+  text-align: center;
+}
+
+.bento-clock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.bento-clock-ampm-badge {
+  background: rgba(194, 65, 12, 0.2);
+  color: #ea580c;
+  border: 1px solid rgba(194, 65, 12, 0.35);
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 6px rgba(194, 65, 12, 0.2);
+}
+
+.bento-clock-tz {
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--glace-text-secondary, #94a3b8);
+  letter-spacing: 0.5px;
+  opacity: 0.7;
+}
+
+.bento-clock-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  margin: 2px 0;
+}
+
+.bento-card--clock12 .bento-clock-num {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 0.95;
+  color: var(--glace-text-primary, #ffffff);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.bento-card--clock12 .bento-clock-dots {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.5px;
+  margin: 2.5px 0;
+}
+
+.bento-card--clock12 .bento-clock-dots span {
+  width: 3.5px;
+  height: 3.5px;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  background: #c2410c;
+  box-shadow: 0 0 6px rgba(194, 65, 12, 0.7);
+}
+
+.bento-clock-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 2px;
+}
+
+.bento-clock-weekday {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--glace-text-primary, #f1f5f9);
+  line-height: 1.1;
+}
+
+.bento-clock-date-str {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--glace-text-secondary, #94a3b8);
+}
+
+.bento-clock-sec-track {
+  width: 100%;
+  height: 2.5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.bento-clock-sec-fill {
+  height: 100%;
+  background: #c2410c;
+  border-radius: 999px;
+  transition: width 0.25s linear;
+}
+
+/* ─── 2. Card 2: Glance Hub ─── */
+.bento-card--glance {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 12px 9px;
+}
+
+.bento-glance-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 5px;
+}
+
+.bento-glance-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bento-glance-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c2410c;
+  box-shadow: 0 0 6px rgba(194, 65, 12, 0.8);
+}
+
+.bento-glance-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+}
+
+.bento-glance-greeting {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--glace-text-secondary, #94a3b8);
+}
+
+.bento-glance-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bento-glance-stats--expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.bento-glance-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9.5px;
+  font-weight: 500;
+  color: #cbd5e1;
+}
+
+.bento-glance-stat-row svg {
+  color: #c2410c;
+  flex-shrink: 0;
+}
+
+.bento-glance-stat-lbl {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bento-glance-chip {
+  font-size: 8px;
+  font-weight: 700;
+  color: #ea580c;
+  background: rgba(194, 65, 12, 0.16);
+  border: 1px solid rgba(194, 65, 12, 0.3);
+  padding: 0.5px 4px;
+  border-radius: 4px;
+  margin-left: auto;
+  letter-spacing: 0.3px;
+}
+
+.bento-glance-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.bento-glance-pill {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
-  cursor: pointer;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #e2e8f0;
+  cursor: default;
   transition: all 0.15s ease;
 }
 
-.notch-hw-collapse-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
+.bento-glance-pill--vol {
+  cursor: pointer;
 }
 
-.notch-hw-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-  width: 100%;
+.bento-glance-pill--vol:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
-.notch-hw-metric-card {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.065);
-  border-radius: 9px;
-  padding: 6px 8px 4px;
+/* ─── 3. Card 3: Calendar Full ─── */
+.bento-card--calendar-full {
+  width: 212px;
+  flex-shrink: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  padding: 8px 10px 8px;
 }
 
-.notch-hw-metric-top {
+.bento-cal-header-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.notch-hw-metric-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: #94a3b8;
+.bento-cal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.notch-hw-metric-val {
-  font-size: 10.5px;
+.bento-cal-month-title {
+  font-size: 11px;
   font-weight: 700;
   color: #ffffff;
-  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
 }
 
-.notch-hw-graph-wrap {
+.bento-cal-badge-today {
+  font-size: 8px;
+  font-weight: 800;
+  color: #c2410c;
+  background: rgba(194, 65, 12, 0.15);
+  border: 1px solid rgba(194, 65, 12, 0.3);
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.bento-cal-grid-full {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(0, 1fr);
   width: 100%;
-  height: 24px;
+  flex: 1;
+  align-items: center;
+  justify-items: center;
+  row-gap: 1.5px;
+}
+
+.bento-cal-day-header {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--glace-text-secondary, #94a3b8);
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.bento-cal-cell {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: #e2e8f0;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-}
-
-.notch-hw-subtext {
-  font-size: 8.5px;
-  color: #64748b;
+  border-radius: 50%;
   font-variant-numeric: tabular-nums;
-  margin-top: -2px;
+  transition: background 0.15s ease;
 }
 
-.notch-hw-footer {
+.bento-cal-cell--dim {
+  color: #475569;
+  opacity: 0.45;
+}
+
+.bento-cal-cell--today {
+  background: #c2410c !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(194, 65, 12, 0.7);
+}
+
+/* ─── TAB 4: Controls & Utilities View (High-Utility Action Grid) ────────── */
+
+.notch-controls-view {
+  width: 100%;
+  height: 180px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-top: 3px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 9.5px;
-  color: #94a3b8;
+  justify-content: center;
+  animation: notchCardContentFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.notch-hw-net {
+.notch-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+}
+
+.notch-ctrl-tile {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.notch-ctrl-tile:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(194, 65, 12, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(194, 65, 12, 0.2);
+}
+
+.notch-ctrl-tile:active {
+  transform: scale(0.97);
+}
+
+.notch-ctrl-tile--active {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.notch-ctrl-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #f1f5f9;
+  transition: all 0.18s ease;
+}
+
+.notch-ctrl-tile:hover .notch-ctrl-icon-box {
+  background: rgba(194, 65, 12, 0.2);
+  border-color: rgba(194, 65, 12, 0.4);
+  color: #ea580c;
+}
+
+.notch-ctrl-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1.5px;
+}
+
+.notch-ctrl-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notch-ctrl-sub {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--glace-text-secondary, #94a3b8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bento-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bento-col--left {
+  width: 104px;
+  flex-shrink: 0;
+}
+
+.bento-col--center {
+  flex: 1;
+  min-width: 0;
+}
+
+.bento-col--right {
+  width: 142px;
+  flex-shrink: 0;
+}
+
+/* Base Bento Card */
+.bento-card {
+  position: relative;
+  background: rgba(255, 248, 245, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.bento-card:hover {
+  background: rgba(255, 248, 245, 0.085);
+  border-color: rgba(255, 255, 255, 0.13);
+}
+
+/* 1. Weather Card */
+.bento-card--weather {
+  height: 58px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 10px;
+}
+
+.bento-weather-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bento-weather-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.bento-weather-temp {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--glace-text-primary, #ffffff);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
+}
+
+.bento-weather-desc {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--glace-text-secondary, #94a3b8);
+  margin-top: 1px;
+}
+
+/* 2. Stacked Clock Card */
+.bento-card--clock {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px 6px;
+  text-align: center;
+}
+
+.bento-clock-num {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 0.95;
+  color: var(--glace-text-primary, #ffffff);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.bento-clock-dots {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin: 4px 0;
+}
+
+.bento-clock-dots span {
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 50%;
+  background: #c2410c;
+  box-shadow: 0 0 6px rgba(194, 65, 12, 0.6);
+}
+
+.bento-clock-date {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--glace-text-secondary, #94a3b8);
+  margin-top: 5px;
+  letter-spacing: 0.2px;
+}
+
+/* 3. Host Info Card */
+.bento-card--host {
+  height: 58px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 12px;
+}
+
+.bento-host-avatar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.bento-host-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5px;
+  justify-content: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.bento-host-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bento-host-row svg {
+  flex-shrink: 0;
+  color: #c2410c;
+}
+
+/* Row with Calendar + Sliders */
+.bento-center-bottom-row {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  height: 110px;
+}
+
+/* 4. Calendar Card */
+.bento-card--calendar {
+  flex: 1;
+  height: 100%;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bento-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: auto repeat(5, 1fr);
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-items: center;
+  row-gap: 1.5px;
+}
+
+.bento-cal-header {
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--glace-text-secondary, #94a3b8);
+  text-transform: capitalize;
+  margin-bottom: 2px;
+}
+
+.bento-cal-day {
+  font-size: 9px;
+  font-weight: 500;
+  color: #e2e8f0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.15s ease;
+}
+
+.bento-cal-day--dim {
+  color: #475569;
+  opacity: 0.6;
+}
+
+.bento-cal-day--today {
+  background: #c2410c !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(194, 65, 12, 0.65);
+}
+
+/* 5. Sliders Card */
+.bento-card--sliders {
+  width: 58px;
+  height: 100%;
+  padding: 8px 4px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.bento-slider-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bento-slider-track {
+  width: 10px;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.bento-slider-fill {
+  width: 100%;
+  border-radius: 999px;
+  transition: height 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bento-slider-fill--vol {
+  background: #c2410c;
+  box-shadow: 0 0 8px rgba(194, 65, 12, 0.5);
+}
+
+.bento-slider-fill--bright {
+  background: #d97706;
+  box-shadow: 0 0 8px rgba(217, 119, 6, 0.5);
+}
+
+.bento-slider-fill--battery {
+  background: #65a30d;
+  box-shadow: 0 0 8px rgba(101, 163, 13, 0.5);
+}
+
+.bento-slider-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--glace-text-secondary, #94a3b8);
+  flex-shrink: 0;
+}
+
+/* 6. Now Playing Vinyl Deck Card */
+.bento-card--vinyl {
+  height: 100%;
+  padding: 10px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+}
+
+.bento-vinyl-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.bento-vinyl-needle-tick {
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3.5px;
+  height: 9px;
+  background: #c2410c;
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(194, 65, 12, 0.8);
+  z-index: 3;
+}
+
+.bento-vinyl-disc {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  position: relative;
+  background: radial-gradient(circle, #1c1917 0%, #0c0a09 100%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 0 0 1.2px rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bento-vinyl-disc::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.04),
+              inset 0 0 0 6px rgba(0, 0, 0, 0.7),
+              inset 0 0 0 9px rgba(255, 255, 255, 0.03),
+              inset 0 0 0 12px rgba(0, 0, 0, 0.7),
+              inset 0 0 0 15px rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+}
+
+.bento-vinyl-disc--spinning {
+  animation: bentoVinylSpin 8s linear infinite;
+}
+
+@keyframes bentoVinylSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.bento-vinyl-label {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.6);
+  background: #292524;
+}
+
+.bento-vinyl-label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bento-vinyl-spindle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px;
+  height: 5px;
+  background: #1c1917;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  z-index: 3;
+}
+
+.bento-vinyl-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 0 2px;
+  margin: 2px 0 4px;
+}
+
+.bento-vinyl-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--glace-text-primary, #ffffff);
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.bento-vinyl-subtitle {
+  font-size: 8.5px;
+  font-weight: 600;
+  color: #c2410c;
+  margin-top: 1px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bento-vinyl-artist {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--glace-text-secondary, #94a3b8);
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.bento-vinyl-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.bento-vinyl-btn {
+  background: none;
+  border: none;
+  color: #cbd5e1;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.bento-vinyl-btn:hover {
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.bento-vinyl-btn--play {
+  background: rgba(194, 65, 12, 0.2);
+  color: #ea580c;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(194, 65, 12, 0.35);
+  box-shadow: 0 0 10px rgba(194, 65, 12, 0.25);
+}
+
+.bento-vinyl-btn--play:hover {
+  background: #c2410c;
+  color: #ffffff;
+  border-color: #c2410c;
+  box-shadow: 0 0 14px rgba(194, 65, 12, 0.6);
+  transform: scale(1.08);
+}
+
+/* 7. Workspaces View */
+.notch-workspaces-view {
+  width: 100%;
+  height: 176px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+  animation: notchCardContentFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.notch-workspaces-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.notch-ws-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notch-ws-card:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+}
+
+.notch-ws-card--active {
+  background: rgba(194, 65, 12, 0.12);
+  border-color: #c2410c;
+  box-shadow: 0 0 14px rgba(194, 65, 12, 0.25);
+}
+
+.notch-ws-header {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.notch-hw-net-item {
-  display: flex;
-  align-items: center;
-  gap: 2.5px;
-  font-variant-numeric: tabular-nums;
+.notch-ws-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64748b;
 }
 
-.notch-hw-net-arrow--down {
-  color: #38bdf8;
-  font-weight: 700;
+.notch-ws-card--active .notch-ws-dot {
+  background: #c2410c;
+  box-shadow: 0 0 8px rgba(194, 65, 12, 0.8);
 }
 
-.notch-hw-net-arrow--up {
-  color: #a855f7;
-  font-weight: 700;
+.notch-ws-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
 }
 
-.notch-hw-power {
-  display: flex;
-  align-items: center;
-  gap: 3.5px;
-  font-variant-numeric: tabular-nums;
-  color: #e2e8f0;
-}
-
-.notch-hw-power-label {
-  font-size: 8.5px;
-  color: #64748b;
+.notch-ws-status {
+  font-size: 10px;
+  color: var(--glace-text-secondary, #94a3b8);
 }

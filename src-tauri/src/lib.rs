@@ -203,6 +203,7 @@ pub fn run() {
             services::bluetooth::set_enabled(initial_settings.enable_dynamic_island && initial_settings.island_show_bluetooth);
             services::window_watcher::start(app.handle().clone());
             services::pinned_apps::start_watcher(app.handle().clone());
+            services::media_host::start_watcher(app.handle().clone());
             services::bluetooth::start();
             services::keyboard_hook::start(app.handle().clone());
 

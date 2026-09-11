@@ -19,10 +19,32 @@ pub struct MediaSessionInfo {
     pub duration_sec: u64,
     pub current_sec: u64,
     pub album_art_base64: Option<String>,
+    #[serde(default)]
+    pub position_ms: Option<u64>,
+    #[serde(default)]
+    pub duration_ms: Option<u64>,
+}
+
+impl MediaSessionInfo {
+    pub fn basic_win32(title: String, artist: String) -> Self {
+        Self {
+            title,
+            artist,
+            album_title: None,
+            is_playing: true,
+            duration_sec: 0,
+            current_sec: 0,
+            album_art_base64: None,
+            position_ms: Some(0),
+            duration_ms: Some(0),
+        }
+    }
 }
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+
+static APP_HANDLE: Mutex<Option<tauri::AppHandle>> = Mutex::new(None);
 
 struct MediaCache {
     manager: Option<GlobalSystemMediaTransportControlsSessionManager>,
@@ -42,16 +64,6 @@ static MEDIA_CACHE: Mutex<MediaCache> = Mutex::new(MediaCache {
     active_title: String::new(),
 });
 
-struct SendThumb(windows::Storage::Streams::IRandomAccessStreamReference);
-unsafe impl Send for SendThumb {}
-unsafe impl Sync for SendThumb {}
-
-impl SendThumb {
-    pub fn extract(&self) -> Option<String> {
-        extract_thumbnail_base64(&self.0)
-    }
-}
-
 struct ArtCacheEntry {
     title: String,
     artist: String,
@@ -59,7 +71,64 @@ struct ArtCacheEntry {
 }
 
 static ART_CACHE: Mutex<Option<ArtCacheEntry>> = Mutex::new(None);
-static ART_FETCHING_KEY: Mutex<Option<(String, String)>> = Mutex::new(None);
+
+fn extract_browser_media_title(raw: &str) -> Option<String> {
+    let mut title = raw.trim();
+    if title.is_empty() {
+        return None;
+    }
+
+    let browser_suffixes = [
+        " - Personal - Microsoft​ Edge",
+        " - Work - Microsoft​ Edge",
+        " - Microsoft​ Edge",
+        " - Personal - Microsoft Edge",
+        " - Work - Microsoft Edge",
+        " - Microsoft Edge",
+        " - Google Chrome",
+        " - Brave",
+        " - Mozilla Firefox",
+        " - Opera",
+        " - Vivaldi",
+        " - Arc",
+    ];
+
+    for suffix in browser_suffixes {
+        if let Some(pos) = title.rfind(suffix) {
+            title = &title[..pos];
+        }
+    }
+
+    let trimmed = title.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("New Tab") || trimmed.eq_ignore_ascii_case("Edge") {
+        return None;
+    }
+
+    let mut clean_track = trimmed.to_string();
+
+    if clean_track.starts_with('(') {
+        if let Some(close_pos) = clean_track.find(')') {
+            let inner = &clean_track[1..close_pos];
+            if inner.chars().all(|c| c.is_ascii_digit() || c == '+') {
+                clean_track = clean_track[close_pos + 1..].trim().to_string();
+            }
+        }
+    }
+
+    if let Some(pos) = clean_track.rfind(" - YouTube") {
+        clean_track = clean_track[..pos].trim().to_string();
+    } else if let Some(pos) = clean_track.rfind(" | YouTube") {
+        clean_track = clean_track[..pos].trim().to_string();
+    } else if clean_track.starts_with("YouTube - ") {
+        clean_track = clean_track["YouTube - ".len()..].trim().to_string();
+    }
+
+    if !clean_track.is_empty() && !clean_track.eq_ignore_ascii_case("YouTube") {
+        Some(clean_track)
+    } else {
+        None
+    }
+}
 
 fn extract_thumbnail_base64(thumb_ref: &windows::Storage::Streams::IRandomAccessStreamReference) -> Option<String> {
     use base64::engine::general_purpose::STANDARD as BASE64;
@@ -266,15 +335,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
             let track_raw = title_raw.trim_end_matches(" - VLC media player").trim();
             let (artist, title) = parse_artist_title(track_raw, "VLC media player");
             if !title.is_empty() {
-                return Some(MediaSessionInfo {
-                    title,
-                    artist,
-                    album_title: None,
-                    is_playing: true,
-                    duration_sec: 0,
-                    current_sec: 0,
-                    album_art_base64: None,
-                });
+                return Some(MediaSessionInfo::basic_win32(title, artist));
             }
         } else if exe_lower.starts_with("mpc-hc") || exe_lower.starts_with("mpc-be") {
             if title_raw.eq_ignore_ascii_case("Media Player Classic Home Cinema")
@@ -289,15 +350,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                 .trim();
             let (artist, title) = parse_artist_title(track_raw, "MPC-HC");
             if !title.is_empty() {
-                return Some(MediaSessionInfo {
-                    title,
-                    artist,
-                    album_title: None,
-                    is_playing: true,
-                    duration_sec: 0,
-                    current_sec: 0,
-                    album_art_base64: None,
-                });
+                return Some(MediaSessionInfo::basic_win32(title, artist));
             }
         } else if exe_lower.starts_with("potplayer") {
             if title_raw.eq_ignore_ascii_case("PotPlayer")
@@ -311,15 +364,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                 .trim();
             let (artist, title) = parse_artist_title(track_raw, "PotPlayer");
             if !title.is_empty() {
-                return Some(MediaSessionInfo {
-                    title,
-                    artist,
-                    album_title: None,
-                    is_playing: true,
-                    duration_sec: 0,
-                    current_sec: 0,
-                    album_art_base64: None,
-                });
+                return Some(MediaSessionInfo::basic_win32(title, artist));
             }
         } else if exe_lower == "mpv.exe" {
             if title_raw.eq_ignore_ascii_case("mpv") {
@@ -331,15 +376,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
                 .trim();
             let (artist, title) = parse_artist_title(track_raw, "mpv");
             if !title.is_empty() {
-                return Some(MediaSessionInfo {
-                    title,
-                    artist,
-                    album_title: None,
-                    is_playing: true,
-                    duration_sec: 0,
-                    current_sec: 0,
-                    album_art_base64: None,
-                });
+                return Some(MediaSessionInfo::basic_win32(title, artist));
             }
         } else if exe_lower == "foobar2000.exe" {
             if title_raw.eq_ignore_ascii_case("foobar2000") {
@@ -348,15 +385,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
             let track_raw = title_raw.trim_end_matches(" [foobar2000]").trim();
             let (artist, title) = parse_artist_title(track_raw, "foobar2000");
             if !title.is_empty() {
-                return Some(MediaSessionInfo {
-                    title,
-                    artist,
-                    album_title: None,
-                    is_playing: true,
-                    duration_sec: 0,
-                    current_sec: 0,
-                    album_art_base64: None,
-                });
+                return Some(MediaSessionInfo::basic_win32(title, artist));
             }
         } else if exe_lower == "aimp.exe" {
             if title_raw.eq_ignore_ascii_case("AIMP") {
@@ -365,15 +394,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
             let track_raw = title_raw.trim_end_matches(" - AIMP").trim();
             let (artist, title) = parse_artist_title(track_raw, "AIMP");
             if !title.is_empty() {
-                return Some(MediaSessionInfo {
-                    title,
-                    artist,
-                    album_title: None,
-                    is_playing: true,
-                    duration_sec: 0,
-                    current_sec: 0,
-                    album_art_base64: None,
-                });
+                return Some(MediaSessionInfo::basic_win32(title, artist));
             }
         } else if exe_lower == "wmplayer.exe" {
             if title_raw.eq_ignore_ascii_case("Windows Media Player") {
@@ -382,15 +403,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
             let track_raw = title_raw.trim_end_matches(" - Windows Media Player").trim();
             let (artist, title) = parse_artist_title(track_raw, "Windows Media Player");
             if !title.is_empty() {
-                return Some(MediaSessionInfo {
-                    title,
-                    artist,
-                    album_title: None,
-                    is_playing: true,
-                    duration_sec: 0,
-                    current_sec: 0,
-                    album_art_base64: None,
-                });
+                return Some(MediaSessionInfo::basic_win32(title, artist));
             }
         } else if exe_lower == "musicbee.exe" {
             if title_raw.eq_ignore_ascii_case("MusicBee") {
@@ -399,15 +412,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
             let track_raw = title_raw.trim_end_matches(" - MusicBee").trim();
             let (artist, title) = parse_artist_title(track_raw, "MusicBee");
             if !title.is_empty() {
-                return Some(MediaSessionInfo {
-                    title,
-                    artist,
-                    album_title: None,
-                    is_playing: true,
-                    duration_sec: 0,
-                    current_sec: 0,
-                    album_art_base64: None,
-                });
+                return Some(MediaSessionInfo::basic_win32(title, artist));
             }
         } else if exe_lower.starts_with("kmplayer") {
             if title_raw.eq_ignore_ascii_case("KMPlayer") {
@@ -416,15 +421,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
             let track_raw = title_raw.trim_end_matches(" - KMPlayer").trim();
             let (artist, title) = parse_artist_title(track_raw, "KMPlayer");
             if !title.is_empty() {
-                return Some(MediaSessionInfo {
-                    title,
-                    artist,
-                    album_title: None,
-                    is_playing: true,
-                    duration_sec: 0,
-                    current_sec: 0,
-                    album_art_base64: None,
-                });
+                return Some(MediaSessionInfo::basic_win32(title, artist));
             }
         } else if exe_lower.starts_with("gom") {
             if title_raw.eq_ignore_ascii_case("GOM Player") {
@@ -433,15 +430,7 @@ fn scan_win32_media_players() -> Option<MediaSessionInfo> {
             let track_raw = title_raw.trim_end_matches(" - GOM Player").trim();
             let (artist, title) = parse_artist_title(track_raw, "GOM Player");
             if !title.is_empty() {
-                return Some(MediaSessionInfo {
-                    title,
-                    artist,
-                    album_title: None,
-                    is_playing: true,
-                    duration_sec: 0,
-                    current_sec: 0,
-                    album_art_base64: None,
-                });
+                return Some(MediaSessionInfo::basic_win32(title, artist));
             }
         }
     }
@@ -478,43 +467,52 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
     }
 
     let mut selected_session: Option<GlobalSystemMediaTransportControlsSession> = None;
-    let mut fallback_session: Option<GlobalSystemMediaTransportControlsSession> = None;
 
     let mgr_opt = cache.manager.clone();
     if let Some(mgr) = mgr_opt {
-        // Priority 1: Prioritize session that is ACTIVELY PLAYING across all apps & local players
-        if let Ok(sessions) = mgr.GetSessions() {
-            for session in sessions {
-                let playback_status = session.GetPlaybackInfo().ok().and_then(|info| info.PlaybackStatus().ok());
-                let is_closed_or_stopped = playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Closed)
-                    || playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Stopped);
-
-                if is_closed_or_stopped {
-                    continue;
-                }
-
-                let is_playing = playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing);
-
-                let props_opt = session.TryGetMediaPropertiesAsync().ok().and_then(|op| op.get().ok());
-                let t = props_opt.as_ref().and_then(|p| p.Title().ok()).map(|s| s.to_string()).unwrap_or_default();
-                let a = props_opt.as_ref().and_then(|p| p.Artist().ok()).map(|s| s.to_string()).unwrap_or_default();
-                let has_title_or_artist = !t.trim().is_empty() || !a.trim().is_empty();
-
-                if is_playing && (has_title_or_artist || session.SourceAppUserModelId().is_ok()) {
-                    selected_session = Some(session);
-                    break;
-                }
-
-                if fallback_session.is_none() && has_title_or_artist {
-                    fallback_session = Some(session);
-                }
+        // Priority 1: Check Windows' designated CurrentSession first!
+        if let Ok(curr) = mgr.GetCurrentSession() {
+            let status = curr.GetPlaybackInfo().ok().and_then(|info| info.PlaybackStatus().ok());
+            if status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing) {
+                selected_session = Some(curr);
             }
-        } else {
-            // Invalidate stale manager if GetSessions fails
-            cache.manager = None;
         }
 
-        // Priority 2: Fallback to Windows current session or first valid session
+        // Priority 2: If CurrentSession is not playing, inspect all sessions and sort by Playing status and newest LastUpdatedTime
+        if selected_session.is_none() {
+            if let Ok(sessions) = mgr.GetSessions() {
+                let mut candidates: Vec<(GlobalSystemMediaTransportControlsSession, i64, bool)> = Vec::new();
+                for session in sessions {
+                    let playback_status = session.GetPlaybackInfo().ok().and_then(|info| info.PlaybackStatus().ok());
+                    if playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Closed)
+                        || playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Stopped)
+                    {
+                        continue;
+                    }
+                    let is_playing = playback_status == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing);
+                    let last_updated = session.GetTimelineProperties().ok()
+                        .and_then(|tl| tl.LastUpdatedTime().ok())
+                        .map(|t| t.UniversalTime)
+                        .unwrap_or(0);
+
+                    candidates.push((session, last_updated, is_playing));
+                }
+
+                // Sort: Playing first (true > false), then newest LastUpdatedTime first
+                candidates.sort_by(|a, b| {
+                    b.2.cmp(&a.2)
+                        .then_with(|| b.1.cmp(&a.1))
+                });
+
+                if let Some((best, _, _)) = candidates.into_iter().next() {
+                    selected_session = Some(best);
+                }
+            } else {
+                cache.manager = None;
+            }
+        }
+
+        // Priority 3: Fallback to paused CurrentSession
         if selected_session.is_none() {
             if let Ok(curr) = mgr.GetCurrentSession() {
                 let curr_status = curr.GetPlaybackInfo().ok().and_then(|info| info.PlaybackStatus().ok());
@@ -523,9 +521,6 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
                 {
                     selected_session = Some(curr);
                 }
-            }
-            if selected_session.is_none() {
-                selected_session = fallback_session;
             }
         }
     }
@@ -546,18 +541,18 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
             let app_id = session.SourceAppUserModelId().map(|s| s.to_string()).unwrap_or_default();
             let props = session.TryGetMediaPropertiesAsync().ok().and_then(|op| op.get().ok());
 
-            let (raw_title, raw_artist, album_title, send_thumb_opt) = if let Some(ref p) = props {
+            let (raw_title, raw_artist, album_title, thumb_ref_opt) = if let Some(ref p) = props {
                 let t = p.Title().map(|s| s.to_string()).unwrap_or_default();
                 let a = p.Artist().map(|s| s.to_string()).unwrap_or_default();
                 let alb = p.AlbumTitle().map(|s| s.to_string()).ok();
-                let thumb = p.Thumbnail().ok().map(SendThumb);
+                let thumb = p.Thumbnail().ok();
                 (t, a, alb, thumb)
             } else {
                 (String::new(), String::new(), None, None)
             };
 
             // Extract clean title with local path/extension filtering
-            let title = if !raw_title.trim().is_empty() {
+            let mut title = if !raw_title.trim().is_empty() {
                 clean_media_title(&raw_title)
             } else if let Some(ref alb) = album_title {
                 if !alb.trim().is_empty() {
@@ -569,6 +564,52 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
                 get_friendly_source_name(&app_id)
             };
 
+            // Cross-reference open browser windows to prevent out-of-sync or stale titles
+            let app_id_lower = app_id.to_lowercase();
+            let is_browser_session = app_id_lower.contains("edge") || app_id_lower.contains("edg")
+                || app_id_lower.contains("chrome") || app_id_lower.contains("brave")
+                || app_id_lower.contains("firefox") || app_id_lower.contains("opera");
+
+            let mut is_stale_props = false;
+            if is_browser_session {
+                let windows = crate::services::window_watcher::enumerate_windows();
+                let mut best_browser_title: Option<String> = None;
+
+                for win in &windows {
+                    let win_exe = win.exe.to_lowercase();
+                    let matches_app = (app_id_lower.contains("edge") && win_exe.contains("msedge"))
+                        || (app_id_lower.contains("chrome") && win_exe.contains("chrome"))
+                        || (app_id_lower.contains("brave") && win_exe.contains("brave"))
+                        || (app_id_lower.contains("firefox") && win_exe.contains("firefox"));
+
+                    if matches_app {
+                        if let Some(clean) = extract_browser_media_title(&win.title) {
+                            if win.is_focused {
+                                best_browser_title = Some(clean);
+                                break;
+                            } else if best_browser_title.is_none() {
+                                best_browser_title = Some(clean);
+                            }
+                        }
+                    }
+                }
+
+                if let Some(b_title) = best_browser_title {
+                    let t_lower = title.to_lowercase();
+                    let b_lower = b_title.to_lowercase();
+                    let is_generic = t_lower.is_empty() || t_lower == "edge" || t_lower == "chrome" || t_lower == "brave" || t_lower == "youtube";
+                    let prefix_len = std::cmp::min(12, t_lower.len());
+                    let prefix_match = prefix_len > 0 && b_lower.contains(&t_lower[..prefix_len]);
+
+                    if is_generic || !prefix_match {
+                        if !is_generic && !prefix_match {
+                            is_stale_props = true;
+                        }
+                        title = b_title;
+                    }
+                }
+            }
+
             resolved_app_id = app_id.clone();
             resolved_title = title.clone();
 
@@ -579,10 +620,10 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
                 get_friendly_source_name(&app_id)
             };
 
-            let has_track_details = !raw_title.trim().is_empty() || !raw_artist.trim().is_empty();
+            let has_track_details = !title.trim().is_empty() || !artist.trim().is_empty();
             if has_track_details || is_playing {
                 let timeline = session.GetTimelineProperties().ok();
-                let (current_sec, duration_sec) = if let Some(tl) = timeline {
+                let (current_sec, duration_sec, position_ms, duration_ms) = if let Some(tl) = timeline {
                     let start_ticks = tl.StartTime().map(|d| d.Duration).unwrap_or(0);
                     let end_ticks = tl.EndTime().map(|d| d.Duration).unwrap_or(0);
                     let pos_ticks = tl.Position().map(|d| d.Duration).unwrap_or(0);
@@ -631,61 +672,36 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
                         0
                     };
 
-                    (current_sec, duration_sec)
+                    let pos_ms = (current_ticks / 10_000) as u64;
+                    let dur_ms = (duration_ticks / 10_000) as u64;
+
+                    (current_sec, duration_sec, Some(pos_ms), Some(dur_ms))
                 } else {
-                    (0, 0)
+                    (0, 0, None, None)
                 };
 
-                // Check if we already have the thumbnail in cache
+                // Synchronous, thread-safe thumbnail extraction on the current COM apartment thread
                 let mut album_art_base64: Option<String> = None;
-                let mut needs_fetch = false;
 
                 if let Ok(art_guard) = ART_CACHE.lock() {
                     if let Some(ref entry) = *art_guard {
-                        if entry.title == title && entry.artist == artist {
+                        if entry.title == title && entry.artist == artist && entry.art_base64.is_some() {
                             album_art_base64 = entry.art_base64.clone();
-                        } else {
-                            needs_fetch = true;
                         }
-                    } else {
-                        needs_fetch = true;
                     }
                 }
 
-                // Spawn non-blocking background thread to extract thumbnail without stalling UI
-                if needs_fetch {
-                    if let Some(send_thumb) = send_thumb_opt {
-                        let key = (title.clone(), artist.clone());
-                        let mut should_spawn = false;
-                        if let Ok(mut fetch_guard) = ART_FETCHING_KEY.lock() {
-                            if *fetch_guard != Some(key.clone()) {
-                                *fetch_guard = Some(key);
-                                should_spawn = true;
+                if album_art_base64.is_none() && !is_stale_props {
+                    if let Some(ref thumb_ref) = thumb_ref_opt {
+                        if let Some(art) = extract_thumbnail_base64(thumb_ref) {
+                            if let Ok(mut art_guard) = ART_CACHE.lock() {
+                                *art_guard = Some(ArtCacheEntry {
+                                    title: title.clone(),
+                                    artist: artist.clone(),
+                                    art_base64: Some(art.clone()),
+                                });
                             }
-                        }
-
-                        if should_spawn {
-                            let t_clone = title.clone();
-                            let a_clone = artist.clone();
-                            std::thread::spawn(move || {
-                                unsafe {
-                                    let _ = windows::Win32::System::Com::CoInitializeEx(
-                                        None,
-                                        windows::Win32::System::Com::COINIT_MULTITHREADED,
-                                    );
-                                }
-                                let art = send_thumb.extract();
-                                if let Ok(mut art_guard) = ART_CACHE.lock() {
-                                    *art_guard = Some(ArtCacheEntry {
-                                        title: t_clone,
-                                        artist: a_clone,
-                                        art_base64: art,
-                                    });
-                                }
-                                if let Ok(mut fetch_guard) = ART_FETCHING_KEY.lock() {
-                                    *fetch_guard = None;
-                                }
-                            });
+                            album_art_base64 = Some(art);
                         }
                     }
                 }
@@ -698,6 +714,8 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
                     duration_sec,
                     current_sec,
                     album_art_base64,
+                    position_ms,
+                    duration_ms,
                 });
             }
         }
@@ -737,6 +755,66 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
     final_session
 }
 
+pub fn notify_media_changed() {
+    if let Ok(mut guard) = MEDIA_CACHE.lock() {
+        guard.last_fetch = None;
+    }
+    if let Ok(guard) = APP_HANDLE.lock() {
+        if let Some(ref app) = *guard {
+            use tauri::Emitter;
+            let session = get_current_media_session();
+            let _ = app.emit("media-session-updated", session);
+        }
+    }
+}
+
+pub fn start_watcher(app: tauri::AppHandle) {
+    if let Ok(mut guard) = APP_HANDLE.lock() {
+        *guard = Some(app.clone());
+    }
+
+    std::thread::spawn(move || {
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        }
+
+        let mut last_session_key = String::new();
+        let mut last_is_playing = false;
+        let mut last_pos_sec = 0u64;
+
+        loop {
+            let sleep_ms = if last_is_playing { 250 } else { 800 };
+            std::thread::sleep(Duration::from_millis(sleep_ms));
+
+            use tauri::Emitter;
+            if let Some(session) = get_current_media_session() {
+                let session_key = format!("{}::{}::{}", session.title, session.artist, session.duration_sec);
+                let pos_diff = if session.current_sec >= last_pos_sec {
+                    session.current_sec - last_pos_sec
+                } else {
+                    last_pos_sec - session.current_sec
+                };
+
+                let changed = session_key != last_session_key
+                    || session.is_playing != last_is_playing
+                    || (session.is_playing && pos_diff >= 1);
+
+                if changed {
+                    last_session_key = session_key;
+                    last_is_playing = session.is_playing;
+                    last_pos_sec = session.current_sec;
+                    let _ = app.emit("media-session-updated", Some(&session));
+                }
+            } else if !last_session_key.is_empty() || last_is_playing {
+                last_session_key.clear();
+                last_is_playing = false;
+                last_pos_sec = 0;
+                let _ = app.emit("media-session-updated", Option::<MediaSessionInfo>::None);
+            }
+        }
+    });
+}
+
 pub fn toggle_play_pause() {
     let mut sent = false;
     if let Ok(guard) = MEDIA_CACHE.lock() {
@@ -766,6 +844,11 @@ pub fn toggle_play_pause() {
             keybd_event(0xB3, 0, KEYEVENTF_KEYUP, 0);
         }
     }
+    notify_media_changed();
+    std::thread::spawn(|| {
+        std::thread::sleep(Duration::from_millis(100));
+        notify_media_changed();
+    });
 }
 
 pub fn next_track() {
@@ -797,6 +880,13 @@ pub fn next_track() {
             keybd_event(0xB0, 0, KEYEVENTF_KEYUP, 0);
         }
     }
+    notify_media_changed();
+    std::thread::spawn(|| {
+        std::thread::sleep(Duration::from_millis(150));
+        notify_media_changed();
+        std::thread::sleep(Duration::from_millis(250));
+        notify_media_changed();
+    });
 }
 
 pub fn prev_track() {
@@ -828,6 +918,13 @@ pub fn prev_track() {
             keybd_event(0xB1, 0, KEYEVENTF_KEYUP, 0);
         }
     }
+    notify_media_changed();
+    std::thread::spawn(|| {
+        std::thread::sleep(Duration::from_millis(150));
+        notify_media_changed();
+        std::thread::sleep(Duration::from_millis(250));
+        notify_media_changed();
+    });
 }
 
 pub fn volume_up() {
@@ -855,7 +952,12 @@ pub fn volume_mute() {
 }
 
 pub fn seek_media(position_sec: u64) {
-    if let Ok(guard) = MEDIA_CACHE.lock() {
+    if let Ok(mut guard) = MEDIA_CACHE.lock() {
+        guard.last_fetch = None;
+        if let Some(ref mut session) = guard.cached_session {
+            session.current_sec = position_sec;
+            session.position_ms = Some(position_sec * 1000);
+        }
         let ticks = (position_sec as i64) * 10_000_000;
         let mut sought = false;
         if let Some(ref session) = guard.active_session {
@@ -871,6 +973,7 @@ pub fn seek_media(position_sec: u64) {
             }
         }
     }
+    notify_media_changed();
 }
 
 pub fn focus_media_app() {
