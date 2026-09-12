@@ -64,6 +64,16 @@ static MEDIA_CACHE: Mutex<MediaCache> = Mutex::new(MediaCache {
     active_title: String::new(),
 });
 
+struct SendThumb(windows::Storage::Streams::IRandomAccessStreamReference);
+unsafe impl Send for SendThumb {}
+unsafe impl Sync for SendThumb {}
+
+impl SendThumb {
+    pub fn extract(&self) -> Option<String> {
+        extract_thumbnail_base64(&self.0)
+    }
+}
+
 struct ArtCacheEntry {
     title: String,
     artist: String,
@@ -71,6 +81,7 @@ struct ArtCacheEntry {
 }
 
 static ART_CACHE: Mutex<Option<ArtCacheEntry>> = Mutex::new(None);
+static ART_FETCHING_KEY: Mutex<Option<(String, String)>> = Mutex::new(None);
 
 fn extract_browser_media_title(raw: &str) -> Option<String> {
     let mut title = raw.trim();
@@ -128,6 +139,62 @@ fn extract_browser_media_title(raw: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+fn find_matching_browser_title(app_id_lower: &str) -> Option<String> {
+    struct SearchState {
+        app_id_lower: String,
+        best_title: Option<String>,
+        fg_hwnd: HWND,
+    }
+
+    let fg_hwnd = unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
+
+    let mut state = SearchState {
+        app_id_lower: app_id_lower.to_string(),
+        best_title: None,
+        fg_hwnd,
+    };
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let state = &mut *(lparam.0 as *mut SearchState);
+        if !IsWindow(Some(hwnd)).as_bool() || !IsWindowVisible(hwnd).as_bool() {
+            return BOOL(1);
+        }
+
+        let (exe, _) = crate::services::window_watcher::get_window_exe_path(hwnd);
+        let exe_lower = exe.to_lowercase();
+        let matches_app = (state.app_id_lower.contains("edge") && exe_lower.contains("msedge"))
+            || (state.app_id_lower.contains("chrome") && exe_lower.contains("chrome"))
+            || (state.app_id_lower.contains("brave") && exe_lower.contains("brave"))
+            || (state.app_id_lower.contains("firefox") && exe_lower.contains("firefox"));
+
+        if matches_app {
+            let mut title_buf = [0u16; 512];
+            let len = GetWindowTextW(hwnd, &mut title_buf);
+            if len > 0 {
+                let raw_win_title = String::from_utf16_lossy(&title_buf[..len as usize]);
+                if let Some(clean) = extract_browser_media_title(&raw_win_title) {
+                    if hwnd == state.fg_hwnd {
+                        state.best_title = Some(clean);
+                        return BOOL(0); // Focused browser window, stop search immediately!
+                    } else if state.best_title.is_none() {
+                        state.best_title = Some(clean);
+                    }
+                }
+            }
+        }
+        BOOL(1)
+    }
+
+    unsafe {
+        let _ = EnumWindows(
+            Some(enum_proc),
+            LPARAM(&mut state as *mut _ as isize),
+        );
+    }
+
+    state.best_title
 }
 
 fn extract_thumbnail_base64(thumb_ref: &windows::Storage::Streams::IRandomAccessStreamReference) -> Option<String> {
@@ -541,11 +608,11 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
             let app_id = session.SourceAppUserModelId().map(|s| s.to_string()).unwrap_or_default();
             let props = session.TryGetMediaPropertiesAsync().ok().and_then(|op| op.get().ok());
 
-            let (raw_title, raw_artist, album_title, thumb_ref_opt) = if let Some(ref p) = props {
+            let (raw_title, raw_artist, album_title, send_thumb_opt) = if let Some(ref p) = props {
                 let t = p.Title().map(|s| s.to_string()).unwrap_or_default();
                 let a = p.Artist().map(|s| s.to_string()).unwrap_or_default();
                 let alb = p.AlbumTitle().map(|s| s.to_string()).ok();
-                let thumb = p.Thumbnail().ok();
+                let thumb = p.Thumbnail().ok().map(SendThumb);
                 (t, a, alb, thumb)
             } else {
                 (String::new(), String::new(), None, None)
@@ -572,29 +639,7 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
 
             let mut is_stale_props = false;
             if is_browser_session {
-                let windows = crate::services::window_watcher::enumerate_windows();
-                let mut best_browser_title: Option<String> = None;
-
-                for win in &windows {
-                    let win_exe = win.exe.to_lowercase();
-                    let matches_app = (app_id_lower.contains("edge") && win_exe.contains("msedge"))
-                        || (app_id_lower.contains("chrome") && win_exe.contains("chrome"))
-                        || (app_id_lower.contains("brave") && win_exe.contains("brave"))
-                        || (app_id_lower.contains("firefox") && win_exe.contains("firefox"));
-
-                    if matches_app {
-                        if let Some(clean) = extract_browser_media_title(&win.title) {
-                            if win.is_focused {
-                                best_browser_title = Some(clean);
-                                break;
-                            } else if best_browser_title.is_none() {
-                                best_browser_title = Some(clean);
-                            }
-                        }
-                    }
-                }
-
-                if let Some(b_title) = best_browser_title {
+                if let Some(b_title) = find_matching_browser_title(&app_id_lower) {
                     let t_lower = title.to_lowercase();
                     let b_lower = b_title.to_lowercase();
                     let is_generic = t_lower.is_empty() || t_lower == "edge" || t_lower == "chrome" || t_lower == "brave" || t_lower == "youtube";
@@ -680,28 +725,56 @@ pub fn get_current_media_session() -> Option<MediaSessionInfo> {
                     (0, 0, None, None)
                 };
 
-                // Synchronous, thread-safe thumbnail extraction on the current COM apartment thread
+                // Asynchronous, non-blocking thumbnail extraction on background thread without stalling UI
                 let mut album_art_base64: Option<String> = None;
+                let mut needs_fetch = false;
 
                 if let Ok(art_guard) = ART_CACHE.lock() {
                     if let Some(ref entry) = *art_guard {
-                        if entry.title == title && entry.artist == artist && entry.art_base64.is_some() {
+                        if entry.title == title && entry.artist == artist {
                             album_art_base64 = entry.art_base64.clone();
+                        } else {
+                            needs_fetch = true;
                         }
+                    } else {
+                        needs_fetch = true;
                     }
                 }
 
-                if album_art_base64.is_none() && !is_stale_props {
-                    if let Some(ref thumb_ref) = thumb_ref_opt {
-                        if let Some(art) = extract_thumbnail_base64(thumb_ref) {
-                            if let Ok(mut art_guard) = ART_CACHE.lock() {
-                                *art_guard = Some(ArtCacheEntry {
-                                    title: title.clone(),
-                                    artist: artist.clone(),
-                                    art_base64: Some(art.clone()),
-                                });
+                if (needs_fetch || album_art_base64.is_none()) && !is_stale_props {
+                    if let Some(send_thumb) = send_thumb_opt {
+                        let key = (title.clone(), artist.clone());
+                        let mut should_spawn = false;
+                        if let Ok(mut fetch_guard) = ART_FETCHING_KEY.lock() {
+                            if *fetch_guard != Some(key.clone()) {
+                                *fetch_guard = Some(key);
+                                should_spawn = true;
                             }
-                            album_art_base64 = Some(art);
+                        }
+
+                        if should_spawn {
+                            let t_clone = title.clone();
+                            let a_clone = artist.clone();
+                            // Small stack: art extraction is I/O-bound, not recursion-heavy
+                            let _ = std::thread::Builder::new()
+                                .stack_size(256 * 1024)
+                                .spawn(move || {
+                                unsafe {
+                                    let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+                                }
+                                let art = send_thumb.extract();
+                                if let Ok(mut art_guard) = ART_CACHE.lock() {
+                                    *art_guard = Some(ArtCacheEntry {
+                                        title: t_clone,
+                                        artist: a_clone,
+                                        art_base64: art,
+                                    });
+                                }
+                                if let Ok(mut fetch_guard) = ART_FETCHING_KEY.lock() {
+                                    *fetch_guard = None;
+                                }
+                                notify_media_changed();
+                            });
                         }
                     }
                 }
@@ -783,7 +856,9 @@ pub fn start_watcher(app: tauri::AppHandle) {
         let mut last_pos_sec = 0u64;
 
         loop {
-            let sleep_ms = if last_is_playing { 250 } else { 800 };
+            // Pause detection is coarse — frontend JS handles smooth 250ms progress animation.
+            // Rust only needs to detect track changes and play/pause transitions.
+            let sleep_ms = if last_is_playing { 500 } else { 1500 };
             std::thread::sleep(Duration::from_millis(sleep_ms));
 
             use tauri::Emitter;

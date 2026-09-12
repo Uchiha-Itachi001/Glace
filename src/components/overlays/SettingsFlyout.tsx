@@ -150,6 +150,44 @@ const NOTCH_BG_MODES: Array<{ id: "black" | "cover"; name: string; badge: string
   },
 ];
 
+const TASKBAR_MEDIA_STYLES: Array<{
+  id: "cover_pill" | "waveform_deck" | "perimeter_card" | "vinyl" | "classic";
+  name: string;
+  badge: string;
+  desc: string;
+}> = [
+  {
+    id: "cover_pill",
+    name: "Live Cover Pill",
+    badge: "Minimal Dock",
+    desc: "Inline dock player with full-bleed cover, circular progress ring, and direct skip. No popup flyout",
+  },
+  {
+    id: "waveform_deck",
+    name: "Golden Waveform",
+    badge: "Featured",
+    desc: "Soft frosted player deck with interactive soundwave bar scrubber and glowing radiant play button",
+  },
+  {
+    id: "perimeter_card",
+    name: "Perimeter Card",
+    badge: "Glow Ring",
+    desc: "Squircle card with continuous gradient perimeter border progress track and dual glass control pills",
+  },
+  {
+    id: "vinyl",
+    name: "Vinyl Deck",
+    badge: "Retro",
+    desc: "Spinning turntable vinyl record disc with grooved playback animation and floating player card",
+  },
+  {
+    id: "classic",
+    name: "Classic Waveform",
+    badge: "Classic",
+    desc: "Compact pill with live dynamic audio equalizer waveform bars and pop-up controller",
+  },
+];
+
 export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const { settings, updateSettings, setTheme, toggleWidget, toggleTrayItem, setSysMonMode, setMediaLocation } = useSettings();
   const { updateInfo, isChecking, hasUpdate, check: checkUpdate, currentVersion } = useUpdate();
@@ -1178,7 +1216,52 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                 </div>
               )}
 
-              {/* 6. Sub-Features & Activity HUDs */}
+              {/* 6. Bottom Media Player Customization (Taskbar Dock Style) */}
+              {currentMediaLocation !== "none" && (
+                <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                  <span className="settings-block-label">
+                    Bottom Media Player Style (Dock)
+                  </span>
+                  <div className="sysmon-mode-options-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
+                    {TASKBAR_MEDIA_STYLES.map((mediaStyle) => {
+                      const isSelected = (settings?.taskbar_media_style || "cover_pill") === mediaStyle.id;
+                      return (
+                        <div
+                          key={mediaStyle.id}
+                          className={`sysmon-mode-card ${
+                            isSelected ? "sysmon-mode-card--active" : ""
+                          }`}
+                          onClick={() => updateSettings({ taskbar_media_style: mediaStyle.id })}
+                        >
+                          <div className="sysmon-mode-header">
+                            <span className="sysmon-mode-name">{mediaStyle.name}</span>
+                            <span className="sysmon-mode-badge">{mediaStyle.badge}</span>
+                          </div>
+                          <span className="sysmon-mode-desc">{mediaStyle.desc}</span>
+                          {isSelected && (
+                            <div className="sysmon-mode-check">
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 7. Sub-Features & Activity HUDs */}
               {islandEnabled && (
                 <div className="settings-section-block" style={{ marginTop: "16px" }}>
                   <span className="settings-block-label">Notch Features & Activity HUDs</span>

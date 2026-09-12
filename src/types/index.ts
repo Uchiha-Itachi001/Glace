@@ -40,6 +40,7 @@ export interface SystemMetrics {
   gpu_percent?: number;
   storage_used_gb?: number;
   storage_total_gb?: number;
+  uptime_seconds?: number;
 }
 
 // Backwards compatibility alias
@@ -90,6 +91,7 @@ export interface DockAppItem {
 }
 
 export type MediaLocation = "notch" | "taskbar" | "none";
+export type TaskbarMediaStyle = "cover_pill" | "waveform_deck" | "perimeter_card" | "vinyl" | "classic";
 export type BarAlignment = "center" | "left" | "right";
 export type NotchPeekKey = "shift" | "ctrl" | "space" | "tab";
 
@@ -113,6 +115,7 @@ export interface Settings {
   island_show_hardware?: boolean;
   island_show_battery?: boolean;
   island_media_bg_mode?: "black" | "cover";
+  taskbar_media_style?: TaskbarMediaStyle;
   media_location?: MediaLocation;
   notch_peek_key?: NotchPeekKey;
   margin_top?: number;

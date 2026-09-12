@@ -1,4 +1,5 @@
-use std::sync::{atomic::{AtomicBool, Ordering}, Mutex};
+use std::sync::{atomic::{AtomicBool, Ordering}, Mutex, OnceLock};
+use crate::models::types::Settings;
 use windows::{
     core::{BOOL, PCWSTR},
     Win32::{
@@ -278,6 +279,33 @@ pub fn restore(_screen_height: i32, _screen_width: i32) {
 static NOTCH_PEEK_THROUGH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static IS_WINDOW_EXPANDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// Cached copy of Settings to avoid repeated disk I/O in hot paths (e.g. update_window_region called at 150ms intervals).
+static SETTINGS_CACHE: OnceLock<Mutex<Option<Settings>>> = OnceLock::new();
+
+fn settings_cache() -> &'static Mutex<Option<Settings>> {
+    SETTINGS_CACHE.get_or_init(|| Mutex::new(None))
+}
+
+/// Call this after writing new settings to disk so the next update_window_region reads fresh values.
+pub fn invalidate_cached_settings() {
+    if let Ok(mut guard) = settings_cache().lock() {
+        *guard = None;
+    }
+}
+
+/// Returns a cached copy of Settings, loading from disk only when the cache is empty.
+fn get_cached_settings() -> Settings {
+    if let Ok(mut guard) = settings_cache().lock() {
+        if let Some(ref s) = *guard {
+            return s.clone();
+        }
+        let loaded = crate::config::settings::load();
+        *guard = Some(loaded.clone());
+        return loaded;
+    }
+    crate::config::settings::load()
+}
+
 pub fn is_window_expanded() -> bool {
     IS_WINDOW_EXPANDED.load(std::sync::atomic::Ordering::Relaxed)
 }
@@ -330,7 +358,7 @@ pub fn update_window_region(
             let bar_top = monitor_h - bar_height;
             let rgn_bar = CreateRectRgn(0, bar_top, monitor_w, monitor_h);
 
-            let settings = crate::config::settings::load();
+            let settings = get_cached_settings();
             let is_macos_mode = settings.bar_position == "macos" || settings.bar_position == "top";
             let is_peek = NOTCH_PEEK_THROUGH.load(std::sync::atomic::Ordering::Relaxed);
 

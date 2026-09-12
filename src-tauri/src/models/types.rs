@@ -91,6 +91,10 @@ fn default_bar_alignment() -> String {
     "center".into()
 }
 
+fn default_taskbar_media_style() -> String {
+    "cover_pill".into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BluetoothDevice {
     pub id: String,
@@ -150,6 +154,8 @@ pub struct Settings {
     pub media_location: String,
     #[serde(default = "default_island_media_bg_mode")]
     pub island_media_bg_mode: String,
+    #[serde(default = "default_taskbar_media_style")]
+    pub taskbar_media_style: String,
     #[serde(default = "default_notch_peek_key")]
     pub notch_peek_key: String,
     #[serde(default = "default_margin_top")]
@@ -198,6 +204,7 @@ impl Default for Settings {
             island_show_battery: true,
             media_location: "notch".into(),
             island_media_bg_mode: "black".into(),
+            taskbar_media_style: "cover_pill".into(),
             notch_peek_key: "shift".into(),
             margin_top: 0,
             margin_bottom: 48,

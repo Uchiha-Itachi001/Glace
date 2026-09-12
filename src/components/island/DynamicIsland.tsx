@@ -42,47 +42,28 @@ export const DynamicIsland: React.FC = () => {
     focusMediaApp,
   } = useMediaSession(showMedia);
 
-  const [currentTime, setCurrentTime] = useState<string>(() => {
-    const now = new Date();
-    return now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
-  });
-
-  const [cpuHistory, setCpuHistory] = useState<number[]>([12, 16, 14, 20, 15, 18, 22, 19, 14, 16, 12, 10]);
-  const [ramHistory, setRamHistory] = useState<number[]>([60, 61, 62, 63, 62, 64, 65, 65, 66, 66, 65, 66]);
-
-  useEffect(() => {
-    if (systemMetrics?.cpu_percent !== undefined) {
-      setCpuHistory((prev) => [...prev.slice(-14), systemMetrics.cpu_percent]);
-    }
-    if (systemMetrics?.ram_percent !== undefined) {
-      setRamHistory((prev) => [...prev.slice(-14), systemMetrics.ram_percent]);
-    }
-  }, [systemMetrics?.cpu_percent, systemMetrics?.ram_percent]);
+  // Single combined tick state: one React update per second instead of two separate ones
+  const [tick, setTick] = useState<{ date: Date; uptimeSec: number }>(() => ({
+    date: new Date(),
+    uptimeSec: 4980,
+  }));
+  const clockDate = tick.date;
+  const sessionUptimeSec = tick.uptimeSec;
+  const currentTime = clockDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }));
-    }, 5000);
+      setTick((prev) => ({ date: new Date(), uptimeSec: prev.uptimeSec + 1 }));
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
   const [expandedType, setExpandedType] = useState<"media" | "bluetooth" | "hardware" | null>(null);
   const [islandTab, setIslandTab] = useState<"dashboard" | "media" | "performance" | "controls">("dashboard");
   const [dashVolume, setDashVolume] = useState<number>(65);
-  const [dashBrightness, setDashBrightness] = useState<number>(50);
-  const [clockDate, setClockDate] = useState<Date>(() => new Date());
-  const [sessionUptimeSec, setSessionUptimeSec] = useState<number>(4980);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setClockDate(new Date());
-      setSessionUptimeSec((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const [splitViewMode, setSplitViewMode] = useState<"media_main" | "bt_main">("media_main");
+
+
   const [isMuted, setIsMuted] = useState(false);
 
   const { activeDevice: activeBtDevice, isConnected: isBtConnected } = bluetooth;
@@ -185,28 +166,41 @@ export const DynamicIsland: React.FC = () => {
   }
 
   const formatTime = (secs: number) => {
+    if (typeof secs !== "number" || isNaN(secs) || secs < 0) return "0:00";
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
-  const handleExpandMedia = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedType("media");
-    windowExpansion.request("island", 220);
+  const handleExpandMedia = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setExpandedType("media");
+      windowExpansion.request("island", 220);
+    } catch (err) {
+      console.error("[DynamicIsland] Failed to expand media:", err);
+    }
   };
 
-  const handleExpandBluetooth = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedType("bluetooth");
-    windowExpansion.request("island", 180);
+  const handleExpandBluetooth = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setExpandedType("bluetooth");
+      windowExpansion.request("island", 180);
+    } catch (err) {
+      console.error("[DynamicIsland] Failed to expand bluetooth:", err);
+    }
   };
 
-  const handleExpandHardware = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedType("hardware");
-    setIslandTab("dashboard");
-    windowExpansion.request("island", 260);
+  const handleExpandHardware = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setExpandedType("hardware");
+      setIslandTab("dashboard");
+      windowExpansion.request("island", 260);
+    } catch (err) {
+      console.error("[DynamicIsland] Failed to expand hardware:", err);
+    }
   };
 
   const handleCollapse = (e?: React.MouseEvent) => {
@@ -214,6 +208,16 @@ export const DynamicIsland: React.FC = () => {
     setExpandedType(null);
     windowExpansion.release("island");
   };
+
+  // Sync expandedType when windowExpansion is released externally (e.g. backdrop or transparent space click)
+  useEffect(() => {
+    const unsub = windowExpansion.subscribe((isExpanded) => {
+      if (!isExpanded && expandedType !== null) {
+        setExpandedType(null);
+      }
+    });
+    return unsub;
+  }, [expandedType]);
 
   // Fail-safe outside click dismiss for expanded cards
   useEffect(() => {
@@ -293,7 +297,13 @@ export const DynamicIsland: React.FC = () => {
   };
 
   const fallbackTheme = getTrackColor(activeTitle, activeArtist);
-  const trackTheme = dynamicTheme || fallbackTheme;
+  const trackTheme = {
+    waveColor: dynamicTheme?.waveColor || fallbackTheme.waveColor,
+    waveGradient: dynamicTheme?.waveGradient || fallbackTheme.waveGradient,
+    waveGradientTop: dynamicTheme?.waveGradientTop || fallbackTheme.waveGradientTop,
+    waveGradientBottom: dynamicTheme?.waveGradientBottom || fallbackTheme.waveGradientBottom,
+    glowColor: dynamicTheme?.glowColor || fallbackTheme.glowColor,
+  };
 
   // Circular ring calculation for Image 1: 42px SVG (radius 17)
   const ringRadius = 17;
@@ -305,35 +315,6 @@ export const DynamicIsland: React.FC = () => {
   const miniRadius = 4.2;
   const miniCircumference = 2 * Math.PI * miniRadius;
   const miniOffset = miniCircumference - (displayRingPct / 100) * miniCircumference;
-
-  const renderSparkline = (data: number[], strokeColor: string, gradientId: string) => {
-    const w = 124;
-    const h = 24;
-    if (!data || data.length === 0) return null;
-    const max = 100;
-    const min = 0;
-    const range = max - min || 1;
-    const pts = data.map((v, i) => {
-      const x = (i / Math.max(1, data.length - 1)) * w;
-      const y = h - ((Math.min(100, Math.max(0, v)) - min) / range) * (h - 6) - 3;
-      return { x, y };
-    });
-    const lineD = pts.reduce((acc, p, i) => (i === 0 ? `M ${p.x.toFixed(1)},${p.y.toFixed(1)}` : `${acc} L ${p.x.toFixed(1)},${p.y.toFixed(1)}`), "");
-    const areaD = `${lineD} L ${w},${h} L 0,${h} Z`;
-
-    return (
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: "visible", display: "block" }}>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.38" />
-            <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
-          </linearGradient>
-        </defs>
-        <path d={areaD} fill={`url(#${gradientId})`} />
-        <path d={lineD} fill="none" stroke={strokeColor} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  };
 
   const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
     const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
@@ -490,7 +471,6 @@ export const DynamicIsland: React.FC = () => {
   const clockMin = clockDate.getMinutes().toString().padStart(2, "0");
   const clockSec = clockDate.getSeconds();
   const ampm = rawHours >= 12 ? "PM" : "AM";
-  const weekdayShort = clockDate.toLocaleDateString("en-US", { weekday: "short" });
   const weekdayFull = clockDate.toLocaleDateString("en-US", { weekday: "long" });
   const monthDay = clockDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const monthYearStr = clockDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -911,7 +891,7 @@ export const DynamicIsland: React.FC = () => {
                           <line x1="6" y1="6" x2="6.01" y2="6" />
                           <line x1="6" y1="18" x2="6.01" y2="18" />
                         </svg>
-                        <span className="bento-glance-stat-lbl">RAM {((systemMetrics.used_ram_mb || 5529) / 1024).toFixed(1)} GB in use</span>
+                        <span className="bento-glance-stat-lbl">RAM {(((systemMetrics?.used_ram_mb ?? 5529)) / 1024).toFixed(1)} GB in use</span>
                       </div>
                     </div>
 
@@ -990,34 +970,34 @@ export const DynamicIsland: React.FC = () => {
                 <div className="notch-telemetry-gauges-row">
                   {/* 1. CPU Usage Gauge */}
                   {renderTelemetryGauge(
-                    `${systemMetrics.cpu_percent}%`,
+                    `${systemMetrics?.cpu_percent ?? 0}%`,
                     "CPU Usage",
-                    systemMetrics.cpu_percent,
-                    systemMetrics.net_recv_formatted || "0 B/s",
+                    systemMetrics?.cpu_percent ?? 0,
+                    systemMetrics?.net_recv_formatted || "0 B/s",
                     "Network",
-                    Math.min(100, Math.max(10, systemMetrics.cpu_percent)),
+                    Math.min(100, Math.max(10, systemMetrics?.cpu_percent ?? 0)),
                     "cpu"
                   )}
 
                   {/* 2. RAM Usage Gauge */}
                   {renderTelemetryGauge(
-                    `${systemMetrics.ram_percent}%`,
+                    `${systemMetrics?.ram_percent ?? 0}%`,
                     "RAM Usage",
-                    systemMetrics.ram_percent,
-                    `${((systemMetrics.used_ram_mb || 5529) / 1024).toFixed(1)}GiB`,
+                    systemMetrics?.ram_percent ?? 0,
+                    `${(((systemMetrics?.used_ram_mb ?? 5529)) / 1024).toFixed(1)}GiB`,
                     "In Use",
-                    systemMetrics.ram_percent,
+                    systemMetrics?.ram_percent ?? 0,
                     "ram"
                   )}
 
                   {/* 3. GPU Usage Gauge */}
                   {renderTelemetryGauge(
-                    `${systemMetrics.gpu_percent ?? 6}%`,
+                    `${systemMetrics?.gpu_percent ?? 6}%`,
                     "GPU Usage",
-                    systemMetrics.gpu_percent ?? 6,
-                    `${systemMetrics.storage_used_gb ?? 256}GiB`,
+                    systemMetrics?.gpu_percent ?? 6,
+                    `${systemMetrics?.storage_used_gb ?? 256}GiB`,
                     "Storage",
-                    Math.round(((systemMetrics.storage_used_gb ?? 256) / Math.max(1, systemMetrics.storage_total_gb ?? 512)) * 100),
+                    Math.round((((systemMetrics?.storage_used_gb ?? 256)) / Math.max(1, systemMetrics?.storage_total_gb ?? 512)) * 100),
                     "gpu"
                   )}
                 </div>

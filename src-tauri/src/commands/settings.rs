@@ -12,6 +12,10 @@ pub fn save_settings(app: tauri::AppHandle, settings: Settings) {
     // 1. Save settings to disk first so all consumers read latest configuration
     cfg::save(&settings);
 
+    // Bust the work_area settings cache so the next update_window_region reads the fresh file
+    crate::services::work_area::invalidate_cached_settings();
+
+
     // 2. Notify background worker threads of new enable/disable states immediately
     services::bluetooth::set_enabled(settings.enable_dynamic_island && settings.island_show_bluetooth);
 

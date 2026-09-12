@@ -99,6 +99,7 @@ const DEFAULT_SETTINGS: Settings = {
   island_show_hardware: true,
   island_show_battery: true,
   island_media_bg_mode: "black",
+  taskbar_media_style: "cover_pill",
   media_location: "notch",
   margin_top: 0,
   margin_bottom: 48,

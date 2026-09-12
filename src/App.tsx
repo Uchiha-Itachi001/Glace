@@ -19,6 +19,7 @@ import { ClockCapsule } from "./components/capsules/ClockCapsule";
 
 import { SettingsFlyout } from "./components/overlays/SettingsFlyout";
 import { CalendarFlyout } from "./components/overlays/CalendarFlyout";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { tauriBridge } from "./services/tauriBridge";
 
 export default function App() {
@@ -35,7 +36,7 @@ export default function App() {
       // Allow clicks within actual interactive components
       if (
         target.closest(
-          "#taskbar-bar, .dynamic-notch-wrapper, .settings-flyout, .calendar-flyout, .apps-overflow-flyout, .apps-context-menu, .fluent-jumplist"
+          "#taskbar-bar, .dynamic-notch-wrapper, .island-backdrop, .settings-flyout, .calendar-flyout, .apps-overflow-flyout, .apps-context-menu, .fluent-jumplist"
         )
       ) {
         return;
@@ -157,7 +158,9 @@ export default function App() {
 
           <div className="macos-top-bar-center">
             {/* Top Notch Dynamic Island */}
-            <DynamicIsland />
+            <ErrorBoundary componentName="DynamicIsland">
+              <DynamicIsland />
+            </ErrorBoundary>
           </div>
 
           <div className="macos-top-bar-right">
@@ -167,7 +170,9 @@ export default function App() {
         </header>
       ) : (
         /* Windows Mode: Top Notch Dynamic Island */
-        <DynamicIsland />
+        <ErrorBoundary componentName="DynamicIsland">
+          <DynamicIsland />
+        </ErrorBoundary>
       )}
 
       {/* Invisible Flyout Backdrop to dismiss panels when clicking outside */}

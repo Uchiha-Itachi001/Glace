@@ -1103,7 +1103,7 @@ pub fn start(app_handle: AppHandle) {
         let mut last_fullscreen_state = false;
 
         loop {
-            thread::sleep(Duration::from_millis(150));
+            thread::sleep(Duration::from_millis(250));
 
             if crate::services::work_area::IS_SHUTTING_DOWN.load(std::sync::atomic::Ordering::SeqCst) {
                 break;
