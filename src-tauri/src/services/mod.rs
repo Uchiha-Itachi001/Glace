@@ -7,4 +7,5 @@ pub mod bluetooth;
 pub mod flyout_tracker;
 pub mod autostart;
 pub mod keyboard_hook;
+pub mod ai_host;
 

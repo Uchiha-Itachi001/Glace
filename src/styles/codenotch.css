@@ -1,0 +1,551 @@
+/* ─── Authentic CodeNotch Vertical Desktop Notch (vinzdg/codenotch) ────── */
+
+.codenotch-vertical-notch {
+  position: fixed;
+  z-index: 9988;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Roboto, sans-serif;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              border-radius 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  pointer-events: auto !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+/* Default: Right Screen Edge Bezel Hugging (Inactive Compact Mode) */
+.codenotch-pos--right,
+.codenotch-pos--top-right {
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  background: #000000;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px 0 0 12px;
+  padding: 8px 0;
+  box-shadow: none !important;
+}
+
+/* Expanded/Active: Full Current Notch */
+.codenotch-vertical-notch--active.codenotch-pos--right,
+.codenotch-vertical-notch--active.codenotch-pos--top-right {
+  width: 58px;
+  border-radius: 20px 0 0 20px;
+  padding: 16px 0;
+}
+
+/* Alternative: Left Screen Edge (Inactive Compact Mode) */
+.codenotch-pos--left,
+.codenotch-pos--top-left {
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  background: #000000;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0 12px 12px 0;
+  padding: 8px 0;
+  box-shadow: none !important;
+}
+
+/* Expanded/Active: Full Current Left Notch */
+.codenotch-vertical-notch--active.codenotch-pos--left,
+.codenotch-vertical-notch--active.codenotch-pos--top-left {
+  width: 58px;
+  border-radius: 0 20px 20px 0;
+  padding: 16px 0;
+}
+
+/* Alternative: Floating Island Capsule */
+.codenotch-pos--floating {
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 8px 0;
+  box-shadow: none !important;
+}
+
+.codenotch-vertical-notch--active.codenotch-pos--floating {
+  width: 58px;
+  border-radius: 28px;
+  padding: 16px 0;
+}
+
+/* ─── Concave Corner Ears Merging with Bezel ────────────────────────────── */
+
+.codenotch-ear {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  z-index: 2;
+  display: block;
+  overflow: visible;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              top 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              bottom 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Right Edge Ears - Inactive */
+.codenotch-pos--right .codenotch-ear--top,
+.codenotch-pos--top-right .codenotch-ear--top {
+  top: -11.5px;
+  right: 0;
+}
+
+.codenotch-pos--right .codenotch-ear--bottom,
+.codenotch-pos--top-right .codenotch-ear--bottom {
+  bottom: -11.5px;
+  right: 0;
+}
+
+/* Right Edge Ears - Active */
+.codenotch-vertical-notch--active.codenotch-pos--right .codenotch-ear,
+.codenotch-vertical-notch--active.codenotch-pos--top-right .codenotch-ear {
+  width: 16px;
+  height: 16px;
+}
+
+.codenotch-vertical-notch--active.codenotch-pos--right .codenotch-ear--top,
+.codenotch-vertical-notch--active.codenotch-pos--top-right .codenotch-ear--top {
+  top: -15.5px;
+  right: 0;
+}
+
+.codenotch-vertical-notch--active.codenotch-pos--right .codenotch-ear--bottom,
+.codenotch-vertical-notch--active.codenotch-pos--top-right .codenotch-ear--bottom {
+  bottom: -15.5px;
+  right: 0;
+}
+
+/* Left Edge Ears - Inactive */
+.codenotch-pos--left .codenotch-ear--top,
+.codenotch-pos--top-left .codenotch-ear--top {
+  top: -11.5px;
+  left: 0;
+  right: auto;
+  transform: scaleX(-1);
+}
+
+.codenotch-pos--left .codenotch-ear--bottom,
+.codenotch-pos--top-left .codenotch-ear--bottom {
+  bottom: -11.5px;
+  left: 0;
+  right: auto;
+  transform: scaleX(-1);
+}
+
+/* Left Edge Ears - Active */
+.codenotch-vertical-notch--active.codenotch-pos--left .codenotch-ear,
+.codenotch-vertical-notch--active.codenotch-pos--top-left .codenotch-ear {
+  width: 16px;
+  height: 16px;
+}
+
+.codenotch-vertical-notch--active.codenotch-pos--left .codenotch-ear--top,
+.codenotch-vertical-notch--active.codenotch-pos--top-left .codenotch-ear--top {
+  top: -15.5px;
+  left: 0;
+  right: auto;
+  transform: scaleX(-1);
+}
+
+.codenotch-vertical-notch--active.codenotch-pos--left .codenotch-ear--bottom,
+.codenotch-vertical-notch--active.codenotch-pos--top-left .codenotch-ear--bottom {
+  bottom: -15.5px;
+  left: 0;
+  right: auto;
+  transform: scaleX(-1);
+}
+
+
+/* Floating mode disables ears */
+.codenotch-pos--floating .codenotch-ear {
+  display: none;
+}
+
+/* ─── Column of Ring Items ──────────────────────────────────────────────── */
+
+.codenotch-items-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  transition: gap 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.codenotch-vertical-notch--active .codenotch-items-column {
+  gap: 16px;
+}
+
+.codenotch-ring-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  cursor: pointer;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+              gap 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  pointer-events: auto !important;
+}
+
+.codenotch-vertical-notch--active .codenotch-ring-item {
+  gap: 4px;
+}
+
+.codenotch-ring-item:hover,
+.codenotch-ring-item--selected {
+  transform: scale(1.08);
+}
+
+/* ─── Circular Ring Gauge ───────────────────────────────────────────────── */
+
+.codenotch-ring-gauge {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.codenotch-vertical-notch--active .codenotch-ring-gauge {
+  width: 40px;
+  height: 40px;
+}
+
+.codenotch-ring-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.codenotch-vertical-notch--active .codenotch-ring-svg {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.codenotch-ring-arc--active {
+  transform-origin: center;
+  animation: codenotchSpinArc 3.6s linear infinite;
+}
+
+@keyframes codenotchSpinArc {
+  from { transform: rotate(-90deg); }
+  to { transform: rotate(270deg); }
+}
+
+/* Inner Badge Circle */
+.codenotch-inner-badge {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  color: var(--item-color, #ffffff);
+  box-shadow: none;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.2s ease,
+              border-color 0.2s ease,
+              box-shadow 0.2s ease,
+              color 0.2s ease;
+}
+
+.codenotch-vertical-notch--active .codenotch-inner-badge {
+  width: 28px;
+  height: 28px;
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.codenotch-vertical-notch--active .codenotch-ring-item:hover .codenotch-inner-badge,
+.codenotch-vertical-notch--active .codenotch-ring-item--selected .codenotch-inner-badge {
+  background: #181818;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Provider Icon Glyph */
+.codenotch-provider-glyph {
+  width: 12px;
+  height: 12px;
+  display: block;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.codenotch-vertical-notch--active .codenotch-provider-glyph {
+  width: 16px;
+  height: 16px;
+}
+
+/* Percentage Label under Ring */
+.codenotch-ring-percent {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+  text-shadow: none;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.codenotch-vertical-notch--active .codenotch-ring-percent {
+  opacity: 1;
+  max-height: 20px;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ─── Speech Bubble Popover Card ────────────────────────────────────────── */
+
+.codenotch-speech-bubble {
+  position: absolute;
+  right: 70px;
+  transform: translateY(-50%);
+  width: 270px;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: none;
+  z-index: 9999;
+  animation: codenotchBubbleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: auto;
+}
+
+.codenotch-pos--left .codenotch-speech-bubble,
+.codenotch-pos--top-left .codenotch-speech-bubble {
+  right: auto;
+  left: 70px;
+  animation-name: codenotchBubbleInLeft;
+}
+
+@keyframes codenotchBubbleInLeft {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+  }
+}
+
+@keyframes codenotchBubbleIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+  }
+}
+
+/* Speech Bubble Triangular Pointer Arrow */
+.codenotch-bubble-arrow {
+  position: absolute;
+  right: -6.5px;
+  top: 50%;
+  margin-top: -6px;
+  width: 12px;
+  height: 12px;
+  background: #000000;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  transform: rotate(45deg);
+  z-index: 2;
+}
+
+.codenotch-pos--left .codenotch-bubble-arrow,
+.codenotch-pos--top-left .codenotch-bubble-arrow {
+  right: auto;
+  left: -6.5px;
+  border-top: none;
+  border-right: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Popover Header */
+.codenotch-bubble-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.codenotch-bubble-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.codenotch-bubble-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+}
+
+/* Metric Blocks */
+.codenotch-metric-block {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+
+.codenotch-metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.codenotch-metric-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #f1f5f9;
+}
+
+.codenotch-metric-meta {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+.codenotch-progress-rail {
+  width: 100%;
+  height: 5px;
+  background: #262626;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.codenotch-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.codenotch-metric-usage {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #cbd5e1;
+  margin-top: 4px;
+}
+
+/* Footer / Actions */
+.codenotch-bubble-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 2px;
+}
+
+.codenotch-model-chip {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.codenotch-launch-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 11px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.codenotch-launch-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+/* Idle / not-running ring item — dimmer appearance */
+.codenotch-ring-item--idle {
+  opacity: 0.6;
+}
+.codenotch-ring-item--idle:hover {
+  opacity: 0.85;
+}
+
+/* Section divider between running and installed-only */
+.codenotch-section-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.codenotch-vertical-notch--active .codenotch-section-divider {
+  opacity: 1;
+}
+.codenotch-section-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #3f3f46;
+}
+
+/* Detail text under title in popover */
+.codenotch-bubble-detail {
+  font-size: 11px;
+  color: #52525b;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+}
+
+/* Empty state hint in the notch column */
+.codenotch-empty-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+}

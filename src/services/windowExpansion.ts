@@ -7,7 +7,8 @@ export type ExpansionSource =
   | "apps-hover"
   | "apps-context"
   | "apps-overflow"
-  | "start-context";
+  | "start-context"
+  | "codenotch";
 
 const activeExpansions = new Map<ExpansionSource, number>();
 const listeners = new Set<(isExpanded: boolean) => void>();

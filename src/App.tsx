@@ -10,6 +10,7 @@ import { useFlyout } from "./stores/flyoutStore";
 import { windowExpansion } from "./services/windowExpansion";
 
 import { DynamicIsland } from "./components/island/DynamicIsland";
+import { CodeNotch } from "./components/codenotch/CodeNotch";
 import { StartCapsule } from "./components/capsules/StartCapsule";
 import { AppsCapsule } from "./components/capsules/AppsCapsule";
 import { MediaCapsule } from "./components/capsules/MediaCapsule";
@@ -36,7 +37,7 @@ export default function App() {
       // Allow clicks within actual interactive components
       if (
         target.closest(
-          "#taskbar-bar, .dynamic-notch-wrapper, .island-backdrop, .settings-flyout, .calendar-flyout, .apps-overflow-flyout, .apps-context-menu, .fluent-jumplist"
+          "#taskbar-bar, .dynamic-notch-wrapper, .island-backdrop, .codenotch-vertical-notch, .codenotch-speech-bubble, .codenotch-container, .settings-flyout, .calendar-flyout, .apps-overflow-flyout, .apps-context-menu, .fluent-jumplist"
         )
       ) {
         return;
@@ -174,6 +175,11 @@ export default function App() {
           <DynamicIsland />
         </ErrorBoundary>
       )}
+
+      {/* Standalone CodeNotch Engine (matching vinzdg/codenotch) */}
+      <ErrorBoundary componentName="CodeNotch">
+        <CodeNotch />
+      </ErrorBoundary>
 
       {/* Invisible Flyout Backdrop to dismiss panels when clicking outside */}
       {activeFlyout !== null && (

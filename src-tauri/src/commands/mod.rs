@@ -5,4 +5,5 @@ pub mod settings;
 pub mod pinned;
 pub mod media;
 pub mod bluetooth;
+pub mod ai;
 

@@ -101,6 +101,8 @@ const DEFAULT_SETTINGS: Settings = {
   island_media_bg_mode: "black",
   taskbar_media_style: "cover_pill",
   media_location: "notch",
+  enable_codenotch: true,
+  codenotch_position: "right",
   margin_top: 0,
   margin_bottom: 48,
   margin_left: 0,

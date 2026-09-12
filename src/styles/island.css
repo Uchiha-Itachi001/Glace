@@ -2234,3 +2234,309 @@
   font-size: 10px;
   color: var(--glace-text-secondary, #94a3b8);
 }
+
+/* ─── CodeNotch AI Deck & Assistants Grid (Caelestia Hardware Tab 5) ────── */
+
+.notch-ai-deck {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  gap: 8px;
+  padding: 4px 2px 2px;
+  animation: nexusPageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.notch-ai-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 6px;
+}
+
+.notch-ai-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notch-ai-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #64748b;
+  transition: all 0.2s ease;
+}
+
+.notch-ai-live-dot--active {
+  background: #06b6d4;
+  box-shadow: 0 0 8px #06b6d4, 0 0 14px rgba(6, 182, 212, 0.6);
+  animation: notchAiPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes notchAiPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25); opacity: 0.75; }
+}
+
+.notch-ai-header-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f1f5f9;
+  letter-spacing: -0.2px;
+}
+
+.notch-ai-header-chip {
+  font-size: 9px;
+  font-weight: 500;
+  color: #06b6d4;
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.28);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.notch-ai-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #94a3b8;
+  font-size: 9.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.notch-ai-refresh-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.notch-ai-refresh-btn--loading svg {
+  animation: spin 0.8s linear infinite;
+}
+
+/* 2-Column Responsive Bento Grid */
+.notch-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  max-height: 165px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.notch-ai-grid::-webkit-scrollbar {
+  width: 3px;
+}
+
+.notch-ai-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+}
+
+/* Individual AI Provider Card */
+.notch-ai-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(18, 20, 26, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 7px 9px;
+  position: relative;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.18s ease,
+              box-shadow 0.18s ease;
+  user-select: none;
+}
+
+.notch-ai-card:hover {
+  transform: translateY(-1.5px);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.notch-ai-card--active {
+  border-color: rgba(var(--ai-accent), 0.35);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%), rgba(18, 20, 26, 0.95);
+  box-shadow: 0 0 12px -2px rgba(var(--ai-accent), 0.15);
+}
+
+.notch-ai-card--offline {
+  opacity: 0.55;
+  filter: grayscale(40%);
+}
+
+.notch-ai-card--offline:hover {
+  opacity: 0.8;
+  filter: grayscale(0%);
+}
+
+/* Left: Codenotch Arc Ring & Monogram */
+.notch-ai-card-left {
+  flex-shrink: 0;
+}
+
+.notch-ai-arc-box {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notch-ai-arc-svg {
+  position: absolute;
+  inset: 0;
+  transform-origin: center;
+}
+
+.notch-ai-arc-progress {
+  transition: stroke-dashoffset 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.notch-ai-glyph {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Middle: Info & Active Model */
+.notch-ai-card-mid {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5px;
+}
+
+.notch-ai-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.notch-ai-card-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notch-ai-badge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.notch-ai-badge--active {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.notch-ai-badge--idle {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.notch-ai-badge--blocked {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.notch-ai-badge--offline {
+  color: #64748b;
+  background: rgba(100, 116, 139, 0.1);
+}
+
+.notch-ai-card-model {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, monospace;
+}
+
+.notch-ai-card-sub {
+  font-size: 8.5px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Right: Action Button */
+.notch-ai-card-action {
+  flex-shrink: 0;
+}
+
+.notch-ai-btn {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.notch-ai-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+/* ─── Compact Notch AI Pill Indicator ───────────────────────────────────── */
+
+.notch-compact-ai-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.32);
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-left: 2px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.notch-compact-ai-pill:hover {
+  background: rgba(6, 182, 212, 0.22);
+  border-color: rgba(6, 182, 212, 0.55);
+}
+
+.notch-compact-ai-dot {
+  width: 4.5px;
+  height: 4.5px;
+  border-radius: 50%;
+  background: #06b6d4;
+  box-shadow: 0 0 5px #06b6d4;
+  animation: notchAiPulse 1.6s ease-in-out infinite;
+}
+
+.notch-compact-ai-tag {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #06b6d4;
+  letter-spacing: 0.2px;
+}

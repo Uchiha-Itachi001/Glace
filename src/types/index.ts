@@ -118,6 +118,8 @@ export interface Settings {
   taskbar_media_style?: TaskbarMediaStyle;
   media_location?: MediaLocation;
   notch_peek_key?: NotchPeekKey;
+  enable_codenotch?: boolean;
+  codenotch_position?: "right" | "left" | "top-right" | "top-left" | "top-center" | "floating";
   margin_top?: number;
   margin_bottom?: number;
   margin_left?: number;
@@ -163,5 +165,21 @@ export interface UpdateInfo {
   releaseNotes?: string;
   publishedAt?: string;
   downloadUrl?: string;
+}
+
+export interface AiProviderStatus {
+  id: string;
+  name: string;
+  is_installed: boolean;
+  is_running: boolean;
+  active_model?: string | null;
+  session_status: "active" | "idle" | "blocked" | "offline";
+  usage_percent?: number | null;
+  detail?: string | null;
+  icon_color: string;
+  category: "editor" | "cli" | "local_llm" | "agent" | "extension";
+  session_reset_time?: string | null;
+  all_models_usage_percent?: number | null;
+  all_models_reset_time?: string | null;
 }
 

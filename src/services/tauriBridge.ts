@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { WindowInfo, TrayIcon, SystemMetrics, AppResourceUsage, Settings, PinnedApp, BluetoothDevice, MediaSessionInfo } from "../types";
+import { WindowInfo, TrayIcon, SystemMetrics, AppResourceUsage, Settings, PinnedApp, BluetoothDevice, MediaSessionInfo, AiProviderStatus } from "../types";
 
 export const tauriBridge = {
   // Window controls
@@ -429,6 +429,33 @@ export const tauriBridge = {
       await invoke("set_notch_peek", { peek });
     } catch (e) {
       console.error("setNotchPeek error:", e);
+    }
+  },
+
+  // AI Coding Assistants (CodeNotch)
+  getAiAssistantsStatus: async (): Promise<AiProviderStatus[]> => {
+    try {
+      return await invoke<AiProviderStatus[]>("get_ai_assistants_status");
+    } catch (e) {
+      console.error("getAiAssistantsStatus error:", e);
+      return [];
+    }
+  },
+
+  refreshAiAssistants: async (): Promise<AiProviderStatus[]> => {
+    try {
+      return await invoke<AiProviderStatus[]>("refresh_ai_assistants");
+    } catch (e) {
+      console.error("refreshAiAssistants error:", e);
+      return [];
+    }
+  },
+
+  launchAiAssistant: async (providerId: string): Promise<void> => {
+    try {
+      await invoke("launch_ai_assistant", { providerId });
+    } catch (e) {
+      console.error("launchAiAssistant error:", e);
     }
   },
 };

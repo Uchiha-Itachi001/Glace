@@ -87,6 +87,9 @@ pub fn run() {
             commands::media::media_focus_app,
             commands::media::get_media_session_info,
             commands::bluetooth::get_bluetooth_devices,
+            commands::ai::get_ai_assistants_status,
+            commands::ai::refresh_ai_assistants,
+            commands::ai::launch_ai_assistant,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();

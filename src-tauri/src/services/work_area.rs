@@ -375,7 +375,32 @@ pub fn update_window_region(
 
             let rgn_combined = CreateRectRgn(0, 0, 0, 0);
             CombineRgn(Some(rgn_combined), Some(rgn_bar), Some(rgn_top), RGN_OR);
+
+            // 3. Side Edge CodeNotch Bar (vinzdg/codenotch):
+            // Tight, exact pixel bounds matching only the active notch tab itself!
+            if settings.enable_codenotch {
+                let scale = (bar_height as f64 / 48.0).max(1.0);
+                let notch_w = (42.0 * scale).round() as i32;
+                let notch_h = (260.0 * scale).round() as i32;
+                let notch_top = (monitor_h - notch_h) / 2;
+                let notch_bottom = notch_top + notch_h;
+
+                let is_left = settings.codenotch_position == "left" || settings.codenotch_position == "top-left";
+                let rgn_notch = if is_left {
+                    CreateRectRgn(0, notch_top, notch_w, notch_bottom)
+                } else {
+                    CreateRectRgn(monitor_w - notch_w, notch_top, monitor_w, notch_bottom)
+                };
+
+                CombineRgn(Some(rgn_combined), Some(rgn_combined), Some(rgn_notch), RGN_OR);
+                let _ = windows::Win32::Graphics::Gdi::DeleteObject(rgn_notch.into());
+            }
+
             let _ = SetWindowRgn(hwnd, Some(rgn_combined), true);
+
+            // Clean up temporary GDI region handles to prevent GDI resource leaks
+            let _ = windows::Win32::Graphics::Gdi::DeleteObject(rgn_bar.into());
+            let _ = windows::Win32::Graphics::Gdi::DeleteObject(rgn_top.into());
         }
     }
 }

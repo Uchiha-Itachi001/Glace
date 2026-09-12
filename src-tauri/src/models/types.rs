@@ -120,6 +120,10 @@ fn default_notch_peek_key() -> String {
     "shift".into()
 }
 
+fn default_codenotch_position() -> String {
+    "top-right".into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub theme_id: String,
@@ -158,6 +162,10 @@ pub struct Settings {
     pub taskbar_media_style: String,
     #[serde(default = "default_notch_peek_key")]
     pub notch_peek_key: String,
+    #[serde(default = "default_true")]
+    pub enable_codenotch: bool,
+    #[serde(default = "default_codenotch_position")]
+    pub codenotch_position: String,
     #[serde(default = "default_margin_top")]
     pub margin_top: u32,
     #[serde(default = "default_margin_bottom")]
@@ -206,6 +214,8 @@ impl Default for Settings {
             island_media_bg_mode: "black".into(),
             taskbar_media_style: "cover_pill".into(),
             notch_peek_key: "shift".into(),
+            enable_codenotch: true,
+            codenotch_position: "top-right".into(),
             margin_top: 0,
             margin_bottom: 48,
             margin_left: 0,

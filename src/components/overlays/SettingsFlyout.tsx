@@ -188,6 +188,38 @@ const TASKBAR_MEDIA_STYLES: Array<{
   },
 ];
 
+const CODENOTCH_POSITIONS: Array<{
+  id: "right" | "left" | "top-right" | "floating";
+  name: string;
+  badge: string;
+  desc: string;
+}> = [
+  {
+    id: "right",
+    name: "Right Screen Edge",
+    badge: "Default",
+    desc: "Vertical notch tab hugging the right screen bezel with speech-bubble popover",
+  },
+  {
+    id: "left",
+    name: "Left Screen Edge",
+    badge: "Left",
+    desc: "Vertical notch tab hugging the left screen bezel",
+  },
+  {
+    id: "top-right",
+    name: "Top-Right Edge",
+    badge: "Top",
+    desc: "Hugs top-right screen bezel with inverted curve ears",
+  },
+  {
+    id: "floating",
+    name: "Floating Island",
+    badge: "Pill",
+    desc: "Detached pill capsule with 999px rounded border",
+  },
+];
+
 export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const { settings, updateSettings, setTheme, toggleWidget, toggleTrayItem, setSysMonMode, setMediaLocation } = useSettings();
   const { updateInfo, isChecking, hasUpdate, check: checkUpdate, currentVersion } = useUpdate();
@@ -216,6 +248,8 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const islandShowBluetooth = settings?.island_show_bluetooth ?? true;
   const islandShowHardware = settings?.island_show_hardware ?? true;
   const islandShowBattery = settings?.island_show_battery ?? true;
+  const currentEnableCodeNotch = settings?.enable_codenotch ?? true;
+  const currentCodeNotchPosition = settings?.codenotch_position || "right";
   const currentMarginTop = settings?.margin_top ?? 0;
   const currentMarginBottom = settings?.margin_bottom ?? 48;
   const currentMarginLeft = settings?.margin_left ?? 0;
@@ -1307,6 +1341,77 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                   </div>
                 </div>
               )}
+
+              {/* 8. Authentic CodeNotch AI Assistant Desktop Bar (vinzdg/codenotch) */}
+              <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                <span className="settings-block-label">CodeNotch AI Coding Desktop Bar</span>
+                <div className="widget-items-stack">
+                  <div
+                    className="widget-row-card"
+                    style={{
+                      border: currentEnableCodeNotch ? "1px solid var(--glace-accent)" : "1px solid rgba(255, 255, 255, 0.08)",
+                      background: currentEnableCodeNotch ? "rgba(var(--glace-accent-rgb, 16, 185, 129), 0.08)" : undefined,
+                    }}
+                    onClick={() => updateSettings({ enable_codenotch: !currentEnableCodeNotch })}
+                  >
+                    <div className="widget-row-meta">
+                      <span className="widget-row-name" style={{ fontWeight: 600 }}>Enable Standalone CodeNotch</span>
+                      <span className="widget-row-desc">
+                        {currentEnableCodeNotch
+                          ? "Active: Dedicated bezel notch showing live status rings for Cursor, Claude Code, Copilot, Ollama, LM Studio, etc."
+                          : "Disabled: Standalone CodeNotch bar is completely hidden"}
+                      </span>
+                    </div>
+                    <div className={`switch-pill ${currentEnableCodeNotch ? "switch-pill--on" : ""}`}>
+                      <div className="switch-thumb" />
+                    </div>
+                  </div>
+                </div>
+
+                {currentEnableCodeNotch && (
+                  <div style={{ marginTop: "12px" }}>
+                    <span className="settings-block-label" style={{ fontSize: "11px", marginBottom: "6px" }}>
+                      Notch Screen Position
+                    </span>
+                    <div className="sysmon-mode-options-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+                      {CODENOTCH_POSITIONS.map((pos) => {
+                        const isSelected = currentCodeNotchPosition === pos.id;
+                        return (
+                          <div
+                            key={pos.id}
+                            className={`sysmon-mode-card ${
+                              isSelected ? "sysmon-mode-card--active" : ""
+                            }`}
+                            onClick={() => updateSettings({ codenotch_position: pos.id })}
+                          >
+                            <div className="sysmon-mode-header">
+                              <span className="sysmon-mode-name">{pos.name}</span>
+                              <span className="sysmon-mode-badge">{pos.badge}</span>
+                            </div>
+                            <span className="sysmon-mode-desc">{pos.desc}</span>
+                            {isSelected && (
+                              <div className="sysmon-mode-check">
+                                <svg
+                                  width="12"
+                                  height="12"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
 
