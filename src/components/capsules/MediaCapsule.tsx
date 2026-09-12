@@ -32,6 +32,8 @@ export const MediaCapsule: React.FC = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
 
+  const clampedProgress = Math.min(100, Math.max(0, Number.isFinite(progress) ? progress : 0));
+
   const displayTitle = liveSession?.title?.trim() || (liveSession ? "Connecting Audio..." : "No Media Playing");
   const displayArtist = liveSession?.artist?.trim() || (liveSession ? "Resolving Stream..." : "Play music or video");
   const albumArt = liveSession?.album_art_base64 || "/albumcover-placeholder.png";
@@ -69,8 +71,8 @@ export const MediaCapsule: React.FC = () => {
 
     if (!showControls) {
       setShowControls(true);
-      // Compact, snug window expansions matching reduced flyout heights
-      const requestH = mediaStyle === "waveform_deck" ? 175 : mediaStyle === "perimeter_card" ? 155 : 165;
+      // Window expansion matching horizontal pill card height
+      const requestH = mediaStyle === "waveform_deck" ? 175 : mediaStyle === "perimeter_card" ? 165 : 165;
       windowExpansion.request("media-capsule", requestH);
     } else {
       setShowControls(false);
@@ -130,9 +132,6 @@ export const MediaCapsule: React.FC = () => {
   const clampedProgress = Math.min(100, Math.max(0, progress));
   const strokeOffset = ringCircumference - (ringCircumference * clampedProgress) / 100;
 
-  // Perimeter Card perimeter progress calculation (compact 260x124 box, rx=17)
-  const perimeterTotal = 715;
-  const perimeterOffset = perimeterTotal - (perimeterTotal * clampedProgress) / 100;
 
   return (
     <div className="media-capsule-wrapper">
@@ -282,49 +281,105 @@ export const MediaCapsule: React.FC = () => {
               </div>
             </div>
           ) : mediaStyle === "perimeter_card" ? (
-            /* ── Design: Perimeter Gradient Card (Compact, Height Reduced, Zero Gap) ── */
+            /* ── Design: Capsule Pill Card (Clean, Focused, Working Controls Only) ── */
             <div
-              className="media-controls-flyout media-flyout--perimeter"
+              className="media-controls-flyout media-flyout--salmon-pill"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Continuous Perimeter Gradient Border Track */}
-              <svg className="perimeter-border-svg" viewBox="0 0 260 124">
-                <defs>
-                  <linearGradient id="perimeterGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#f43f5e" />
-                    <stop offset="40%" stopColor="#fb923c" />
-                    <stop offset="70%" stopColor="#818cf8" />
-                    <stop offset="100%" stopColor="#3b82f6" />
-                  </linearGradient>
-                </defs>
-                <rect
-                  className="perimeter-track-bg"
-                  x="3"
-                  y="3"
-                  width="254"
-                  height="118"
-                  rx="17"
-                  ry="17"
-                />
-                <rect
-                  className="perimeter-track-fill"
-                  x="3"
-                  y="3"
-                  width="254"
-                  height="118"
-                  rx="17"
-                  ry="17"
-                  stroke="url(#perimeterGrad)"
-                  strokeDasharray={perimeterTotal}
-                  strokeDashoffset={perimeterOffset}
-                />
-              </svg>
+              {/* Main Card Body */}
+              <div className="salmon-card-body">
+                {/* Left/Center: Track Info + High-Contrast Scrubber + Centered Transport */}
+                <div className="salmon-card-main">
+                  {/* Top Meta Area */}
+                  <div className="salmon-header-row">
+                    <div className="salmon-title-block" onClick={focusMediaApp} title="Open Playing App">
+                      <span className="salmon-source-badge">
+                        {liveSession?.artist ? "NOW PLAYING" : "AUDIO DECK"}
+                      </span>
+                      <span className="salmon-track-title" title={displayTitle}>
+                        {displayTitle}
+                      </span>
+                      <span className="salmon-track-artist" title={displayArtist}>
+                        {displayArtist}
+                      </span>
+                    </div>
+                  </div>
 
-              {/* Card Inner Surface */}
-              <div className="perimeter-inner-body">
-                {/* Top Half: Artwork + Title + Artist */}
-                <div className="perimeter-top-card">
-                  <div className="perimeter-art-box">
+                  {/* Scrubber Container (High-Contrast, Clearly Visible Track & Knob) */}
+                  <div className="salmon-scrubber-wrapper">
+                    <div
+                      className="salmon-scrubber-track"
+                      onClick={handleScrubberClick}
+                      title="Seek Position"
+                    >
+                      <div
+                        className="salmon-scrubber-fill"
+                        style={{ width: `${clampedProgress}%` }}
+                      />
+                      <div
+                        className="salmon-scrubber-knob"
+                        style={{ left: `${clampedProgress}%` }}
+                      />
+                    </div>
+
+                    {/* Timestamp Row */}
+                    <div className="salmon-time-row">
+                      <span>{formatTime(currentSec)}</span>
+                      <span>{formatTime(durationSec)}</span>
+                    </div>
+                  </div>
+
+                  {/* Core Working Transport Buttons: Prev, Play/Pause, Next */}
+                  <div className="salmon-transport-row">
+                    {/* Previous */}
+                    <button
+                      className="salmon-nav-btn"
+                      onClick={handlePrev}
+                      title="Previous Track"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M11 6v12l-8.5-6L11 6zm8.5 0v12l-8.5-6 8.5-6z" />
+                      </svg>
+                    </button>
+
+                    {/* Play / Pause Circular Button */}
+                    <button
+                      className="salmon-play-btn"
+                      onClick={handleTogglePlay}
+                      title={isPlaying ? "Pause" : "Play"}
+                    >
+                      {isPlaying ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <rect x="6" y="4" width="4" height="16" rx="1.5" />
+                          <rect x="14" y="4" width="4" height="16" rx="1.5" />
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: "2px" }}>
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </button>
+
+                    {/* Next */}
+                    <button
+                      className="salmon-nav-btn"
+                      onClick={handleNext}
+                      title="Next Track"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M4.5 6v12l8.5-6-8.5-6zm8.5 0v12l8.5-6-8.5-6z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Side: Circular Artwork Medallion */}
+                <div
+                  className="salmon-art-disc-wrap"
+                  onClick={focusMediaApp}
+                  title="Open Playing App"
+                >
+                  <div className="salmon-art-disc">
                     <img
                       src={albumArt}
                       alt="Album Art"
@@ -333,56 +388,6 @@ export const MediaCapsule: React.FC = () => {
                       }}
                     />
                   </div>
-                  <div className="perimeter-info-col">
-                    <div className="perimeter-header-row">
-                      <span className="perimeter-title">{displayTitle}</span>
-                      <span className="perimeter-heart-dot">♥</span>
-                    </div>
-                    <span className="perimeter-subtitle">{displayArtist}</span>
-                  </div>
-                </div>
-
-                {/* Bottom Half: Dual Frosted Pills (Prev/Next + Play/Pause) */}
-                <div className="perimeter-bottom-dock">
-                  {/* Left Pill: Previous & Next */}
-                  <div className="perimeter-pill-btn-group">
-                    <button
-                      className="perimeter-dock-btn"
-                      onClick={handlePrev}
-                      title="Previous"
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
-                      </svg>
-                    </button>
-                    <button
-                      className="perimeter-dock-btn"
-                      onClick={handleNext}
-                      title="Next"
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Right Pill: Play / Pause */}
-                  <button
-                    className="perimeter-pill-play"
-                    onClick={handleTogglePlay}
-                    title={isPlaying ? "Pause" : "Play"}
-                  >
-                    {isPlaying ? (
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
-                        <rect x="6" y="4" width="4" height="16" rx="1.5" />
-                        <rect x="14" y="4" width="4" height="16" rx="1.5" />
-                      </svg>
-                    ) : (
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: "1.5px" }}>
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    )}
-                  </button>
                 </div>
               </div>
             </div>
@@ -761,15 +766,15 @@ export const MediaCapsule: React.FC = () => {
           </div>
         </div>
       ) : mediaStyle === "perimeter_card" ? (
-        /* ── Design: Perimeter Card Dock Capsule (100% Matched to Active Perimeter Card) ── */
+        /* ── Design: Capsule Pill Dock Widget ── */
         <div
-          className={`capsule media-capsule media-capsule--perimeter ${
+          className={`capsule media-capsule media-capsule--salmon-pill ${
             showControls ? "media-capsule--active-flyout" : ""
           }`}
           onClick={handleToggleFlyout}
-          title="Click to open Perimeter Card"
+          title="Click to open Pill Deck"
         >
-          <div className="perimeter-dock-thumb">
+          <div className="salmon-dock-art-disc">
             <img
               src={albumArt}
               alt="Album Art"
@@ -780,60 +785,48 @@ export const MediaCapsule: React.FC = () => {
           </div>
 
           <div className="media-info">
-            <div className="perimeter-dock-title-row">
-              <span className="media-title">{displayTitle}</span>
-              <span className="perimeter-heart-dot">♥</span>
-            </div>
+            <span className="media-title">{displayTitle}</span>
             <span className="media-artist">{displayArtist}</span>
           </div>
 
-          {/* Dual Pill Controls (Exact Visual & Functional Match with Active Flyout) */}
-          <div className="perimeter-dock-pill-actions">
-            {/* Pill 1: Prev & Next */}
-            <div className="perimeter-dock-pill-nav">
-              <button
-                className="perimeter-dock-nav-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrev(e);
-                }}
-                title="Previous Track"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
-                </svg>
-              </button>
-              <button
-                className="perimeter-dock-nav-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNext(e);
-                }}
-                title="Next Track"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Pill 2: Play / Pause */}
+          <div className="salmon-dock-actions">
             <button
-              className="perimeter-dock-play-pill"
+              className="salmon-dock-play-btn"
               onClick={onDirectPlayPause}
               title={isPlaying ? "Pause" : "Play"}
             >
               {isPlaying ? (
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="6" y="4" width="4" height="16" rx="1.5" />
                   <rect x="14" y="4" width="4" height="16" rx="1.5" />
                 </svg>
               ) : (
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: "1px" }}>
-                  <path d="M7 4.5a1 1 0 0 1 1.55-.83l11 7.5a1 1 0 0 1 0 1.66l-11 7.5A1 1 0 0 1 7 19.5V4.5z" />
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: "1px" }}>
+                  <path d="M8 5v14l11-7z" />
                 </svg>
               )}
             </button>
+
+            <button
+              className="salmon-dock-next-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNext(e);
+              }}
+              title="Next Track"
+            >
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4.5 6v12l8.5-6-8.5-6zm8.5 0v12l8.5-6-8.5-6z" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Bottom coral progress fill */}
+          <div className="salmon-dock-progress-track">
+            <div
+              className="salmon-dock-progress-fill"
+              style={{ width: `${clampedProgress}%` }}
+            />
           </div>
         </div>
       ) : mediaStyle === "vinyl" ? (

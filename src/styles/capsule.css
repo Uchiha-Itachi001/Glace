@@ -3239,51 +3239,57 @@ html, body {
 }
 
 
-/* ─── Design: Perimeter Card (Image 2 - Compact, Height Reduced & Matched) ──── */
+/* ─── Design: Capsule Pill Card (Clean, Focused, High-Contrast Scrubber) ─── */
 
+.media-capsule--salmon-pill,
+.media-capsule--poster,
 .media-capsule--perimeter {
-  width: 196px !important;
-  min-width: 196px !important;
-  max-width: 196px !important;
+  width: 204px !important;
+  min-width: 204px !important;
+  max-width: 204px !important;
   height: var(--glace-bar-height, 36px);
-  border-radius: 12px !important;
+  border-radius: 14px !important;
   display: flex !important;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   padding: 0 8px !important;
-  /* Matching continuous gradient perimeter border on dock capsule */
-  border: 1.5px solid transparent !important;
-  background: linear-gradient(var(--glace-surface, #14141c), var(--glace-surface, #14141c)) padding-box,
-              linear-gradient(90deg, #f43f5e 0%, #fb923c 35%, #818cf8 70%, #3b82f6 100%) border-box !important;
-  box-shadow: 0 0 12px rgba(129, 140, 248, 0.28) !important;
+  border: 1px solid var(--glace-border, rgba(255, 255, 255, 0.12)) !important;
+  background: var(--glace-bg-capsule, rgba(18, 18, 24, 0.85)) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+  position: relative;
+  overflow: hidden;
   cursor: pointer;
   user-select: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
-.perimeter-dock-thumb {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+.media-capsule--salmon-pill:hover,
+.media-capsule--poster:hover,
+.media-capsule--perimeter:hover {
+  border-color: rgba(242, 114, 111, 0.5) !important;
+  box-shadow: 0 4px 16px rgba(242, 114, 111, 0.25) !important;
+}
+
+.salmon-dock-art-disc {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
-.perimeter-dock-thumb img {
+.salmon-dock-art-disc img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.perimeter-dock-title-row {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  min-width: 0;
-}
-
-.perimeter-dock-pill-actions {
+.salmon-dock-actions {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -3291,221 +3297,298 @@ html, body {
   flex-shrink: 0;
 }
 
-.perimeter-dock-pill-nav {
-  display: flex;
-  align-items: center;
+.salmon-dock-play-btn {
+  width: 22px;
   height: 22px;
-  padding: 0 3px;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  gap: 1px;
-}
-
-.perimeter-dock-nav-btn {
-  width: 17px;
-  height: 18px;
-  border-radius: 4px;
+  border-radius: 50%;
+  border: 1.5px solid #f2726f;
   background: transparent;
+  color: #f2726f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.salmon-dock-play-btn:hover {
+  background: #f2726f;
+  color: #ffffff;
+  transform: scale(1.12);
+}
+
+.salmon-dock-next-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
   border: none;
-  color: var(--glace-text-secondary, #94a3b8);
+  background: transparent;
+  color: #f2726f;
+  opacity: 0.8;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-.perimeter-dock-nav-btn:hover {
-  color: #ffffff;
+.salmon-dock-next-btn:hover {
   transform: scale(1.15);
+  opacity: 1;
 }
 
-.perimeter-dock-play-pill {
-  width: 25px;
-  height: 22px;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease;
+.salmon-dock-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.perimeter-dock-play-pill:hover {
-  transform: scale(1.08);
-  background: rgba(255, 255, 255, 0.22);
+.salmon-dock-progress-fill {
+  height: 100%;
+  background: #f2726f;
+  box-shadow: 0 0 6px rgba(242, 114, 111, 0.6);
+  transition: width 0.25s linear;
 }
 
-/* Compact, Height-Reduced Active Perimeter Flyout (Zero Empty Void - 124px) */
+/* ── Active Capsule Pill Flyout Card (Clean, Symmetrical, High-Contrast) ── */
+
+.media-flyout--salmon-pill,
+.media-flyout--poster,
 .media-flyout--perimeter {
-  width: 260px !important;
-  height: 124px !important;
+  width: 340px !important;
+  height: 132px !important;
   padding: 0 !important;
-  border-radius: 20px !important;
+  border-radius: 28px !important;
   position: absolute;
   overflow: hidden;
-  background: var(--glace-surface, rgba(18, 18, 26, 0.96)) !important;
-  backdrop-filter: blur(28px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 20px rgba(129, 140, 248, 0.25) !important;
-  color: var(--glace-text-primary, #ffffff) !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.22), 0 2px 10px rgba(0, 0, 0, 0.08) !important;
+  color: #2d3748 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  user-select: none;
 }
 
-.perimeter-border-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 10;
+/* Card Body */
+.salmon-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 10px 18px;
+  gap: 14px;
+  min-width: 0;
 }
 
-.perimeter-track-bg {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 3.5;
-}
-
-.perimeter-track-fill {
-  fill: none;
-  stroke-width: 4;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.2s linear;
-  filter: drop-shadow(0 0 5px rgba(129, 140, 248, 0.7));
-}
-
-.perimeter-inner-body {
-  width: 100%;
-  height: 100%;
+.salmon-card-main {
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 10px 14px 10px;
-  position: relative;
-  z-index: 2;
-  box-sizing: border-box;
+  min-width: 0;
+  height: 100%;
 }
 
-.perimeter-top-card {
+/* Header Row */
+.salmon-header-row {
   display: flex;
-  gap: 10px;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 13px;
-  padding: 6px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  align-items: flex-start;
+  min-width: 0;
 }
 
-.perimeter-art-box {
+.salmon-title-block {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  cursor: pointer;
+  gap: 1px;
+}
+
+.salmon-source-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.salmon-track-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.salmon-title-block:hover .salmon-track-title {
+  color: #0f172a;
+}
+
+.salmon-track-artist {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+/* Scrubber Container & Track (High Contrast, Clear Visibility) */
+.salmon-scrubber-wrapper {
+  width: 100%;
+  margin: 6px 0 3px;
+}
+
+.salmon-scrubber-track {
+  width: 100%;
+  height: 6px;
+  background: #cbd5e1; /* Clear, high-contrast light slate on white card */
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  transition: height 0.15s ease;
+}
+
+.salmon-scrubber-track:hover {
+  height: 7px;
+}
+
+.salmon-scrubber-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f2726f, #fa7572);
+  border-radius: 3px;
+  box-shadow: 0 0 6px rgba(242, 114, 111, 0.4);
+  transition: width 0.2s linear;
+}
+
+.salmon-scrubber-knob {
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #f2726f;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(242, 114, 111, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: left 0.2s linear, transform 0.15s ease;
+}
+
+.salmon-scrubber-track:hover .salmon-scrubber-knob {
+  transform: translate(-50%, -50%) scale(1.25);
+  box-shadow: 0 2px 8px rgba(242, 114, 111, 0.8);
+}
+
+.salmon-time-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+  line-height: 1;
+}
+
+/* Core Transport Controls Row */
+.salmon-transport-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 2px;
+}
+
+.salmon-nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid #f2726f;
+  background: transparent;
+  color: #f2726f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.salmon-nav-btn:hover {
+  transform: scale(1.12);
+  background: #f2726f;
+  color: #ffffff;
+}
+
+.salmon-play-btn {
   width: 36px;
   height: 36px;
-  border-radius: 9px;
-  overflow: hidden;
-  flex-shrink: 0;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  border-radius: 50%;
+  border: 2px solid #f2726f;
+  background: #ffffff;
+  color: #f2726f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(242, 114, 111, 0.25);
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.perimeter-art-box img {
+.salmon-play-btn:hover {
+  transform: scale(1.08);
+  background: #f2726f;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(242, 114, 111, 0.45);
+}
+
+.salmon-play-btn:active {
+  transform: scale(0.95);
+}
+
+/* Right Circular Artwork Medallion (Clean, Static, Right-Side Up) */
+.salmon-art-disc-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.salmon-art-disc {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3.5px solid #ffffff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.salmon-art-disc:hover {
+  transform: scale(1.04);
+}
+
+.salmon-art-disc img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-}
-
-.perimeter-info-col {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  gap: 1px;
-}
-
-.perimeter-header-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.perimeter-title {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--glace-text-primary, #ffffff);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.perimeter-heart-dot {
-  font-size: 11px;
-  color: #f43f5e;
-}
-
-.perimeter-subtitle {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--glace-text-secondary, #94a3b8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.perimeter-bottom-dock {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
-.perimeter-pill-btn-group {
-  flex: 1;
-  height: 34px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-}
-
-.perimeter-dock-btn {
-  background: transparent;
-  border: none;
-  color: var(--glace-text-secondary, #94a3b8);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  transition: transform 0.15s ease, color 0.15s ease;
-}
-
-.perimeter-dock-btn:hover {
-  color: #ffffff;
-  transform: scale(1.15);
-}
-
-.perimeter-pill-play {
-  width: 72px;
-  height: 34px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.15s ease, background 0.15s ease;
-}
-
-.perimeter-pill-play:hover {
-  background: rgba(255, 255, 255, 0.16);
-  transform: scale(1.05);
 }
 
 /* ─── SysMon Capsule (Hardware Gauges & Internet Speed) ──────────────── */

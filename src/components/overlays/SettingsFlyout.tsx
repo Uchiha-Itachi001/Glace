@@ -170,9 +170,9 @@ const TASKBAR_MEDIA_STYLES: Array<{
   },
   {
     id: "perimeter_card",
-    name: "Perimeter Card",
-    badge: "Glow Ring",
-    desc: "Squircle card with continuous gradient perimeter border progress track and dual glass control pills",
+    name: "Capsule Pill Deck",
+    badge: "Modern",
+    desc: "Horizontal pill card with circular artwork medallion, high-contrast coral scrubber, and responsive transport controls",
   },
   {
     id: "vinyl",
