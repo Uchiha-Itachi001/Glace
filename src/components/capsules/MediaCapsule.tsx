@@ -129,7 +129,6 @@ export const MediaCapsule: React.FC = () => {
   // SVG Circular progress arc calculations for Cover Pill
   const ringRadius = 13;
   const ringCircumference = 2 * Math.PI * ringRadius; // ~81.68
-  const clampedProgress = Math.min(100, Math.max(0, progress));
   const strokeOffset = ringCircumference - (ringCircumference * clampedProgress) / 100;
 
 
