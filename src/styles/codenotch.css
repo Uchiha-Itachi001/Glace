@@ -467,6 +467,22 @@
 }
 
 /* Footer / Actions */
+.codenotch-model-chip-header {
+  font-size: 10px;
+  color: #cbd5e1;
+  font-weight: 600;
+  padding: 1.5px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+/* Footer / Actions (legacy compatibility) */
 .codenotch-bubble-footer {
   display: flex;
   align-items: center;

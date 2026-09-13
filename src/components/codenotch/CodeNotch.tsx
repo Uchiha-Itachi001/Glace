@@ -138,7 +138,7 @@ export const CodeNotch: React.FC = () => {
 
   const isActive = isHovered || activeAssistantId !== null;
 
-  const { assistants, launchAssistant } = useAiAssistants(
+  const { assistants } = useAiAssistants(
     activeAssistantId !== null || hoveredAssistantId !== null
   );
 
@@ -160,14 +160,14 @@ export const CodeNotch: React.FC = () => {
       name: id === "claude" ? "Claude Code" : "ChatGPT",
       is_installed: true,
       is_running: false,
-      active_model: id === "claude" ? "claude-sonnet-4-5" : "GPT-4o",
+      active_model: id === "claude" ? "claude-code" : "GPT-4o",
       session_status: "idle" as const,
-      usage_percent: 5,
+      usage_percent: null,
       detail: "Detected — not currently running",
       icon_color: id === "claude" ? "#da7756" : "#10a37f",
       category: (id === "claude" ? "cli" : "agent") as AiProviderStatus["category"],
       session_reset_time: "—",
-      all_models_usage_percent: 0,
+      all_models_usage_percent: null,
       all_models_reset_time: "—",
     }));
   })();
@@ -365,15 +365,20 @@ export const CodeNotch: React.FC = () => {
           {/* Triangular pointer pointing to the active circle */}
           <div className="codenotch-bubble-arrow" />
 
-          {/* Header with Icon, Status, and Title */}
+          {/* Header with Icon, Status, Title, and Model Chip */}
           <div className="codenotch-bubble-header">
             <span className="codenotch-bubble-icon" style={{ color: selectedAssistant.icon_color }}>
               <ProviderGlyph id={selectedAssistant.id} color={selectedAssistant.icon_color} />
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <span className="codenotch-bubble-title">{selectedAssistant.name}</span>
                 <StatusDot status={selectedAssistant.session_status} />
+                {selectedAssistant.active_model && (
+                  <span className="codenotch-model-chip-header">
+                    {selectedAssistant.active_model}
+                  </span>
+                )}
               </div>
               {selectedAssistant.detail && (
                 <div className="codenotch-bubble-detail">{selectedAssistant.detail}</div>
@@ -381,11 +386,17 @@ export const CodeNotch: React.FC = () => {
             </div>
           </div>
 
-          {/* Metric 1: Current Session (only if usage_percent exists) */}
+          {/* Metric 1: Current Session / 5-Hour Limit / Monthly Quota (only if usage_percent exists) */}
           {(selectedAssistant.usage_percent ?? 0) > 0 && (
             <div className="codenotch-metric-block">
               <div className="codenotch-metric-row">
-                <span className="codenotch-metric-name">Current session</span>
+                <span className="codenotch-metric-name">
+                  {selectedAssistant.id === "antigravity"
+                    ? "5-Hour Limit"
+                    : selectedAssistant.id === "chatgpt"
+                    ? "Monthly Quota"
+                    : "Current session"}
+                </span>
                 <span className="codenotch-metric-meta">
                   {selectedAssistant.session_reset_time || "—"}
                 </span>
@@ -399,17 +410,26 @@ export const CodeNotch: React.FC = () => {
                   }}
                 />
               </div>
-              <span className="codenotch-metric-usage">
-                {Math.round(selectedAssistant.usage_percent ?? 0)}% Used
-              </span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span className="codenotch-metric-usage">
+                  {Math.round(selectedAssistant.usage_percent ?? 0)}% Used
+                </span>
+                {selectedAssistant.all_models_reset_time && selectedAssistant.all_models_usage_percent == null && (
+                  <span style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontWeight: 500 }}>
+                    {selectedAssistant.all_models_reset_time}
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Metric 2: All Models (only if available) */}
+          {/* Metric 2: Weekly Limit / All Models (only if available) */}
           {(selectedAssistant.all_models_usage_percent ?? 0) > 0 && (
             <div className="codenotch-metric-block">
               <div className="codenotch-metric-row">
-                <span className="codenotch-metric-name">All models</span>
+                <span className="codenotch-metric-name">
+                  {selectedAssistant.id === "antigravity" ? "Weekly Limit" : "All models"}
+                </span>
                 <span className="codenotch-metric-meta">
                   {selectedAssistant.all_models_reset_time || "—"}
                 </span>
@@ -419,7 +439,7 @@ export const CodeNotch: React.FC = () => {
                   className="codenotch-progress-fill"
                   style={{
                     width: `${Math.min(100, selectedAssistant.all_models_usage_percent ?? 0)}%`,
-                    background: "#22c55e",
+                    background: (selectedAssistant.all_models_usage_percent ?? 0) > 85 ? "#ef4444" : "#22c55e",
                   }}
                 />
               </div>
@@ -430,26 +450,13 @@ export const CodeNotch: React.FC = () => {
           )}
 
           {/* No usage data state */}
-          {(selectedAssistant.usage_percent ?? 0) === 0 && (selectedAssistant.all_models_usage_percent ?? 0) === 0 && (
+          {selectedAssistant.usage_percent == null && selectedAssistant.all_models_usage_percent == null && (
             <div className="codenotch-metric-block" style={{ textAlign: "center", padding: "8px 0" }}>
-              <span style={{ fontSize: 11, color: "#555" }}>
-                {selectedAssistant.is_running ? "Usage data unavailable" : "Not currently running"}
+              <span style={{ fontSize: 11, color: "#64748b" }}>
+                {selectedAssistant.is_running ? (selectedAssistant.session_reset_time || "Usage quota active") : "Not currently running"}
               </span>
             </div>
           )}
-
-          {/* Quick Action Footer */}
-          <div className="codenotch-bubble-footer">
-            <span className="codenotch-model-chip">
-              {selectedAssistant.active_model || selectedAssistant.category}
-            </span>
-            <button
-              className="codenotch-launch-btn"
-              onClick={() => launchAssistant(selectedAssistant.id)}
-            >
-              {selectedAssistant.is_running ? "Focus" : "Launch"}
-            </button>
-          </div>
         </div>
       )}
     </div>
