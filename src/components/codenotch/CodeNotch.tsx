@@ -24,6 +24,7 @@ const ProviderGlyph: React.FC<{ id: string; color: string; size?: number }> = ({
 
   switch (id) {
     case "claude":
+    case "claude-code":
       // Anthropic Claude — Official solid brandmark spark
       return (
         <svg className="codenotch-provider-glyph" viewBox="0 0 24 24" fill="currentColor" width={s} height={s}>
@@ -123,6 +124,12 @@ const StatusDot: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
+const formatTokens = (tokens: number): string => {
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
+  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`;
+  return String(tokens);
+};
+
 export const CodeNotch: React.FC = () => {
   const { settings } = useSettings();
   const [activeAssistantId, setActiveAssistantId] = useState<string | null>(null);
@@ -130,8 +137,10 @@ export const CodeNotch: React.FC = () => {
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [popoverTop, setPopoverTop] = useState<number>(100);
   const notchRef = useRef<HTMLDivElement>(null);
+  const itemsColumnRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const collapseTimeoutRef = useRef<number | null>(null);
+  const [railPage, setRailPage] = useState(0);
 
   const isEnabled = settings?.enable_codenotch ?? true;
   const position = settings?.codenotch_position ?? "right";
@@ -142,38 +151,55 @@ export const CodeNotch: React.FC = () => {
     activeAssistantId !== null || hoveredAssistantId !== null
   );
 
-  // "Used" = has local config/history detected (is_installed).
-  // Default fallback: always show Claude + ChatGPT if scan returns nothing yet.
-  const DEFAULT_IDS = ["claude", "chatgpt"];
   const usedAssistants = assistants.filter((a) => a.is_installed || a.is_running);
+  const defaultProviderIds = ["chatgpt", "claude", "perplexity", "copilot"] as const;
+  const defaultProviderInfo: Record<(typeof defaultProviderIds)[number], Pick<AiProviderStatus, "name" | "icon_color" | "category">> = {
+    chatgpt: { name: "ChatGPT", icon_color: "#10a37f", category: "browser" },
+    claude: { name: "Claude", icon_color: "#da7756", category: "browser" },
+    perplexity: { name: "Perplexity", icon_color: "#20b8cd", category: "browser" },
+    copilot: { name: "GitHub Copilot", icon_color: "#8957e5", category: "extension" },
+  };
 
-  const displayAssistants: AiProviderStatus[] = (() => {
-    if (usedAssistants.length > 0) {
-      // Sort: running first, then installed-only; cap at 4
-      return [...usedAssistants]
-        .sort((a, b) => (b.is_running ? 1 : 0) - (a.is_running ? 1 : 0))
-        .slice(0, 4);
-    }
-    // Fallback defaults while scan is warming up
-    return DEFAULT_IDS.map((id) => ({
-      id,
-      name: id === "claude" ? "Claude Code" : "ChatGPT",
-      is_installed: true,
-      is_running: false,
-      active_model: id === "claude" ? "claude-code" : "GPT-4o",
-      session_status: "idle" as const,
-      usage_percent: null,
-      detail: "Detected — not currently running",
-      icon_color: id === "claude" ? "#da7756" : "#10a37f",
-      category: (id === "claude" ? "cli" : "agent") as AiProviderStatus["category"],
-      session_reset_time: "—",
-      all_models_usage_percent: null,
-      all_models_reset_time: "—",
-    }));
-  })();
+  const detectedById = new Map(usedAssistants.map((assistant) => [assistant.id, assistant]));
+  // The closed rail is a stable four-slot launcher/status strip. These default
+  // cards deliberately contain no made-up installation or usage information.
+  const defaultAssistants: AiProviderStatus[] = defaultProviderIds.map((id) => detectedById.get(id) ?? ({
+    id,
+    ...defaultProviderInfo[id],
+    is_installed: false,
+    is_running: false,
+    active_model: null,
+    session_status: "offline",
+    usage_percent: null,
+    detail: "Not detected on this device",
+    session_reset_time: null,
+    all_models_usage_percent: null,
+    all_models_reset_time: null,
+    input_tokens: null,
+    output_tokens: null,
+    total_input_tokens: null,
+    total_output_tokens: null,
+    usage_source: "No local or provider telemetry is available.",
+    tags: ["Not detected"],
+  }));
+
+  const activeDetectedAssistants = [...usedAssistants]
+    .sort((a, b) => Number(b.is_running) - Number(a.is_running));
+
+  // When expanded, live providers take priority and any untouched default slot
+  // follows them. The rail itself owns scrolling, while closed stays four icons.
+  const displayAssistants: AiProviderStatus[] = isActive
+    ? [
+      ...activeDetectedAssistants,
+      ...defaultAssistants.filter((assistant) => !detectedById.has(assistant.id)),
+    ]
+    : defaultAssistants;
+  const railPageCount = Math.ceil(displayAssistants.length / 4);
 
   const selectedAssistant =
     displayAssistants.find((a) => a.id === (hoveredAssistantId || activeAssistantId)) || null;
+  const hasTokenUsage = selectedAssistant?.input_tokens != null || selectedAssistant?.output_tokens != null
+    || selectedAssistant?.total_input_tokens != null || selectedAssistant?.total_output_tokens != null;
 
   // Track popover Y alignment relative to the hovered item
   const updatePopoverPosition = (id: string) => {
@@ -211,6 +237,31 @@ export const CodeNotch: React.FC = () => {
     updatePopoverPosition(id);
     windowExpansion.request("codenotch", 480);
   };
+
+  const updateRailPage = () => {
+    const rail = itemsColumnRef.current;
+    if (!rail || railPageCount <= 1) {
+      setRailPage(0);
+      return;
+    }
+    const maxScroll = rail.scrollHeight - rail.clientHeight;
+    const progress = maxScroll > 0 ? rail.scrollTop / maxScroll : 0;
+    setRailPage(Math.round(progress * (railPageCount - 1)));
+  };
+
+  const scrollToRailPage = (page: number) => {
+    const rail = itemsColumnRef.current;
+    if (!rail || railPageCount <= 1) return;
+    const maxScroll = rail.scrollHeight - rail.clientHeight;
+    rail.scrollTo({ top: maxScroll * (page / (railPageCount - 1)), behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (!isActive && itemsColumnRef.current) {
+      itemsColumnRef.current.scrollTop = 0;
+      setRailPage(0);
+    }
+  }, [isActive]);
 
   const handleClickItem = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -277,16 +328,10 @@ export const CodeNotch: React.FC = () => {
       </svg>
 
       {/* Vertical Stack of Circular Ring Items */}
-      <div className="codenotch-items-column">
-        {displayAssistants.length === 0 && isActive && (
-          <div className="codenotch-empty-hint">
-            <span style={{ fontSize: 10, color: "#666", textAlign: "center", padding: "4px 6px", lineHeight: 1.3 }}>
-              No AI tools detected
-            </span>
-          </div>
-        )}
+      <div ref={itemsColumnRef} className="codenotch-items-column" onScroll={updateRailPage}>
         {displayAssistants.map((assistant) => {
           const isSelected = selectedAssistant?.id === assistant.id;
+          const hasQuota = assistant.usage_percent != null;
           const usage = Math.round(assistant.usage_percent ?? 0);
 
           // SVG Ring calculation: Radius r=16.5, C = 2 * PI * 16.5 = 103.67
@@ -346,7 +391,7 @@ export const CodeNotch: React.FC = () => {
               {/* Percentage or Status Label */}
               {isActive && (
                 <span className="codenotch-ring-percent">
-                  {usage > 0 ? `${usage}%` : "idle"}
+                  {hasQuota ? `${usage}%` : assistant.is_running ? "live" : "idle"}
                 </span>
               )}
             </div>
@@ -354,6 +399,23 @@ export const CodeNotch: React.FC = () => {
         })}
 
       </div>
+
+      {isActive && railPageCount > 1 && (
+        <div className="codenotch-scroll-dots" aria-label={`${railPageCount} assistant groups`}>
+          {Array.from({ length: railPageCount }, (_, page) => (
+            <button
+              key={page}
+              type="button"
+              className={`codenotch-scroll-dot ${page === railPage ? "codenotch-scroll-dot--active" : ""}`}
+              aria-label={`Show assistants ${page * 4 + 1} to ${Math.min((page + 1) * 4, displayAssistants.length)}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                scrollToRailPage(page);
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* ─── SPEECH BUBBLE POPOVER CARD (Flies out to the left) ─── */}
       {selectedAssistant && (
@@ -379,6 +441,14 @@ export const CodeNotch: React.FC = () => {
                     {selectedAssistant.active_model}
                   </span>
                 )}
+                {selectedAssistant.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className={`codenotch-provider-tag codenotch-provider-tag--${tag.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                  >
+                    {tag}
+                  </span>
+                ))}
               </div>
               {selectedAssistant.detail && (
                 <div className="codenotch-bubble-detail">{selectedAssistant.detail}</div>
@@ -386,16 +456,14 @@ export const CodeNotch: React.FC = () => {
             </div>
           </div>
 
-          {/* Metric 1: Current Session / 5-Hour Limit / Monthly Quota (only if usage_percent exists) */}
-          {(selectedAssistant.usage_percent ?? 0) > 0 && (
+          {/* Provider-reported quota. A zero is real data and must remain visible. */}
+          {selectedAssistant.usage_percent != null && (
             <div className="codenotch-metric-block">
               <div className="codenotch-metric-row">
                 <span className="codenotch-metric-name">
                   {selectedAssistant.id === "antigravity"
                     ? "5-Hour Limit"
-                    : selectedAssistant.id === "chatgpt"
-                    ? "Monthly Quota"
-                    : "Current session"}
+                    : "Provider quota"}
                 </span>
                 <span className="codenotch-metric-meta">
                   {selectedAssistant.session_reset_time || "—"}
@@ -423,8 +491,8 @@ export const CodeNotch: React.FC = () => {
             </div>
           )}
 
-          {/* Metric 2: Weekly Limit / All Models (only if available) */}
-          {(selectedAssistant.all_models_usage_percent ?? 0) > 0 && (
+          {/* Second provider-reported quota, such as a weekly limit. */}
+          {selectedAssistant.all_models_usage_percent != null && (
             <div className="codenotch-metric-block">
               <div className="codenotch-metric-row">
                 <span className="codenotch-metric-name">
@@ -449,11 +517,45 @@ export const CodeNotch: React.FC = () => {
             </div>
           )}
 
+          {/* Token telemetry read directly from local session data. */}
+          {hasTokenUsage && (
+            <div className="codenotch-metric-block">
+              {(selectedAssistant.input_tokens != null || selectedAssistant.output_tokens != null) && (
+                <>
+                  <div className="codenotch-metric-row">
+                    <span className="codenotch-metric-name">Recent token usage</span>
+                    <span className="codenotch-metric-meta">local telemetry</span>
+                  </div>
+                  <span className="codenotch-metric-usage">
+                    {formatTokens(selectedAssistant.input_tokens ?? 0)} input · {formatTokens(selectedAssistant.output_tokens ?? 0)} output
+                  </span>
+                </>
+              )}
+              {(selectedAssistant.total_input_tokens != null || selectedAssistant.total_output_tokens != null) && (
+                <>
+                  <div className="codenotch-metric-row" style={{ marginTop: selectedAssistant.input_tokens != null || selectedAssistant.output_tokens != null ? 8 : 0 }}>
+                    <span className="codenotch-metric-name">Local history</span>
+                    <span className="codenotch-metric-meta">observed sessions</span>
+                  </div>
+                  <span className="codenotch-metric-usage">
+                    {formatTokens(selectedAssistant.total_input_tokens ?? 0)} input · {formatTokens(selectedAssistant.total_output_tokens ?? 0)} output
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+
+          {selectedAssistant.usage_source && (
+            <div style={{ fontSize: 10, color: "#64748b", lineHeight: 1.35, marginTop: 4 }}>
+              Source: {selectedAssistant.usage_source}
+            </div>
+          )}
+
           {/* No usage data state */}
-          {selectedAssistant.usage_percent == null && selectedAssistant.all_models_usage_percent == null && (
+          {selectedAssistant.usage_percent == null && selectedAssistant.all_models_usage_percent == null && !hasTokenUsage && (
             <div className="codenotch-metric-block" style={{ textAlign: "center", padding: "8px 0" }}>
               <span style={{ fontSize: 11, color: "#64748b" }}>
-                {selectedAssistant.is_running ? (selectedAssistant.session_reset_time || "Usage quota active") : "Not currently running"}
+                {selectedAssistant.usage_source || (selectedAssistant.is_running ? "No usage telemetry is available from this provider." : "Not currently running")}
               </span>
             </div>
           )}

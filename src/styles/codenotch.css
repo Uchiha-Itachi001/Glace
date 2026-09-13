@@ -23,7 +23,7 @@
   width: 24px;
   background: #000000;
   border-left: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px 0 0 12px;
+  border-radius: 9px 0 0 9px;
   padding: 8px 0;
   box-shadow: none !important;
 }
@@ -32,7 +32,7 @@
 .codenotch-vertical-notch--active.codenotch-pos--right,
 .codenotch-vertical-notch--active.codenotch-pos--top-right {
   width: 58px;
-  border-radius: 20px 0 0 20px;
+  border-radius: 16px 0 0 16px;
   padding: 16px 0;
 }
 
@@ -45,7 +45,7 @@
   width: 24px;
   background: #000000;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0 12px 12px 0;
+  border-radius: 0 9px 9px 0;
   padding: 8px 0;
   box-shadow: none !important;
 }
@@ -54,7 +54,7 @@
 .codenotch-vertical-notch--active.codenotch-pos--left,
 .codenotch-vertical-notch--active.codenotch-pos--top-left {
   width: 58px;
-  border-radius: 0 20px 20px 0;
+  border-radius: 0 16px 16px 0;
   padding: 16px 0;
 }
 
@@ -66,14 +66,14 @@
   width: 24px;
   background: #000000;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border-radius: 9px;
   padding: 8px 0;
   box-shadow: none !important;
 }
 
 .codenotch-vertical-notch--active.codenotch-pos--floating {
   width: 58px;
-  border-radius: 28px;
+  border-radius: 20px;
   padding: 16px 0;
 }
 
@@ -185,6 +185,83 @@
 .codenotch-vertical-notch--active .codenotch-items-column {
   gap: 16px;
 }
+
+/* The closed notch always presents exactly four compact slots. */
+.codenotch-items-column {
+  max-height: 96px;
+  overflow: hidden;
+}
+
+/* The expanded rail displays four full rows, then scrolls for the rest. */
+.codenotch-vertical-notch--active .codenotch-items-column {
+  max-height: min(296px, calc(100vh - 40px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.codenotch-items-column::-webkit-scrollbar {
+  display: none;
+}
+
+.codenotch-scroll-dots {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+  transform: translateY(-50%);
+}
+
+.codenotch-scroll-dot {
+  width: 4px;
+  height: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.42);
+  cursor: pointer;
+  transition: height 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.codenotch-scroll-dot:hover,
+.codenotch-scroll-dot--active {
+  height: 11px;
+  background: #e2e8f0;
+  transform: scaleX(1.15);
+}
+
+.codenotch-provider-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 16px;
+  padding: 0 5px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 5px;
+  color: #b7c1cf;
+  background: rgba(148, 163, 184, 0.10);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.codenotch-provider-tag--cli { color: #fdba74; border-color: rgba(251, 146, 60, 0.38); background: rgba(251, 146, 60, 0.12); }
+.codenotch-provider-tag--ide,
+.codenotch-provider-tag--ide-extension { color: #c4b5fd; border-color: rgba(139, 92, 246, 0.40); background: rgba(139, 92, 246, 0.13); }
+.codenotch-provider-tag--web { color: #67e8f9; border-color: rgba(34, 211, 238, 0.36); background: rgba(34, 211, 238, 0.12); }
+.codenotch-provider-tag--desktop { color: #93c5fd; border-color: rgba(96, 165, 250, 0.38); background: rgba(96, 165, 250, 0.13); }
+.codenotch-provider-tag--agent-harness { color: #f0abfc; border-color: rgba(232, 121, 249, 0.34); background: rgba(232, 121, 249, 0.11); }
+.codenotch-provider-tag--local-logs,
+.codenotch-provider-tag--local-telemetry,
+.codenotch-provider-tag--local-server,
+.codenotch-provider-tag--local-model { color: #86efac; border-color: rgba(74, 222, 128, 0.34); background: rgba(74, 222, 128, 0.11); }
+.codenotch-provider-tag--usage-unavailable,
+.codenotch-provider-tag--not-detected { color: #94a3b8; border-color: rgba(148, 163, 184, 0.25); background: rgba(100, 116, 139, 0.12); }
 
 .codenotch-ring-item {
   display: flex;
