@@ -377,11 +377,11 @@ pub fn update_window_region(
             CombineRgn(Some(rgn_combined), Some(rgn_bar), Some(rgn_top), RGN_OR);
 
             // 3. Side Edge CodeNotch Bar (vinzdg/codenotch):
-            // Tight, exact pixel bounds matching only the active notch tab itself!
+            // Generous bounds ensuring active notch (58px), concave ears, and all 4-5 icons never clip
             if settings.enable_codenotch {
                 let scale = (bar_height as f64 / 48.0).max(1.0);
-                let notch_w = (42.0 * scale).round() as i32;
-                let notch_h = (260.0 * scale).round() as i32;
+                let notch_w = (76.0 * scale).round() as i32;
+                let notch_h = (460.0 * scale).round() as i32;
                 let notch_top = (monitor_h - notch_h) / 2;
                 let notch_bottom = notch_top + notch_h;
 

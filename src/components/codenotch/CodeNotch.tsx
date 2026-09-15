@@ -23,6 +23,15 @@ const ProviderGlyph: React.FC<{ id: string; color: string; size?: number }> = ({
   }
 
   switch (id) {
+    case "claude-code":
+      // Anthropic Claude Code — Terracotta spark with terminal prompt
+      return (
+        <svg className="codenotch-provider-glyph" viewBox="0 0 24 24" fill="currentColor" width={s} height={s}>
+          <path d="M12.8 2.3c-.4-.5-1.2-.5-1.6 0l-1 1.2c-.2.3-.6.5-1 .4l-1.5-.2c-.6-.1-1.2.3-1.2.9l-.1 1.5c0 .4-.2.8-.5 1l-1.3.8c-.5.4-.5 1.1 0 1.5l1.3.9c.3.2.5.6.5 1l.1 1.5c0 .6.5 1.1 1.2.9l1.5-.2c.4-.1.8.1 1 .4l1 1.2c.4.5 1.2.5 1.6 0l1-1.2c.2-.3.6-.5 1-.4l1.5.2c.6.1 1.2-.3 1.2-.9l.1-1.5c0-.4.2-.8.5-1l1.3-.9c.5-.4.5-1.1 0-1.5l-1.3-.8c-.3-.2-.5-.6-.5-1l-.1-1.5c0-.6-.5-1.1-1.2-.9l-1.5.2c-.4.1-.8-.1-1-.4l-1-1.2z" fill="#da7756"/>
+          <path d="M4 17l3 2.5L4 22" fill="none" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="9" y1="22" x2="13" y2="22" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round"/>
+        </svg>
+      );
     case "claude":
       // Anthropic Claude — Official solid brandmark spark
       return (
@@ -143,33 +152,69 @@ export const CodeNotch: React.FC = () => {
   );
 
   // "Used" = has local config/history detected (is_installed).
-  // Default fallback: always show Claude + ChatGPT if scan returns nothing yet.
-  const DEFAULT_IDS = ["claude", "chatgpt"];
+  // Default fallback: show Claude Code, Claude Desktop, and ChatGPT.
+  const DEFAULT_IDS = ["claude-code", "claude", "chatgpt"];
   const usedAssistants = assistants.filter((a) => a.is_installed || a.is_running);
 
   const displayAssistants: AiProviderStatus[] = (() => {
     if (usedAssistants.length > 0) {
-      // Sort: running first, then installed-only; cap at 4
+      // Sort: running first, then installed-only; cap at 5
       return [...usedAssistants]
         .sort((a, b) => (b.is_running ? 1 : 0) - (a.is_running ? 1 : 0))
-        .slice(0, 4);
+        .slice(0, 5);
     }
     // Fallback defaults while scan is warming up
-    return DEFAULT_IDS.map((id) => ({
-      id,
-      name: id === "claude" ? "Claude Code" : "ChatGPT",
-      is_installed: true,
-      is_running: false,
-      active_model: id === "claude" ? "claude-code" : "GPT-4o",
-      session_status: "idle" as const,
-      usage_percent: null,
-      detail: "Detected — not currently running",
-      icon_color: id === "claude" ? "#da7756" : "#10a37f",
-      category: (id === "claude" ? "cli" : "agent") as AiProviderStatus["category"],
-      session_reset_time: "—",
-      all_models_usage_percent: null,
-      all_models_reset_time: "—",
-    }));
+    return DEFAULT_IDS.map((id) => {
+      if (id === "claude-code") {
+        return {
+          id: "claude-code",
+          name: "Claude Code",
+          is_installed: true,
+          is_running: false,
+          active_model: "claude-code",
+          session_status: "idle" as const,
+          usage_percent: null,
+          detail: "CLI tool · Idle",
+          icon_color: "#da7756",
+          category: "cli" as const,
+          session_reset_time: "—",
+          all_models_usage_percent: null,
+          all_models_reset_time: "—",
+        };
+      }
+      if (id === "claude") {
+        return {
+          id: "claude",
+          name: "Claude",
+          is_installed: true,
+          is_running: false,
+          active_model: "Claude 3.7 Sonnet",
+          session_status: "idle" as const,
+          usage_percent: null,
+          detail: "Desktop App · Idle",
+          icon_color: "#da7756",
+          category: "agent" as const,
+          session_reset_time: "—",
+          all_models_usage_percent: null,
+          all_models_reset_time: "—",
+        };
+      }
+      return {
+        id: "chatgpt",
+        name: "ChatGPT",
+        is_installed: true,
+        is_running: false,
+        active_model: "GPT-4o",
+        session_status: "idle" as const,
+        usage_percent: null,
+        detail: "Detected — not currently running",
+        icon_color: "#10a37f",
+        category: "agent" as const,
+        session_reset_time: "—",
+        all_models_usage_percent: null,
+        all_models_reset_time: "—",
+      };
+    });
   })();
 
   const selectedAssistant =
@@ -182,7 +227,8 @@ export const CodeNotch: React.FC = () => {
       const notchRect = notchRef.current.getBoundingClientRect();
       const elRect = el.getBoundingClientRect();
       const relativeTop = elRect.top - notchRect.top + elRect.height / 2;
-      setPopoverTop(relativeTop);
+      const clampedTop = Math.max(50, Math.min(relativeTop, Math.max(90, notchRect.height - 50)));
+      setPopoverTop(clampedTop);
     }
   };
 
@@ -202,11 +248,15 @@ export const CodeNotch: React.FC = () => {
       if (collapseTimeoutRef.current) window.clearTimeout(collapseTimeoutRef.current);
       collapseTimeoutRef.current = window.setTimeout(() => {
         windowExpansion.release("codenotch");
-      }, 220);
+      }, 260);
     }
   };
 
   const handleMouseEnterItem = (id: string) => {
+    if (collapseTimeoutRef.current) {
+      window.clearTimeout(collapseTimeoutRef.current);
+      collapseTimeoutRef.current = null;
+    }
     setHoveredAssistantId(id);
     updatePopoverPosition(id);
     windowExpansion.request("codenotch", 480);
@@ -229,6 +279,18 @@ export const CodeNotch: React.FC = () => {
       windowExpansion.request("codenotch", 480);
     }
   };
+
+  // Synchronize React state with windowExpansion so transparent space clicks never desync
+  useEffect(() => {
+    const unsubscribe = windowExpansion.subscribe((expanded) => {
+      if (!expanded) {
+        setActiveAssistantId(null);
+        setHoveredAssistantId(null);
+        setIsHovered(false);
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   // Close when clicking outside
   useEffect(() => {
@@ -361,11 +423,20 @@ export const CodeNotch: React.FC = () => {
           className="codenotch-speech-bubble"
           style={{ top: `${popoverTop}px` }}
           onClick={(e) => e.stopPropagation()}
+          onMouseEnter={() => {
+            if (collapseTimeoutRef.current) {
+              window.clearTimeout(collapseTimeoutRef.current);
+              collapseTimeoutRef.current = null;
+            }
+            setIsHovered(true);
+            windowExpansion.request("codenotch", 480);
+          }}
+          onMouseLeave={handleMouseLeaveNotch}
         >
           {/* Triangular pointer pointing to the active circle */}
           <div className="codenotch-bubble-arrow" />
 
-          {/* Header with Icon, Status, Title, and Model Chip */}
+          {/* Header with Icon, Status, Title, Model Chip, and Launch Action */}
           <div className="codenotch-bubble-header">
             <span className="codenotch-bubble-icon" style={{ color: selectedAssistant.icon_color }}>
               <ProviderGlyph id={selectedAssistant.id} color={selectedAssistant.icon_color} />
@@ -395,6 +466,8 @@ export const CodeNotch: React.FC = () => {
                     ? "5-Hour Limit"
                     : selectedAssistant.id === "chatgpt"
                     ? "Monthly Quota"
+                    : selectedAssistant.id === "claude-code"
+                    ? "Current session"
                     : "Current session"}
                 </span>
                 <span className="codenotch-metric-meta">
@@ -449,12 +522,16 @@ export const CodeNotch: React.FC = () => {
             </div>
           )}
 
-          {/* No usage data state */}
+          {/* No usage data state (Desktop apps / Local tools) */}
           {selectedAssistant.usage_percent == null && selectedAssistant.all_models_usage_percent == null && (
-            <div className="codenotch-metric-block" style={{ textAlign: "center", padding: "8px 0" }}>
-              <span style={{ fontSize: 11, color: "#64748b" }}>
-                {selectedAssistant.is_running ? (selectedAssistant.session_reset_time || "Usage quota active") : "Not currently running"}
-              </span>
+            <div className="codenotch-metric-block" style={{ textAlign: "center", padding: "8px 0 2px" }}>
+              <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>
+                {selectedAssistant.id === "claude"
+                  ? (selectedAssistant.is_running ? "Anthropic Claude Desktop · Active" : "Anthropic Claude Desktop · Idle")
+                  : selectedAssistant.is_running
+                  ? (selectedAssistant.session_reset_time || "Running · Ready")
+                  : "Not currently running"}
+              </div>
             </div>
           )}
         </div>

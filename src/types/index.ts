@@ -177,7 +177,7 @@ export interface AiProviderStatus {
   usage_percent?: number | null;
   detail?: string | null;
   icon_color: string;
-  category: "editor" | "cli" | "local_llm" | "agent" | "extension";
+  category: "editor" | "cli" | "local_llm" | "agent" | "extension" | "desktop" | "browser";
   session_reset_time?: string | null;
   all_models_usage_percent?: number | null;
   all_models_reset_time?: string | null;

@@ -6,7 +6,9 @@ Drop your authentic AI SVGs here! You can use **either Method 1 or Method 2**:
 Simply open the corresponding `.svg` file and replace its contents with your raw `<svg>...</svg>` code:
 
 - `claude.svg` — Anthropic Claude
+- `claude-code.svg` — Anthropic Claude Code CLI / agent harness
 - `chatgpt.svg` — OpenAI ChatGPT / Codex
+- `codex.svg` — OpenAI Codex CLI / agent harness
 - `cursor.svg` — Cursor IDE
 - `copilot.svg` — GitHub Copilot
 - `mscopilot.svg` — Microsoft Copilot
@@ -17,6 +19,14 @@ Simply open the corresponding `.svg` file and replace its contents with your raw
 - `deepseek.svg` — DeepSeek
 - `grok.svg` — xAI Grok
 - `kimi.svg` — Moonshot Kimi
+- `perplexity.svg` — Perplexity
+- `gemini.svg` — Google Gemini
+- `glm.svg` — Z.ai GLM
+- `minimax.svg` — MiniMax
+- `meta-ai.svg` — Meta AI
+
+The new files contain temporary placeholders so the interface stays usable.
+Replace each complete file with the provider's SVG when you are ready.
 
 ---
 

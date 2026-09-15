@@ -20,6 +20,16 @@ pub struct AiProviderStatus {
     pub session_reset_time: Option<String>,
     pub all_models_usage_percent: Option<f32>,
     pub all_models_reset_time: Option<String>,
+    /// Observed token counts. These are only populated when the provider exposes
+    /// them locally; they are never estimated from a plan limit.
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub total_input_tokens: Option<u64>,
+    pub total_output_tokens: Option<u64>,
+    /// A human-readable description of the source behind the usage values.
+    pub usage_source: Option<String>,
+    /// Product and surface labels, for example `CLI`, `IDE`, or `Web`.
+    pub tags: Vec<String>,
 }
 
 #[cfg(windows)]
@@ -54,7 +64,14 @@ fn parse_rfc3339_to_unix(s: &str) -> Option<u64> {
     if parts.len() < 2 { return None; }
     let ymd: Vec<u64> = parts[0].split('-').filter_map(|x| x.parse().ok()).collect();
     let hms_str = parts[1].trim_end_matches('Z');
-    let hms: Vec<u64> = hms_str.split(':').filter_map(|x| x.parse().ok()).collect();
+    // Ignore fractional seconds; the token windows only need second precision.
+    let hms: Vec<u64> = hms_str.split(':')
+        .enumerate()
+        .filter_map(|(index, x)| {
+            let whole = if index == 2 { x.split('.').next().unwrap_or(x) } else { x };
+            whole.parse().ok()
+        })
+        .collect();
     if ymd.len() < 3 || hms.len() < 3 { return None; }
 
     let (year, month, day) = (ymd[0], ymd[1], ymd[2]);
@@ -531,6 +548,61 @@ fn is_process_running(patterns: &[&str]) -> bool {
     find_process_window(patterns).is_some()
 }
 
+/// Command-line tools frequently have no top-level window. Query their image
+/// name directly so a running CLI is not mistaken for an idle installation.
+/// The result is only a boolean; command output and process arguments are
+/// never returned, stored, or logged.
+fn is_named_process_running(image_name: &str) -> bool {
+    let filter = format!("IMAGENAME eq {}", image_name);
+    run_hidden("tasklist", &["/FO", "CSV", "/NH", "/FI", &filter])
+        .map(|output| {
+            let needle = format!("\"{}\"", image_name.to_lowercase());
+            output.to_lowercase().lines().any(|line| line.starts_with(&needle))
+        })
+        .unwrap_or(false)
+}
+
+/// Adds a browser/desktop-only provider when it is actually open. These
+/// services do not expose token counts through their browser window, so the
+/// UI receives an explicit unavailable source instead of a fabricated value.
+fn add_browser_provider(
+    results: &mut Vec<AiProviderStatus>,
+    id: &str,
+    name: &str,
+    browser_keywords: &[&str],
+    desktop_patterns: &[&str],
+    icon_color: &str,
+) {
+    let browser = find_browser_window(browser_keywords);
+    let desktop_running = is_process_running(desktop_patterns);
+    if browser.is_none() && !desktop_running {
+        return;
+    }
+
+    let surface = if desktop_running { "Desktop" } else { "Web" };
+    results.push(AiProviderStatus {
+        id: id.to_string(),
+        name: name.to_string(),
+        is_installed: true,
+        is_running: true,
+        active_model: None,
+        session_status: "active".to_string(),
+        usage_percent: None,
+        detail: Some(format!("{} session detected", surface)),
+        icon_color: icon_color.to_string(),
+        category: "browser".to_string(),
+        session_reset_time: None,
+        all_models_usage_percent: None,
+        all_models_reset_time: None,
+        input_tokens: None,
+        output_tokens: None,
+        total_input_tokens: None,
+        total_output_tokens: None,
+        usage_source: Some(format!("{} does not expose token usage through its local {} session.", name, surface.to_lowercase())),
+        tags: vec![surface.to_string(), "Usage unavailable".to_string()],
+    });
+}
+
 fn get_home_dir() -> Option<PathBuf> {
     dirs::home_dir()
 }
@@ -554,9 +626,6 @@ struct ClaudeTokenStats {
     window_input: u64,
     window_output: u64,
 }
-
-/// ~400K input tokens per 5h window is a reasonable Claude Pro baseline.
-const CLAUDE_WINDOW_LIMIT_TOKENS: u64 = 400_000;
 
 /// Reads real token data from ~/.claude/projects/**/*.jsonl
 fn read_claude_token_stats(home: &PathBuf) -> ClaudeTokenStats {
@@ -619,7 +688,7 @@ fn read_claude_token_stats(home: &PathBuf) -> ClaudeTokenStats {
                 let out = usage.get("output_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
                 stats.total_input += inp;
                 stats.total_output += out;
-                let ts = parsed.get("timestamp").and_then(|t| t.as_u64()).unwrap_or(0);
+                let ts = parsed.get("timestamp").and_then(parse_timestamp_ms).unwrap_or(0);
                 if ts >= window_start_ms {
                     stats.window_input += inp;
                     stats.window_output += out;
@@ -628,6 +697,18 @@ fn read_claude_token_stats(home: &PathBuf) -> ClaudeTokenStats {
         }
     }
     stats
+}
+
+/// Claude Code has used both epoch milliseconds and RFC3339 timestamps in its
+/// JSONL history. Supporting both prevents a valid active window from being
+/// reported as empty.
+fn parse_timestamp_ms(value: &serde_json::Value) -> Option<u64> {
+    if let Some(ts) = value.as_u64() {
+        return Some(if ts < 10_000_000_000 { ts.saturating_mul(1_000) } else { ts });
+    }
+    let iso = value.as_str()?;
+    let seconds = parse_rfc3339_to_unix(iso)?;
+    Some(seconds.saturating_mul(1_000))
 }
 
 /// Format token count: 12300 → "12.3K", 1200000 → "1.2M"
@@ -686,15 +767,19 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     let mut results = Vec::new();
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 1. CLAUDE CODE & CLAUDE.AI (CLI & Browser)
+    // 1. CLAUDE CODE (CLI / agent harness)
     // ──────────────────────────────────────────────────────────────────────────
     let claude_json_path = home.as_ref().map(|d| d.join(".claude.json"));
     let claude_config_dir = home.as_ref().map(|d| d.join(".claude"));
     let claude_config_exists = claude_config_dir.as_ref().map(|p| p.exists()).unwrap_or(false);
     let claude_json_exists = claude_json_path.as_ref().map(|p| p.exists()).unwrap_or(false);
-    let claude_cli_running = is_process_running(&["claude.exe", "claude-code"]);
-    let claude_browser = find_browser_window(&["claude.ai", "claude"]);
-    let claude_running = claude_cli_running || claude_browser.is_some();
+    // The desktop Claude application is also named claude.exe. A visible GUI
+    // window must be classified as Claude Desktop, never as the CLI.
+    let claude_desktop_running = is_process_running(&["claude.exe", "claude desktop"]);
+    let claude_cli_running = is_process_running(&["claude-code"])
+        || is_named_process_running("claude-code.exe")
+        || (!claude_desktop_running && is_named_process_running("claude.exe"));
+    let claude_running = claude_cli_running;
 
     if claude_config_exists || claude_json_exists || claude_running {
         // Read account email from .claude.json
@@ -725,18 +810,10 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             })
         });
 
-        let active_model = configured_claude_model.map(|m| shorten_model(&m))
-            .or_else(|| token_stats.last_model.as_deref().map(shorten_model))
-            .or_else(|| Some("claude-code".to_string()));
-
-        // Usage % from 5h rolling window vs ~400K limit
-        let usage_pct = if token_stats.window_input > 0 {
-            Some((token_stats.window_input as f32 / CLAUDE_WINDOW_LIMIT_TOKENS as f32 * 100.0).min(100.0).max(1.0))
-        } else if token_stats.total_input > 0 {
-            Some(2.0) // Has history but idle now
-        } else {
-            None
-        };
+        // A model observed in an actual session is more reliable than a saved
+        // preference, so it wins when both are present.
+        let active_model = token_stats.last_model.as_deref().map(shorten_model)
+            .or_else(|| configured_claude_model.map(|m| shorten_model(&m)));
 
         let detail = if claude_cli_running {
             if token_stats.window_input > 0 {
@@ -751,8 +828,6 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
                     Some(format!("{} · {}", base, email))
                 } else { Some(base) }
             }
-        } else if claude_browser.is_some() {
-            Some("Active in browser tab (claude.ai)".to_string())
         } else if token_stats.recent_sessions > 0 {
             let base = format!("{} sessions this week", token_stats.recent_sessions);
             if let Some(ref email) = account_email {
@@ -770,21 +845,41 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
         };
 
         results.push(AiProviderStatus {
-            id: "claude".to_string(),
+            id: "claude-code".to_string(),
             name: "Claude Code".to_string(),
             is_installed: claude_config_exists || claude_json_exists,
             is_running: claude_running,
             active_model,
             session_status: if claude_running { "active".to_string() } else if claude_config_exists || claude_json_exists { "idle".to_string() } else { "offline".to_string() },
-            usage_percent: usage_pct,
+            // Claude Code session logs contain token counts but do not expose the
+            // account quota. Never turn those counts into a made-up percentage.
+            usage_percent: None,
             detail,
             icon_color: "#da7756".to_string(),
             category: "cli".to_string(),
             session_reset_time,
-            all_models_usage_percent: usage_pct,
-            all_models_reset_time: Some("~5h rolling window".to_string()),
+            all_models_usage_percent: None,
+            all_models_reset_time: None,
+            input_tokens: (token_stats.window_input > 0).then_some(token_stats.window_input),
+            output_tokens: (token_stats.window_output > 0).then_some(token_stats.window_output),
+            total_input_tokens: (token_stats.total_input > 0).then_some(token_stats.total_input),
+            total_output_tokens: (token_stats.total_output > 0).then_some(token_stats.total_output),
+            usage_source: Some("Claude Code session logs · rolling 5 hours and local history".to_string()),
+            tags: vec!["CLI".to_string(), "Agent harness".to_string(), "Local logs".to_string()],
         });
     }
+
+    // Claude's cloud product is intentionally separate from Claude Code. A
+    // browser/desktop session tells us the product is active, but does not
+    // grant access to its account-level token figures.
+    add_browser_provider(
+        &mut results,
+        "claude",
+        "Claude",
+        &["claude.ai"],
+        &["claude-desktop.exe", "claude desktop"],
+        "#da7756",
+    );
 
     // ──────────────────────────────────────────────────────────────────────────
     // 2. CURSOR (AI Code Editor) — detect via process and install folder
@@ -861,7 +956,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             name: "Cursor".to_string(),
             is_installed: cursor_installed,
             is_running: cursor_running,
-            active_model: cursor_model.or_else(|| if cursor_running { Some("auto".to_string()) } else { None }),
+            active_model: cursor_model,
             session_status: if cursor_running { "active".to_string() } else if cursor_installed { "idle".to_string() } else { "offline".to_string() },
             usage_percent: None,
             detail,
@@ -870,35 +965,36 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             session_reset_time,
             all_models_usage_percent: None,
             all_models_reset_time: None,
+            input_tokens: None,
+            output_tokens: None,
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: Some("Cursor does not expose token usage in its local data.".to_string()),
+            tags: vec!["IDE".to_string(), "Local config".to_string()],
         });
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 3. CHATGPT (OpenAI Desktop & Browser / Codex)
+    // 3. CODEX (CLI / local agent telemetry)
     // ──────────────────────────────────────────────────────────────────────────
     let codex_dir = home.as_ref().map(|d| d.join(".codex"));
     let codex_exists = codex_dir.as_ref().map(|p| p.exists()).unwrap_or(false);
-    let chatgpt_browser = find_browser_window(&["chatgpt"]);
-    let chatgpt_desktop = is_process_running(&["chatgpt.exe", "codex.exe", "codex-computer-use.exe"]);
-    let chatgpt_running = chatgpt_desktop || chatgpt_browser.is_some();
-    let chatgpt_installed = codex_exists
-        || localappdata.as_ref().map(|d| d.join("Programs").join("ChatGPT").exists() || d.join("OpenAI").join("Codex").exists()).unwrap_or(false)
-        || appdata.as_ref().map(|d| d.join("ChatGPT").exists() || d.join("OpenAI").exists()).unwrap_or(false)
-        || chatgpt_running;
+    let codex_running = is_process_running(&["codex.exe", "codex-computer-use.exe"])
+        || is_named_process_running("codex.exe");
+    let codex_installed = codex_exists
+        || localappdata.as_ref().map(|d| d.join("OpenAI").join("Codex").exists()).unwrap_or(false)
+        || codex_running;
 
-    if chatgpt_installed || chatgpt_running {
+    if codex_installed || codex_running {
         let codex_info = home.as_ref().and_then(|h| fetch_codex_info(h));
 
-        let active_model = codex_info.as_ref().and_then(|c| c.model.clone())
-            .or_else(|| if chatgpt_running { Some("GPT-4o".to_string()) } else { None });
+        let active_model = codex_info.as_ref().and_then(|c| c.model.clone());
 
         let usage_percent = codex_info.as_ref().and_then(|c| c.used_percent);
 
         let mut detail_parts = Vec::new();
-        if chatgpt_desktop {
-            detail_parts.push("Active desktop session".to_string());
-        } else if chatgpt_browser.is_some() {
-            detail_parts.push("Active in browser tab".to_string());
+        if codex_running {
+            detail_parts.push("Active local agent".to_string());
         }
 
         if let Some(ref info) = codex_info {
@@ -912,14 +1008,14 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
 
         let detail = if !detail_parts.is_empty() {
             Some(detail_parts.join(" · "))
-        } else if chatgpt_running {
+        } else if codex_running {
             Some("Active session".to_string())
         } else {
             Some("Idle — not running".to_string())
         };
 
         let session_reset_time = codex_info.as_ref().and_then(|c| c.resets_at_str.as_ref().map(|r| format!("Resets {}", r)))
-            .or_else(|| if chatgpt_running { Some("Active quota".to_string()) } else { None });
+            .or_else(|| if codex_running { Some("Quota status unavailable".to_string()) } else { None });
 
         let all_models_reset_time = codex_info.as_ref().and_then(|c| {
             if c.total_tokens > 0 {
@@ -930,21 +1026,36 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
         });
 
         results.push(AiProviderStatus {
-            id: "chatgpt".to_string(),
-            name: "ChatGPT".to_string(),
-            is_installed: chatgpt_installed,
-            is_running: chatgpt_running,
+            id: "codex".to_string(),
+            name: "Codex".to_string(),
+            is_installed: codex_installed,
+            is_running: codex_running,
             active_model,
-            session_status: if chatgpt_running { "active".to_string() } else if chatgpt_installed { "idle".to_string() } else { "offline".to_string() },
+            session_status: if codex_running { "active".to_string() } else if codex_installed { "idle".to_string() } else { "offline".to_string() },
             usage_percent,
             detail,
             icon_color: "#10a37f".to_string(),
-            category: if chatgpt_browser.is_some() && !chatgpt_desktop { "browser".to_string() } else { "agent".to_string() },
+            category: "cli".to_string(),
             session_reset_time,
             all_models_usage_percent: None,
             all_models_reset_time,
+            input_tokens: codex_info.as_ref().and_then(|c| (c.input_tokens > 0).then_some(c.input_tokens)),
+            output_tokens: codex_info.as_ref().and_then(|c| (c.output_tokens > 0).then_some(c.output_tokens)),
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: codex_info.as_ref().map(|_| "Codex session telemetry and provider-reported rate limits.".to_string()),
+            tags: vec!["CLI".to_string(), "Agent harness".to_string(), "Local telemetry".to_string()],
         });
     }
+
+    add_browser_provider(
+        &mut results,
+        "chatgpt",
+        "ChatGPT",
+        &["chatgpt.com"],
+        &["chatgpt.exe"],
+        "#10a37f",
+    );
 
     // ──────────────────────────────────────────────────────────────────────────
     // 4. GITHUB COPILOT (VS Code extension) — detect via config + vscode
@@ -981,6 +1092,12 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             session_reset_time: Some("No local usage data".to_string()),
             all_models_usage_percent: None,
             all_models_reset_time: None,
+            input_tokens: None,
+            output_tokens: None,
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: Some("GitHub Copilot does not expose token usage in its local data.".to_string()),
+            tags: vec!["IDE extension".to_string(), "VS Code".to_string()],
         });
     }
 
@@ -998,7 +1115,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             name: "Microsoft Copilot".to_string(),
             is_installed: mscopilot_installed || mscopilot_running,
             is_running: mscopilot_running,
-            active_model: if mscopilot_running { Some("GPT-4o".to_string()) } else { None },
+            active_model: None,
             session_status: if mscopilot_running { "active".to_string() } else { "idle".to_string() },
             usage_percent: None, // No local token data
             detail: if mscopilot_running { Some("Windows Copilot · Active".to_string()) } else { Some("Idle — not running".to_string()) },
@@ -1007,6 +1124,12 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             session_reset_time: Some("No local usage data".to_string()),
             all_models_usage_percent: None,
             all_models_reset_time: None,
+            input_tokens: None,
+            output_tokens: None,
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: Some("Microsoft Copilot does not expose token usage in its local data.".to_string()),
+            tags: vec!["Desktop".to_string()],
         });
     }
 
@@ -1044,8 +1167,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     }
 
     let ollama_installed = ollama_running
-        || localappdata.as_ref().map(|d| d.join("Programs").join("Ollama").exists()).unwrap_or(false)
-        || std::path::Path::new("C:\\Users\\hp\\AppData\\Local\\Ollama").exists();
+        || localappdata.as_ref().map(|d| d.join("Programs").join("Ollama").exists()).unwrap_or(false);
 
     if ollama_installed || ollama_running {
         results.push(AiProviderStatus {
@@ -1062,6 +1184,12 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             session_reset_time: Some("Local — no limits".to_string()),
             all_models_usage_percent: None,
             all_models_reset_time: None,
+            input_tokens: None,
+            output_tokens: None,
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: Some("Ollama exposes loaded models, not cumulative token usage.".to_string()),
+            tags: vec!["Local server".to_string(), "Local model".to_string()],
         });
     }
 
@@ -1105,6 +1233,12 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             session_reset_time: Some("Local — no limits".to_string()),
             all_models_usage_percent: None,
             all_models_reset_time: None,
+            input_tokens: None,
+            output_tokens: None,
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: Some("LM Studio exposes loaded models, not cumulative token usage.".to_string()),
+            tags: vec!["Local server".to_string(), "Local model".to_string()],
         });
     }
 
@@ -1121,7 +1255,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             name: "Windsurf".to_string(),
             is_installed: windsurf_installed || windsurf_running,
             is_running: windsurf_running,
-            active_model: if windsurf_running { Some("cascade".to_string()) } else { None },
+            active_model: None,
             session_status: if windsurf_running { "active".to_string() } else { "idle".to_string() },
             usage_percent: None, // No local token data
             detail: if windsurf_running { Some("Cascade flow active".to_string()) } else { Some("Idle".to_string()) },
@@ -1130,6 +1264,12 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             session_reset_time: Some("No local usage data".to_string()),
             all_models_usage_percent: None,
             all_models_reset_time: None,
+            input_tokens: None,
+            output_tokens: None,
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: Some("Windsurf does not expose token usage in its local data.".to_string()),
+            tags: vec!["IDE".to_string()],
         });
     }
 
@@ -1146,7 +1286,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             name: "DeepSeek".to_string(),
             is_installed: true,
             is_running: true,
-            active_model: Some("DeepSeek-R1".to_string()),
+            active_model: None,
             session_status: "active".to_string(),
             usage_percent: None, // No local token data
             detail: if deepseek_browser.is_some() {
@@ -1159,6 +1299,12 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             session_reset_time: Some("No local usage data".to_string()),
             all_models_usage_percent: None,
             all_models_reset_time: None,
+            input_tokens: None,
+            output_tokens: None,
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: Some("DeepSeek browser sessions do not provide local token telemetry.".to_string()),
+            tags: vec!["Web".to_string()],
         });
     }
 
@@ -1175,7 +1321,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             name: "Grok".to_string(),
             is_installed: true,
             is_running: true,
-            active_model: Some("Grok-2".to_string()),
+            active_model: None,
             session_status: "active".to_string(),
             usage_percent: None, // No local token data
             detail: Some("Grok active in browser".to_string()),
@@ -1184,6 +1330,12 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             session_reset_time: Some("No local usage data".to_string()),
             all_models_usage_percent: None,
             all_models_reset_time: None,
+            input_tokens: None,
+            output_tokens: None,
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: Some("Grok browser sessions do not provide local token telemetry.".to_string()),
+            tags: vec!["Web".to_string()],
         });
     }
 
@@ -1200,7 +1352,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             name: "Kimi".to_string(),
             is_installed: true,
             is_running: true,
-            active_model: Some("Moonshot Kimi".to_string()),
+            active_model: None,
             session_status: "active".to_string(),
             usage_percent: None, // No local token data
             detail: Some("Kimi active in browser".to_string()),
@@ -1209,13 +1361,30 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             session_reset_time: Some("No local usage data".to_string()),
             all_models_usage_percent: None,
             all_models_reset_time: None,
+            input_tokens: None,
+            output_tokens: None,
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: Some("Kimi browser sessions do not provide local token telemetry.".to_string()),
+            tags: vec!["Web".to_string()],
         });
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 12. ANTIGRAVITY (Google Antigravity / Gemini)
+    // 12. ADDITIONAL CLOUD ASSISTANTS
+    // These cards appear only for a live browser/desktop session. Their token
+    // data remains empty unless the provider exposes an official local source.
     // ──────────────────────────────────────────────────────────────────────────
-    let antigravity_browser = find_browser_window(&["antigravity", "gemini"]);
+    add_browser_provider(&mut results, "perplexity", "Perplexity", &["perplexity.ai"], &["perplexity.exe"], "#20b8cd");
+    add_browser_provider(&mut results, "gemini", "Gemini", &["gemini.google.com"], &[], "#4285f4");
+    add_browser_provider(&mut results, "glm", "GLM (Z.ai)", &["chat.z.ai", "glm"], &[], "#2563eb");
+    add_browser_provider(&mut results, "minimax", "MiniMax", &["minimax.io", "minimax"], &[], "#f97316");
+    add_browser_provider(&mut results, "meta-ai", "Meta AI", &["meta.ai"], &[], "#0866ff");
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 13. ANTIGRAVITY IDE
+    // ──────────────────────────────────────────────────────────────────────────
+    let antigravity_browser = find_browser_window(&["antigravity"]);
     let antigravity_desktop = is_process_running(&["antigravity ide.exe", "antigravity ide", "antigravity.exe", "antigravity"]);
     let antigravity_running = antigravity_desktop || antigravity_browser.is_some();
     let antigravity_installed = localappdata.as_ref().map(|d| d.join("Programs").join("Antigravity IDE").exists()).unwrap_or(false)
@@ -1264,7 +1433,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             name: "Antigravity".to_string(),
             is_installed: antigravity_installed,
             is_running: antigravity_running,
-            active_model: if antigravity_running { Some("Gemini 3.8 Flash".to_string()) } else { None },
+            active_model: None,
             session_status: if antigravity_running { "active".to_string() } else { "idle".to_string() },
             usage_percent: usage_pct,
             detail,
@@ -1273,6 +1442,12 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             session_reset_time: reset_time,
             all_models_usage_percent: all_models_pct,
             all_models_reset_time: all_models_reset,
+            input_tokens: None,
+            output_tokens: None,
+            total_input_tokens: None,
+            total_output_tokens: None,
+            usage_source: quota.map(|_| "Provider quota returned by Antigravity's local service.".to_string()),
+            tags: vec!["IDE".to_string(), "Local service".to_string()],
         });
     }
 
@@ -1302,21 +1477,30 @@ pub fn launch_ai_assistant(provider_id: &str) {
             }
             let _ = crate::commands::taskbar::launch_app("Cursor.exe".to_string());
         }
+        "claude-code" => {
+            if let Some(hwnd) = find_process_window(&["claude.exe", "claude-code"]) {
+                crate::services::window_watcher::focus_window(hwnd);
+                return;
+            }
+            let _ = crate::commands::taskbar::launch_app("wt.exe claude".to_string());
+        }
         "claude" => {
             if let Some((hwnd, _)) = find_browser_window(&["claude.ai", "claude"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
-            if let Some(hwnd) = find_process_window(&["claude.exe", "claude-code"]) {
+            if let Some(hwnd) = find_process_window(&["claude-desktop.exe", "claude desktop"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
-            let home = get_home_dir();
-            if home.map(|d| d.join(".claude.json").exists()).unwrap_or(false) {
-                let _ = crate::commands::taskbar::launch_app("wt.exe claude".to_string());
-            } else {
-                let _ = crate::commands::taskbar::launch_app("https://claude.ai".to_string());
+            let _ = crate::commands::taskbar::launch_app("https://claude.ai".to_string());
+        }
+        "codex" => {
+            if let Some(hwnd) = find_process_window(&["codex.exe", "codex-computer-use.exe"]) {
+                crate::services::window_watcher::focus_window(hwnd);
+                return;
             }
+            let _ = crate::commands::taskbar::launch_app("wt.exe codex".to_string());
         }
         "chatgpt" => {
             if let Some(hwnd) = find_process_window(&["chatgpt.exe"]) {
@@ -1380,6 +1564,41 @@ pub fn launch_ai_assistant(provider_id: &str) {
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://kimi.moonshot.cn".to_string());
+        }
+        "perplexity" => {
+            if let Some((hwnd, _)) = find_browser_window(&["perplexity.ai"]) {
+                crate::services::window_watcher::focus_window(hwnd);
+                return;
+            }
+            let _ = crate::commands::taskbar::launch_app("https://www.perplexity.ai".to_string());
+        }
+        "gemini" => {
+            if let Some((hwnd, _)) = find_browser_window(&["gemini.google.com"]) {
+                crate::services::window_watcher::focus_window(hwnd);
+                return;
+            }
+            let _ = crate::commands::taskbar::launch_app("https://gemini.google.com".to_string());
+        }
+        "glm" => {
+            if let Some((hwnd, _)) = find_browser_window(&["chat.z.ai", "glm"]) {
+                crate::services::window_watcher::focus_window(hwnd);
+                return;
+            }
+            let _ = crate::commands::taskbar::launch_app("https://chat.z.ai".to_string());
+        }
+        "minimax" => {
+            if let Some((hwnd, _)) = find_browser_window(&["minimax.io", "minimax"]) {
+                crate::services::window_watcher::focus_window(hwnd);
+                return;
+            }
+            let _ = crate::commands::taskbar::launch_app("https://www.minimax.io".to_string());
+        }
+        "meta-ai" => {
+            if let Some((hwnd, _)) = find_browser_window(&["meta.ai"]) {
+                crate::services::window_watcher::focus_window(hwnd);
+                return;
+            }
+            let _ = crate::commands::taskbar::launch_app("https://www.meta.ai".to_string());
         }
         "antigravity" => {
             if let Some(hwnd) = find_process_window(&["antigravity.exe", "antigravity"]) {
