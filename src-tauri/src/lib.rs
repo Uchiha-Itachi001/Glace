@@ -29,6 +29,7 @@ unsafe extern "system" fn taskbar_subclass_proc(
     }
 }
 
+#[cfg(not(test))]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Install console Ctrl+C / break / exit handler

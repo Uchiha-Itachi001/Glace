@@ -31,8 +31,8 @@ export function useAiAssistants(pollActive: boolean = false) {
     isMountedRef.current = true;
     fetchStatus();
 
-    // Poll every 2s if pollActive (notch expanded), every 8s if idle
-    const intervalMs = pollActive ? 2000 : 8000;
+    // Poll every 2s if pollActive (notch expanded), every 4s if idle
+    const intervalMs = pollActive ? 2000 : 4000;
     const timer = setInterval(() => {
       fetchStatus(false);
     }, intervalMs);
@@ -44,7 +44,7 @@ export function useAiAssistants(pollActive: boolean = false) {
   }, [pollActive, fetchStatus]);
 
   const activeAssistants = assistants.filter(
-    (a) => a.is_running
+    (a) => a.is_running || a.session_status === "active"
   );
   const hasActiveSession = activeAssistants.length > 0;
 

@@ -151,71 +151,10 @@ export const CodeNotch: React.FC = () => {
     activeAssistantId !== null || hoveredAssistantId !== null
   );
 
-  // "Used" = has local config/history detected (is_installed).
-  // Default fallback: show Claude Code, Claude Desktop, and ChatGPT.
-  const DEFAULT_IDS = ["claude-code", "claude", "chatgpt"];
-  const usedAssistants = assistants.filter((a) => a.is_installed || a.is_running);
-
-  const displayAssistants: AiProviderStatus[] = (() => {
-    if (usedAssistants.length > 0) {
-      // Sort: running first, then installed-only; cap at 5
-      return [...usedAssistants]
-        .sort((a, b) => (b.is_running ? 1 : 0) - (a.is_running ? 1 : 0))
-        .slice(0, 5);
-    }
-    // Fallback defaults while scan is warming up
-    return DEFAULT_IDS.map((id) => {
-      if (id === "claude-code") {
-        return {
-          id: "claude-code",
-          name: "Claude Code",
-          is_installed: true,
-          is_running: false,
-          active_model: "claude-code",
-          session_status: "idle" as const,
-          usage_percent: null,
-          detail: "CLI tool · Idle",
-          icon_color: "#da7756",
-          category: "cli" as const,
-          session_reset_time: "—",
-          all_models_usage_percent: null,
-          all_models_reset_time: "—",
-        };
-      }
-      if (id === "claude") {
-        return {
-          id: "claude",
-          name: "Claude",
-          is_installed: true,
-          is_running: false,
-          active_model: "Claude 3.7 Sonnet",
-          session_status: "idle" as const,
-          usage_percent: null,
-          detail: "Desktop App · Idle",
-          icon_color: "#da7756",
-          category: "agent" as const,
-          session_reset_time: "—",
-          all_models_usage_percent: null,
-          all_models_reset_time: "—",
-        };
-      }
-      return {
-        id: "chatgpt",
-        name: "ChatGPT",
-        is_installed: true,
-        is_running: false,
-        active_model: "GPT-4o",
-        session_status: "idle" as const,
-        usage_percent: null,
-        detail: "Detected — not currently running",
-        icon_color: "#10a37f",
-        category: "agent" as const,
-        session_reset_time: "—",
-        all_models_usage_percent: null,
-        all_models_reset_time: "—",
-      };
-    });
-  })();
+  // Only show active/running AIs (is_running or session_status === 'active')
+  const displayAssistants: AiProviderStatus[] = assistants
+    .filter((a) => a.is_running || a.session_status === "active")
+    .slice(0, 5);
 
   const selectedAssistant =
     displayAssistants.find((a) => a.id === (hoveredAssistantId || activeAssistantId)) || null;
@@ -309,7 +248,37 @@ export const CodeNotch: React.FC = () => {
     };
   }, []);
 
-  if (!isEnabled) {
+  // Release window expansion & reset hover/active state when no active assistants remain
+  useEffect(() => {
+    if (displayAssistants.length === 0) {
+      if (activeAssistantId || hoveredAssistantId || isHovered) {
+        setActiveAssistantId(null);
+        setHoveredAssistantId(null);
+        setIsHovered(false);
+      }
+      windowExpansion.release("codenotch");
+    }
+  }, [displayAssistants.length, activeAssistantId, hoveredAssistantId, isHovered]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      windowExpansion.release("codenotch");
+    };
+  }, []);
+
+  // Clear active/hovered ID if that assistant is no longer active
+  useEffect(() => {
+    if (activeAssistantId && !displayAssistants.some((a) => a.id === activeAssistantId)) {
+      setActiveAssistantId(null);
+    }
+    if (hoveredAssistantId && !displayAssistants.some((a) => a.id === hoveredAssistantId)) {
+      setHoveredAssistantId(null);
+    }
+  }, [displayAssistants, activeAssistantId, hoveredAssistantId]);
+
+  // If disabled or no active AIs, do not show the notch at all
+  if (!isEnabled || displayAssistants.length === 0) {
     return null;
   }
 
@@ -349,12 +318,16 @@ export const CodeNotch: React.FC = () => {
         )}
         {displayAssistants.map((assistant) => {
           const isSelected = selectedAssistant?.id === assistant.id;
-          const usage = Math.round(assistant.usage_percent ?? 0);
+          const isRemainingMode = assistant.tags?.some((t) => t.toLowerCase().includes("remaining"));
+          const percent = Math.round(assistant.usage_percent ?? 0);
+          const ringColor = isRemainingMode
+            ? (percent > 20 ? "#22c55e" : "#ef4444")
+            : assistant.icon_color;
 
           // SVG Ring calculation: Radius r=16.5, C = 2 * PI * 16.5 = 103.67
           const r = 16.5;
           const c = 2 * Math.PI * r;
-          const offset = c - (usage / 100) * c;
+          const offset = c - (percent / 100) * c;
 
           return (
             <div
@@ -364,7 +337,7 @@ export const CodeNotch: React.FC = () => {
                 else itemRefs.current.delete(assistant.id);
               }}
               className={`codenotch-ring-item ${isSelected ? "codenotch-ring-item--selected" : ""} ${!assistant.is_running ? "codenotch-ring-item--idle" : ""}`}
-              style={{ "--item-color": assistant.icon_color } as React.CSSProperties}
+              style={{ "--item-color": ringColor } as React.CSSProperties}
               onMouseEnter={() => handleMouseEnterItem(assistant.id)}
               onClick={(e) => handleClickItem(assistant.id, e)}
             >
@@ -380,14 +353,14 @@ export const CodeNotch: React.FC = () => {
                     stroke="#1a1a1a"
                     strokeWidth="2.8"
                   />
-                  {/* Active Colored Arc — only show if usage > 0 */}
-                  {usage > 0 && (
+                  {/* Active Colored Arc — only show if percent > 0 */}
+                  {percent > 0 && (
                     <circle
                       cx="20"
                       cy="20"
                       r={r}
                       fill="none"
-                      stroke={assistant.icon_color}
+                      stroke={ringColor}
                       strokeWidth="2.8"
                       strokeLinecap="round"
                       strokeDasharray={c}
@@ -407,8 +380,8 @@ export const CodeNotch: React.FC = () => {
 
               {/* Percentage or Status Label */}
               {isActive && (
-                <span className="codenotch-ring-percent">
-                  {usage > 0 ? `${usage}%` : "idle"}
+                <span className="codenotch-ring-percent" style={{ color: isRemainingMode ? ringColor : undefined }}>
+                  {assistant.usage_percent != null ? `${percent}%` : "active"}
                 </span>
               )}
             </div>
@@ -457,80 +430,127 @@ export const CodeNotch: React.FC = () => {
             </div>
           </div>
 
-          {/* Metric 1: Current Session / 5-Hour Limit / Monthly Quota (only if usage_percent exists) */}
-          {(selectedAssistant.usage_percent ?? 0) > 0 && (
-            <div className="codenotch-metric-block">
-              <div className="codenotch-metric-row">
-                <span className="codenotch-metric-name">
-                  {selectedAssistant.id === "antigravity"
-                    ? "5-Hour Limit"
-                    : selectedAssistant.id === "chatgpt"
-                    ? "Monthly Quota"
-                    : selectedAssistant.id === "claude-code"
-                    ? "Current session"
-                    : "Current session"}
-                </span>
-                <span className="codenotch-metric-meta">
-                  {selectedAssistant.session_reset_time || "—"}
-                </span>
-              </div>
-              <div className="codenotch-progress-rail">
-                <div
-                  className="codenotch-progress-fill"
-                  style={{
-                    width: `${Math.min(100, selectedAssistant.usage_percent ?? 0)}%`,
-                    background: selectedAssistant.icon_color,
-                  }}
-                />
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="codenotch-metric-usage">
-                  {Math.round(selectedAssistant.usage_percent ?? 0)}% Used
-                </span>
-                {selectedAssistant.all_models_reset_time && selectedAssistant.all_models_usage_percent == null && (
-                  <span style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontWeight: 500 }}>
-                    {selectedAssistant.all_models_reset_time}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Metric 1: Primary Rate / Quota Limit */}
+          {selectedAssistant.usage_percent != null && (() => {
+            const isRemainingMode = selectedAssistant.tags?.some((t) => t.toLowerCase().includes("remaining"));
+            const percent = Math.round(selectedAssistant.usage_percent ?? 0);
+            const metricName = selectedAssistant.tags?.find((t) => t.startsWith("metric1:"))?.slice(8)
+              || (isRemainingMode ? "Rate Limit" : selectedAssistant.category === "cli" ? "Current session" : "Usage Quota");
+            const barColor = isRemainingMode
+              ? (percent > 20 ? "#22c55e" : "#ef4444")
+              : (percent > 85 ? "#ef4444" : selectedAssistant.icon_color);
 
-          {/* Metric 2: Weekly Limit / All Models (only if available) */}
-          {(selectedAssistant.all_models_usage_percent ?? 0) > 0 && (
-            <div className="codenotch-metric-block">
-              <div className="codenotch-metric-row">
-                <span className="codenotch-metric-name">
-                  {selectedAssistant.id === "antigravity" ? "Weekly Limit" : "All models"}
-                </span>
-                <span className="codenotch-metric-meta">
-                  {selectedAssistant.all_models_reset_time || "—"}
-                </span>
+            return (
+              <div className="codenotch-metric-block">
+                <div className="codenotch-metric-row">
+                  <span className="codenotch-metric-name">{metricName}</span>
+                  <span className="codenotch-metric-meta">
+                    {selectedAssistant.session_reset_time || "—"}
+                  </span>
+                </div>
+                <div className="codenotch-progress-rail">
+                  <div
+                    className="codenotch-progress-fill"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, percent))}%`,
+                      background: barColor,
+                    }}
+                  />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span
+                    className="codenotch-metric-usage"
+                    style={{ color: isRemainingMode ? barColor : undefined, fontWeight: 600 }}
+                  >
+                    {isRemainingMode ? `${percent}% Remaining` : `${percent}% Used`}
+                  </span>
+                  {isRemainingMode ? (
+                    <span style={{ fontSize: 11, color: "#71717a", fontWeight: 500 }}>
+                      {100 - percent}% used
+                    </span>
+                  ) : (
+                    selectedAssistant.all_models_reset_time && selectedAssistant.all_models_usage_percent == null && (
+                      <span style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontWeight: 500 }}>
+                        {selectedAssistant.all_models_reset_time}
+                      </span>
+                    )
+                  )}
+                </div>
               </div>
-              <div className="codenotch-progress-rail">
-                <div
-                  className="codenotch-progress-fill"
-                  style={{
-                    width: `${Math.min(100, selectedAssistant.all_models_usage_percent ?? 0)}%`,
-                    background: (selectedAssistant.all_models_usage_percent ?? 0) > 85 ? "#ef4444" : "#22c55e",
-                  }}
-                />
+            );
+          })()}
+
+          {/* Metric 2: Secondary / Weekly Limit */}
+          {selectedAssistant.all_models_usage_percent != null && (() => {
+            const isRemainingMode = selectedAssistant.tags?.some((t) => t.toLowerCase().includes("remaining"));
+            const weeklyPercent = Math.round(selectedAssistant.all_models_usage_percent ?? 0);
+            const metric2Name = selectedAssistant.tags?.find((t) => t.startsWith("metric2:"))?.slice(8)
+              || (isRemainingMode ? "Weekly Limit" : "All models");
+            const barColor = isRemainingMode
+              ? (weeklyPercent > 20 ? "#22c55e" : "#ef4444")
+              : (weeklyPercent > 85 ? "#ef4444" : "#22c55e");
+
+            return (
+              <div className="codenotch-metric-block">
+                <div className="codenotch-metric-row">
+                  <span className="codenotch-metric-name">{metric2Name}</span>
+                  <span className="codenotch-metric-meta">
+                    {selectedAssistant.all_models_reset_time || "—"}
+                  </span>
+                </div>
+                <div className="codenotch-progress-rail">
+                  <div
+                    className="codenotch-progress-fill"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, weeklyPercent))}%`,
+                      background: barColor,
+                    }}
+                  />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span
+                    className="codenotch-metric-usage"
+                    style={{ color: isRemainingMode ? barColor : undefined, fontWeight: 600 }}
+                  >
+                    {isRemainingMode ? `${weeklyPercent}% Remaining` : `${weeklyPercent}% Used`}
+                  </span>
+                  {isRemainingMode && (
+                    <span style={{ fontSize: 11, color: "#71717a", fontWeight: 500 }}>
+                      {100 - weeklyPercent}% used
+                    </span>
+                  )}
+                </div>
               </div>
-              <span className="codenotch-metric-usage">
-                {Math.round(selectedAssistant.all_models_usage_percent ?? 0)}% Used
-              </span>
-            </div>
-          )}
+            );
+          })()}
+
+          {/* Dynamic Provider Note / Sub-Quota (if provided in tags) */}
+          {(() => {
+            const note = selectedAssistant.tags?.find((t) => t.startsWith("note:"))?.slice(5);
+            const noteTitle = selectedAssistant.tags?.find((t) => t.startsWith("note_title:"))?.slice(11);
+            if (!note) return null;
+            return (
+              <div className="codenotch-metric-block" style={{ borderTop: "1px solid rgba(255, 255, 255, 0.06)", paddingTop: 8 }}>
+                {noteTitle && (
+                  <div className="codenotch-metric-row">
+                    <span className="codenotch-metric-name" style={{ fontSize: 11, color: "#a1a1aa" }}>
+                      {noteTitle}
+                    </span>
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: "#71717a", marginTop: 2 }}>
+                  {note}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* No usage data state (Desktop apps / Local tools) */}
           {selectedAssistant.usage_percent == null && selectedAssistant.all_models_usage_percent == null && (
             <div className="codenotch-metric-block" style={{ textAlign: "center", padding: "8px 0 2px" }}>
               <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>
-                {selectedAssistant.id === "claude"
-                  ? (selectedAssistant.is_running ? "Anthropic Claude Desktop · Active" : "Anthropic Claude Desktop · Idle")
-                  : selectedAssistant.is_running
-                  ? (selectedAssistant.session_reset_time || "Running · Ready")
-                  : "Not currently running"}
+                {selectedAssistant.session_reset_time
+                  || (selectedAssistant.is_running ? `${selectedAssistant.name} · Active` : `${selectedAssistant.name} · Idle`)}
               </div>
             </div>
           )}

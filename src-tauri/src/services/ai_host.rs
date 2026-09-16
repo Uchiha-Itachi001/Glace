@@ -122,24 +122,27 @@ fn format_reset_countdown(iso: &str) -> String {
 }
 
 #[derive(Debug, Clone, Default)]
-struct AntigravityQuota {
-    gemini_5h_used: Option<f32>,
-    gemini_5h_reset: Option<String>,
-    gemini_weekly_used: Option<f32>,
-    gemini_weekly_reset: Option<String>,
-    claude_weekly_used: Option<f32>,
-    claude_weekly_reset: Option<String>,
-    claude_blocked: bool,
+struct AntigravityInfo {
+    plan_name: Option<String>,
+    active_model: Option<String>,
+    metric1_name: Option<String>,
+    metric1_rem: Option<f32>,
+    metric1_reset: Option<String>,
+    metric2_name: Option<String>,
+    metric2_rem: Option<f32>,
+    metric2_reset: Option<String>,
+    sub_title: Option<String>,
+    sub_note: Option<String>,
 }
 
-static ANTIGRAVITY_CACHE: Mutex<Option<(Instant, AntigravityQuota)>> = Mutex::new(None);
-const QUOTA_CACHE_TTL: Duration = Duration::from_secs(60);
+static ANTIGRAVITY_CACHE: Mutex<Option<(Instant, AntigravityInfo)>> = Mutex::new(None);
+const QUOTA_CACHE_TTL: Duration = Duration::from_secs(30);
 
-fn fetch_antigravity_quota() -> Option<AntigravityQuota> {
+fn fetch_antigravity_info() -> Option<AntigravityInfo> {
     if let Ok(guard) = ANTIGRAVITY_CACHE.lock() {
-        if let Some((cached_time, ref quota)) = *guard {
+        if let Some((cached_time, ref info)) = *guard {
             if cached_time.elapsed() < QUOTA_CACHE_TTL {
-                return Some(quota.clone());
+                return Some(info.clone());
             }
         }
     }
@@ -184,58 +187,138 @@ fn fetch_antigravity_quota() -> Option<AntigravityQuota> {
         ports.dedup();
 
         for port in ports {
-            let url = format!("https://127.0.0.1:{}/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary", port);
+            let quota_url = format!("https://127.0.0.1:{}/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary", port);
             let mut curl = std::process::Command::new("curl.exe");
             curl.args(&[
                 "-k", "-s", "--max-time", "2",
                 "-X", "POST",
-                &url,
+                &quota_url,
                 "-H", &format!("x-codeium-csrf-token: {}", csrf),
                 "-H", "Content-Type: application/json",
-                "-d", "{\"forceRefresh\":true}",
+                "-d", "{}",
             ]);
             curl.creation_flags(CREATE_NO_WINDOW);
 
-            if let Ok(out) = curl.output() {
+            let quota_val: Option<serde_json::Value> = curl.output().ok().and_then(|out| {
                 if out.status.success() {
-                    let resp_str = String::from_utf8_lossy(&out.stdout);
-                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&resp_str) {
-                        if let Some(resp) = val.get("response") {
-                            let mut q = AntigravityQuota::default();
-                            if let Some(groups) = resp.get("groups").and_then(|g| g.as_array()) {
-                                for g in groups {
-                                    if let Some(buckets) = g.get("buckets").and_then(|b| b.as_array()) {
-                                        for b in buckets {
-                                            let b_id = b.get("bucketId").and_then(|id| id.as_str()).unwrap_or("");
-                                            let rem = b.get("remainingFraction").and_then(|r| r.as_f64()).unwrap_or(1.0) as f32;
-                                            let reset = b.get("resetTime").and_then(|t| t.as_str()).map(format_reset_countdown);
-                                            let used = ((1.0 - rem) * 100.0).clamp(0.0, 100.0);
+                    serde_json::from_slice(&out.stdout).ok()
+                } else {
+                    None
+                }
+            });
 
-                                            if b_id == "gemini-5h" {
-                                                q.gemini_5h_used = Some(used);
-                                                q.gemini_5h_reset = reset;
-                                            } else if b_id == "gemini-weekly" {
-                                                q.gemini_weekly_used = Some(used);
-                                                q.gemini_weekly_reset = reset;
-                                            } else if b_id == "3p-weekly" {
-                                                q.claude_weekly_used = Some(used);
-                                                q.claude_weekly_reset = reset;
-                                                if rem <= 0.001 {
-                                                    q.claude_blocked = true;
-                                                }
+            let Some(val) = quota_val else {
+                continue;
+            };
+
+            let mut info = AntigravityInfo::default();
+
+            if let Some(resp) = val.get("response") {
+                if let Some(groups) = resp.get("groups").and_then(|g| g.as_array()) {
+                    // Group 0: Primary models (Gemini)
+                    if let Some(g0) = groups.get(0) {
+                        if let Some(buckets) = g0.get("buckets").and_then(|b| b.as_array()) {
+                            for b in buckets {
+                                let b_id = b.get("bucketId").and_then(|id| id.as_str()).unwrap_or("");
+                                let window = b.get("window").and_then(|w| w.as_str()).unwrap_or("");
+                                let d_name = b.get("displayName").and_then(|d| d.as_str()).unwrap_or("");
+                                let clean_name = d_name.trim_end_matches(" Remaining").trim().to_string();
+                                let rem = b.get("remainingFraction").and_then(|r| r.as_f64()).unwrap_or(1.0) as f32;
+                                let reset = b.get("resetTime").and_then(|t| t.as_str()).map(format_reset_countdown);
+                                let rem_pct = (rem * 100.0).clamp(0.0, 100.0);
+
+                                if window == "5h" || b_id.contains("5h") {
+                                    info.metric1_name = Some(clean_name);
+                                    info.metric1_rem = Some(rem_pct);
+                                    info.metric1_reset = reset;
+                                } else if window == "weekly" || b_id.contains("weekly") {
+                                    info.metric2_name = Some(clean_name);
+                                    info.metric2_rem = Some(rem_pct);
+                                    info.metric2_reset = reset;
+                                }
+                            }
+                        }
+                    }
+
+                    // Group 1+: Secondary models (e.g. Claude & GPT models)
+                    if let Some(g1) = groups.get(1) {
+                        info.sub_title = g1.get("displayName").and_then(|d| d.as_str()).map(String::from);
+                        if let Some(buckets) = g1.get("buckets").and_then(|b| b.as_array()) {
+                            let active_b = buckets.iter().find(|b| !b.get("disabled").and_then(|d| d.as_bool()).unwrap_or(false))
+                                .or_else(|| buckets.first());
+
+                            if let Some(b) = active_b {
+                                let rem = b.get("remainingFraction").and_then(|r| r.as_f64()).unwrap_or(1.0) as f32;
+                                let reset_str = b.get("resetTime").and_then(|t| t.as_str()).map(format_reset_countdown)
+                                    .unwrap_or_else(|| "soon".to_string());
+                                if rem <= 0.001 {
+                                    info.sub_note = Some(format!("Weekly limit reached · {}", reset_str));
+                                } else {
+                                    info.sub_note = Some(format!("{:.0}% Remaining · {}", rem * 100.0, reset_str));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fetch GetUserStatus for real plan and active model
+            let status_url = format!("https://127.0.0.1:{}/exa.language_server_pb.LanguageServerService/GetUserStatus", port);
+            let mut curl_status = std::process::Command::new("curl.exe");
+            curl_status.args(&[
+                "-k", "-s", "--max-time", "2",
+                "-X", "POST",
+                &status_url,
+                "-H", &format!("x-codeium-csrf-token: {}", csrf),
+                "-H", "Content-Type: application/json",
+                "-d", "{}",
+            ]);
+            curl_status.creation_flags(CREATE_NO_WINDOW);
+
+            if let Ok(status_out) = curl_status.output() {
+                if status_out.status.success() {
+                    if let Ok(s_val) = serde_json::from_slice::<serde_json::Value>(&status_out.stdout) {
+                        if let Some(u_status) = s_val.get("userStatus") {
+                            info.plan_name = u_status.get("userTier")
+                                .and_then(|t| t.get("name"))
+                                .and_then(|n| n.as_str())
+                                .or_else(|| {
+                                    u_status.get("planStatus")
+                                        .and_then(|p| p.get("planInfo"))
+                                        .and_then(|i| i.get("planName"))
+                                        .and_then(|n| n.as_str())
+                                })
+                                .map(String::from);
+
+                            if let Some(cascade) = u_status.get("cascadeModelConfigData") {
+                                let default_model = cascade.get("defaultOverrideModelConfig")
+                                    .and_then(|d| d.get("modelOrAlias"))
+                                    .and_then(|m| m.get("model"))
+                                    .and_then(|m| m.as_str());
+
+                                if let Some(target) = default_model {
+                                    if let Some(configs) = cascade.get("clientModelConfigs").and_then(|c| c.as_array()) {
+                                        for c in configs {
+                                            let m_id = c.get("modelOrAlias")
+                                                .and_then(|m| m.get("model"))
+                                                .and_then(|m| m.as_str());
+                                            if m_id == Some(target) {
+                                                info.active_model = c.get("label").and_then(|l| l.as_str()).map(String::from);
+                                                break;
                                             }
                                         }
                                     }
                                 }
                             }
-                            if let Ok(mut guard) = ANTIGRAVITY_CACHE.lock() {
-                                *guard = Some((Instant::now(), q.clone()));
-                            }
-                            return Some(q);
                         }
                     }
                 }
             }
+
+            if let Ok(mut guard) = ANTIGRAVITY_CACHE.lock() {
+                *guard = Some((Instant::now(), info.clone()));
+            }
+            return Some(info);
         }
     }
     None
@@ -462,6 +545,210 @@ fn fetch_codex_info(home: &std::path::Path) -> Option<CodexInfo> {
     }
 
     if let Ok(mut guard) = CODEX_CACHE.lock() {
+        *guard = Some((Instant::now(), info.clone()));
+    }
+    Some(info)
+}
+
+#[derive(Debug, Clone, Default)]
+struct CopilotInfo {
+    plan_name: Option<String>,
+    active_model: Option<String>,
+    username: Option<String>,
+    used_percent: Option<f32>,
+    remaining_percent: Option<f32>,
+    resets_at_str: Option<String>,
+    credits_used: Option<u64>,
+    credits_entitlement: Option<u64>,
+    credits_remaining: Option<u64>,
+    inline_suggestions: bool,
+}
+
+static COPILOT_CACHE: Mutex<Option<(Instant, CopilotInfo)>> = Mutex::new(None);
+
+fn get_github_token() -> Option<String> {
+    // 1. Direct 'gh auth token' execution
+    if let Some(t) = run_hidden("gh", &["auth", "token"]) {
+        let trimmed = t.trim();
+        if !trimmed.is_empty() && !trimmed.contains("error") && !trimmed.contains("not logged") {
+            return Some(trimmed.to_string());
+        }
+    }
+    // 2. Direct path to GitHub CLI on Windows
+    let standard_gh = "C:\\Program Files\\GitHub CLI\\gh.exe";
+    if std::path::Path::new(standard_gh).exists() {
+        if let Some(t) = run_hidden(standard_gh, &["auth", "token"]) {
+            let trimmed = t.trim();
+            if !trimmed.is_empty() && !trimmed.contains("error") && !trimmed.contains("not logged") {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    // 3. Fallback via powershell command
+    if let Some(t) = run_hidden("powershell", &["-NoProfile", "-NonInteractive", "-Command", "gh auth token"]) {
+        let trimmed = t.trim();
+        if !trimmed.is_empty() && !trimmed.contains("error") && (trimmed.starts_with("gh") || trimmed.len() >= 20) {
+            return Some(trimmed.to_string());
+        }
+    }
+    None
+}
+
+fn clean_copilot_model_name(raw: &str) -> String {
+    let clean = raw.strip_prefix("copilotcli/").unwrap_or(raw);
+    match clean {
+        "claude-sonnet-4.6" | "claude-sonnet-4-6" => "Claude Sonnet 4.6".to_string(),
+        "claude-opus-4.6" | "claude-opus-4-6" => "Claude Opus 4.6".to_string(),
+        "claude-3.7-sonnet" | "claude-3-7-sonnet" => "Claude 3.7 Sonnet".to_string(),
+        "claude-3.5-sonnet" | "claude-3-5-sonnet" => "Claude 3.5 Sonnet".to_string(),
+        "gpt-4o" => "GPT-4o".to_string(),
+        "gpt-4o-mini" => "GPT-4o mini".to_string(),
+        "o1" => "o1".to_string(),
+        "o3-mini" => "o3-mini".to_string(),
+        other => {
+            let parts: Vec<String> = other.split(&['-', '/'][..])
+                .map(|p| {
+                    let mut chars = p.chars();
+                    match chars.next() {
+                        None => String::new(),
+                        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                    }
+                })
+                .collect();
+            parts.join(" ")
+        }
+    }
+}
+
+fn fetch_copilot_info() -> Option<CopilotInfo> {
+    if let Ok(guard) = COPILOT_CACHE.lock() {
+        if let Some((cached_time, ref info)) = *guard {
+            if cached_time.elapsed() < QUOTA_CACHE_TTL {
+                return Some(info.clone());
+            }
+        }
+    }
+
+    let token = get_github_token()?;
+    let mut curl = std::process::Command::new("curl.exe");
+    curl.args(&[
+        "-s", "--max-time", "3",
+        "https://api.github.com/copilot_internal/user",
+        "-H", &format!("Authorization: Bearer {}", token.trim()),
+        "-H", "User-Agent: GithubCopilot/1.0",
+        "-H", "Accept: application/json",
+    ]);
+    #[cfg(windows)]
+    {
+        curl.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let output = curl.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+    let mut info = CopilotInfo::default();
+
+    info.username = json.get("login").and_then(|v| v.as_str()).map(String::from);
+
+    let sku = json.get("access_type_sku").and_then(|v| v.as_str()).unwrap_or("");
+    let plan = json.get("copilot_plan").and_then(|v| v.as_str()).unwrap_or("");
+    info.plan_name = Some(match sku {
+        "free_educational_quota" => "Copilot Education".to_string(),
+        "free" => "Copilot Free".to_string(),
+        _ => match plan {
+            "individual" => "Copilot Pro".to_string(),
+            "business" => "Copilot Business".to_string(),
+            "enterprise" => "Copilot Enterprise".to_string(),
+            _ => "GitHub Copilot".to_string(),
+        },
+    });
+
+    if let Some(reset_utc) = json.get("quota_reset_date_utc").and_then(|v| v.as_str()) {
+        info.resets_at_str = Some(format_reset_countdown(reset_utc));
+    } else if let Some(reset_date) = json.get("quota_reset_date").and_then(|v| v.as_str()) {
+        let rfc = format!("{}T00:00:00Z", reset_date);
+        info.resets_at_str = Some(format_reset_countdown(&rfc));
+    }
+
+    if let Some(snapshots) = json.get("quota_snapshots").and_then(|v| v.as_object()) {
+        if let Some(prem) = snapshots.get("premium_interactions") {
+            let rem_pct = prem.get("percent_remaining").and_then(|v| v.as_f64()).map(|f| f as f32);
+            let used = prem.get("credits_used").and_then(|v| v.as_u64());
+            let ent = prem.get("entitlement").and_then(|v| v.as_u64());
+            let rem = prem.get("remaining").and_then(|v| v.as_u64());
+
+            info.remaining_percent = rem_pct;
+            if let Some(rem_p) = rem_pct {
+                info.used_percent = Some((100.0 - rem_p).clamp(0.0, 100.0));
+            }
+            info.credits_used = used;
+            info.credits_entitlement = ent;
+            info.credits_remaining = rem;
+        } else if let Some(chat) = snapshots.get("chat") {
+            let rem_pct = chat.get("percent_remaining").and_then(|v| v.as_f64()).map(|f| f as f32);
+            info.remaining_percent = rem_pct;
+            if let Some(rem_p) = rem_pct {
+                info.used_percent = Some((100.0 - rem_p).clamp(0.0, 100.0));
+            }
+        }
+    }
+
+    let appdata = get_appdata_dir();
+    if let Some(ref d) = appdata {
+        let settings_path = d.join("Code").join("User").join("settings.json");
+        if let Ok(content) = std::fs::read_to_string(&settings_path) {
+            if let Ok(settings_json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(model_str) = settings_json.get("github.copilot.chat.defaultModel")
+                    .or_else(|| settings_json.get("github.copilot.preferredModel"))
+                    .and_then(|v| v.as_str())
+                {
+                    info.active_model = Some(clean_copilot_model_name(model_str));
+                }
+                if let Some(inline_en) = settings_json.get("editor.inlineSuggest.enabled").and_then(|v| v.as_bool()) {
+                    info.inline_suggestions = inline_en;
+                } else {
+                    info.inline_suggestions = true;
+                }
+            }
+        }
+    }
+
+    if info.active_model.is_none() {
+        if let Some(ref d) = appdata {
+            let state_path = d.join("Code").join("User").join("globalStorage").join("state.vscdb");
+            if state_path.exists() {
+                let py_cmd = r#"
+import sqlite3, os
+db = os.path.expandvars(r'%APPDATA%\Code\User\globalStorage\state.vscdb')
+if os.path.exists(db):
+    try:
+        con = sqlite3.connect(f'file:{db}?mode=ro&immutable=1', uri=True)
+        cur = con.cursor()
+        for k in ['chat.currentLanguageModel.panel.copilotcli', 'chat.currentLanguageModel.panel.copilot-cloud-agent', 'chat.currentLanguageModel.editor']:
+            row = cur.execute("SELECT value FROM ItemTable WHERE key=?", (k,)).fetchone()
+            if row and row[0]:
+                print(row[0])
+                break
+    except: pass
+"#;
+                if let Some(out) = run_hidden("python", &["-c", py_cmd]) {
+                    let m = out.trim().trim_matches('"');
+                    if !m.is_empty() {
+                        info.active_model = Some(clean_copilot_model_name(m));
+                    }
+                }
+            }
+        }
+    }
+
+    if info.active_model.is_none() {
+        info.active_model = Some("Claude Sonnet 4.6".to_string());
+    }
+
+    if let Ok(mut guard) = COPILOT_CACHE.lock() {
         *guard = Some((Instant::now(), info.clone()));
     }
     Some(info)
@@ -1062,42 +1349,94 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     // ──────────────────────────────────────────────────────────────────────────
     let copilot_config = localappdata.as_ref().map(|d| d.join("github-copilot").exists()).unwrap_or(false)
         || appdata.as_ref().map(|d| d.join("Code").join("User").join("globalStorage").join("github.copilot").exists()).unwrap_or(false)
-        || home.as_ref().map(|d| d.join(".config").join("github-copilot").exists()).unwrap_or(false);
+        || home.as_ref().map(|d| d.join(".config").join("github-copilot").exists()).unwrap_or(false)
+        || home.as_ref().map(|d| d.join(".copilot").exists()).unwrap_or(false);
     let vscode_running = is_process_running(&["code.exe", "visual studio code"]);
 
     if copilot_config || (vscode_running && copilot_config) {
-        // Try reading active Copilot model from VS Code settings
-        let copilot_model = appdata.as_ref().and_then(|d| {
-            let path = d.join("Code").join("User").join("settings.json");
-            std::fs::read_to_string(&path).ok().and_then(|content| {
-                serde_json::from_str::<serde_json::Value>(&content).ok().and_then(|json| {
-                    json.get("github.copilot.chat.defaultModel")
-                        .or_else(|| json.get("github.copilot.preferredModel"))
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string())
-                })
-            })
-        });
+        let info = fetch_copilot_info();
+
+        let (usage_pct, reset_time, detail, active_model, tags) = if let Some(ref inf) = info {
+            let mut t = vec![
+                "IDE extension".to_string(),
+                "VS Code".to_string(),
+            ];
+            if inf.remaining_percent.is_some() {
+                t.push("quota:remaining".to_string());
+            }
+            t.push("metric1:Credits".to_string());
+
+            if let Some(ref plan) = inf.plan_name {
+                t.push(format!("note_title:{}", plan));
+            } else {
+                t.push("note_title:Copilot Plan".to_string());
+            }
+
+            let mut note_parts = Vec::new();
+            if let (Some(used), Some(total)) = (inf.credits_used, inf.credits_entitlement) {
+                note_parts.push(format!("{} / {} credits used", used, total));
+            } else if let Some(rem) = inf.remaining_percent {
+                note_parts.push(format!("{:.0}% credits remaining", rem));
+            }
+            if inf.inline_suggestions {
+                note_parts.push("Inline Suggestions: Enabled".to_string());
+            }
+            if !note_parts.is_empty() {
+                t.push(format!("note:{}", note_parts.join(" · ")));
+            }
+
+            let detail_str = if vscode_running {
+                inf.plan_name.clone().map(|p| format!("VS Code · {}", p))
+                    .unwrap_or_else(|| "VS Code · Autocomplete + Chat".to_string())
+            } else {
+                "VS Code not running".to_string()
+            };
+
+            (
+                inf.remaining_percent.or(inf.used_percent),
+                inf.resets_at_str.clone(),
+                Some(detail_str),
+                inf.active_model.clone(),
+                t,
+            )
+        } else if vscode_running && copilot_config {
+            (
+                None,
+                Some("VS Code · Active".to_string()),
+                Some("VS Code · Autocomplete + Chat".to_string()),
+                None,
+                vec!["IDE extension".to_string(), "VS Code".to_string()],
+            )
+        } else {
+            (
+                None,
+                Some("Idle — not running".to_string()),
+                Some("VS Code not running".to_string()),
+                None,
+                vec!["IDE extension".to_string(), "VS Code".to_string()],
+            )
+        };
+
         results.push(AiProviderStatus {
             id: "copilot".to_string(),
             name: "GitHub Copilot".to_string(),
             is_installed: copilot_config,
             is_running: vscode_running && copilot_config,
-            active_model: copilot_model,
+            active_model,
             session_status: if vscode_running && copilot_config { "active".to_string() } else if copilot_config { "idle".to_string() } else { "offline".to_string() },
-            usage_percent: None, // No local token data
-            detail: if vscode_running && copilot_config { Some("VS Code · Autocomplete + Chat".to_string()) } else { Some("VS Code not running".to_string()) },
+            usage_percent: usage_pct,
+            detail,
             icon_color: "#8957e5".to_string(),
             category: "extension".to_string(),
-            session_reset_time: Some("No local usage data".to_string()),
+            session_reset_time: reset_time,
             all_models_usage_percent: None,
             all_models_reset_time: None,
             input_tokens: None,
             output_tokens: None,
             total_input_tokens: None,
             total_output_tokens: None,
-            usage_source: Some("GitHub Copilot does not expose token usage in its local data.".to_string()),
-            tags: vec!["IDE extension".to_string(), "VS Code".to_string()],
+            usage_source: Some("GitHub Copilot Live Quota API".to_string()),
+            tags,
         });
     }
 
@@ -1393,22 +1732,34 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
         || antigravity_running;
 
     if antigravity_installed || antigravity_running {
-        let quota = fetch_antigravity_quota();
+        let info = fetch_antigravity_info();
 
-        let (usage_pct, reset_time, all_models_pct, all_models_reset, detail) = if let Some(ref q) = quota {
-            let detail_text = if q.claude_blocked {
-                format!("Gemini: {:.0}% · Claude/GPT: Weekly limit reached", q.gemini_5h_used.unwrap_or(0.0))
-            } else if let Some(w) = q.claude_weekly_used {
-                format!("Gemini: {:.0}% · Claude/GPT: {:.0}% used", q.gemini_5h_used.unwrap_or(0.0), w)
-            } else {
-                "Quota monitored live via local bridge".to_string()
-            };
+        let (usage_pct, reset_time, all_models_pct, all_models_reset, detail, active_model, tags) = if let Some(ref inf) = info {
+            let mut t = vec![
+                "IDE".to_string(),
+                "quota:remaining".to_string(),
+            ];
+            if let Some(ref m1) = inf.metric1_name {
+                t.push(format!("metric1:{}", m1));
+            }
+            if let Some(ref m2) = inf.metric2_name {
+                t.push(format!("metric2:{}", m2));
+            }
+            if let Some(ref st) = inf.sub_title {
+                t.push(format!("note_title:{}", st));
+            }
+            if let Some(ref sn) = inf.sub_note {
+                t.push(format!("note:{}", sn));
+            }
+
             (
-                q.gemini_5h_used,
-                q.gemini_5h_reset.clone().or_else(|| Some("5h quota".to_string())),
-                q.gemini_weekly_used,
-                q.gemini_weekly_reset.clone().or_else(|| Some("Weekly quota".to_string())),
-                Some(detail_text),
+                inf.metric1_rem,
+                inf.metric1_reset.clone(),
+                inf.metric2_rem,
+                inf.metric2_reset.clone(),
+                inf.plan_name.clone().or_else(|| Some("Antigravity Agent Active".to_string())),
+                inf.active_model.clone(),
+                t,
             )
         } else if antigravity_running {
             (
@@ -1417,6 +1768,8 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
                 None,
                 None,
                 Some("Antigravity Agent Active".to_string()),
+                None,
+                vec!["IDE".to_string()],
             )
         } else {
             (
@@ -1425,6 +1778,8 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
                 None,
                 None,
                 Some("Idle — not running".to_string()),
+                None,
+                vec!["IDE".to_string()],
             )
         };
 
@@ -1433,7 +1788,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             name: "Antigravity".to_string(),
             is_installed: antigravity_installed,
             is_running: antigravity_running,
-            active_model: None,
+            active_model,
             session_status: if antigravity_running { "active".to_string() } else { "idle".to_string() },
             usage_percent: usage_pct,
             detail,
@@ -1446,8 +1801,8 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
             output_tokens: None,
             total_input_tokens: None,
             total_output_tokens: None,
-            usage_source: quota.map(|_| "Provider quota returned by Antigravity's local service.".to_string()),
-            tags: vec!["IDE".to_string(), "Local service".to_string()],
+            tags,
+            usage_source: info.map(|_| "Dynamic quota returned by Antigravity language server.".to_string()),
         });
     }
 
@@ -1624,3 +1979,27 @@ pub fn launch_ai_assistant(provider_id: &str) {
         _ => {}
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_antigravity_info_extraction() {
+        let info = fetch_antigravity_info();
+        println!("Dynamic Antigravity Info: {:?}", info);
+        if let Some(inf) = info {
+            assert!(inf.plan_name.is_some() || inf.metric1_name.is_some());
+        }
+    }
+
+    #[test]
+    fn test_copilot_info_extraction() {
+        let info = fetch_copilot_info();
+        println!("Dynamic Copilot Info: {:?}", info);
+        if let Some(inf) = info {
+            assert!(inf.plan_name.is_some() || inf.remaining_percent.is_some() || inf.active_model.is_some());
+        }
+    }
+}
+
