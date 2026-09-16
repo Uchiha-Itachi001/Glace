@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { AiProviderStatus } from "../types";
 import { tauriBridge } from "../services/tauriBridge";
 
@@ -43,8 +43,9 @@ export function useAiAssistants(pollActive: boolean = false) {
     };
   }, [pollActive, fetchStatus]);
 
-  const activeAssistants = assistants.filter(
-    (a) => a.is_running || a.session_status === "active"
+  const activeAssistants = useMemo(
+    () => assistants.filter((a) => a.is_running || a.session_status === "active"),
+    [assistants]
   );
   const hasActiveSession = activeAssistants.length > 0;
 

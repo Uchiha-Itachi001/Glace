@@ -278,8 +278,8 @@ pub fn restore(_screen_height: i32, _screen_width: i32) {
 
 static NOTCH_PEEK_THROUGH: AtomicBool = AtomicBool::new(false);
 static IS_WINDOW_EXPANDED: AtomicBool = AtomicBool::new(false);
-static CODENOTCH_IS_VISIBLE: AtomicBool = AtomicBool::new(false);
-static CODENOTCH_ITEM_COUNT: AtomicUsize = AtomicUsize::new(0);
+static CODENOTCH_IS_VISIBLE: AtomicBool = AtomicBool::new(true);
+static CODENOTCH_ITEM_COUNT: AtomicUsize = AtomicUsize::new(2);
 static EXPANSION_SOURCE: Mutex<Option<String>> = Mutex::new(None);
 
 pub fn set_codenotch_state(visible: bool, count: usize) {
@@ -432,16 +432,8 @@ pub fn update_window_region(
             // or dedicated side card region when expanded, NEVER taking over full monitor.
             let is_codenotch_visible = CODENOTCH_IS_VISIBLE.load(Ordering::Relaxed);
             let codenotch_count = CODENOTCH_ITEM_COUNT.load(Ordering::Relaxed);
-
-            let effective_count = if codenotch_count > 0 {
-                codenotch_count
-            } else {
-                crate::services::ai_host::scan_ai_assistants()
-                    .iter()
-                    .filter(|a| a.is_running || a.session_status == "active")
-                    .count()
-            };
-            let has_items = effective_count > 0 || is_codenotch_visible;
+            let effective_count = if codenotch_count > 0 { codenotch_count } else { 2 };
+            let has_items = is_codenotch_visible || codenotch_count > 0;
 
             if settings.enable_codenotch && (has_items || is_only_codenotch) {
                 let scale = (bar_height as f64 / 48.0).max(1.0);

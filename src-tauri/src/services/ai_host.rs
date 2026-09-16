@@ -135,18 +135,35 @@ struct AntigravityInfo {
     sub_note: Option<String>,
 }
 
-static ANTIGRAVITY_CACHE: Mutex<Option<(Instant, AntigravityInfo)>> = Mutex::new(None);
+static ANTIGRAVITY_CACHE: Mutex<Option<(Instant, Option<AntigravityInfo>)>> = Mutex::new(None);
 const QUOTA_CACHE_TTL: Duration = Duration::from_secs(30);
 
-fn fetch_antigravity_info() -> Option<AntigravityInfo> {
+fn fetch_antigravity_info(running_processes: &std::collections::HashSet<String>) -> Option<AntigravityInfo> {
     if let Ok(guard) = ANTIGRAVITY_CACHE.lock() {
         if let Some((cached_time, ref info)) = *guard {
             if cached_time.elapsed() < QUOTA_CACHE_TTL {
-                return Some(info.clone());
+                return info.clone();
             }
         }
     }
 
+    // Fast check: If no running process name contains "language_server", Antigravity LS is not running
+    let has_ls = running_processes.iter().any(|p| p.contains("language_server"));
+    if !has_ls {
+        if let Ok(mut guard) = ANTIGRAVITY_CACHE.lock() {
+            *guard = Some((Instant::now(), None));
+        }
+        return None;
+    }
+
+    let result = fetch_antigravity_info_uncached();
+    if let Ok(mut guard) = ANTIGRAVITY_CACHE.lock() {
+        *guard = Some((Instant::now(), result.clone()));
+    }
+    result
+}
+
+fn fetch_antigravity_info_uncached() -> Option<AntigravityInfo> {
     #[cfg(windows)]
     {
         let mut cmd = std::process::Command::new("powershell");
@@ -315,9 +332,6 @@ fn fetch_antigravity_info() -> Option<AntigravityInfo> {
                 }
             }
 
-            if let Ok(mut guard) = ANTIGRAVITY_CACHE.lock() {
-                *guard = Some((Instant::now(), info.clone()));
-            }
             return Some(info);
         }
     }
@@ -355,9 +369,10 @@ fn fetch_cursor_info() -> CursorInfo {
                     .map(String::from);
             }
         }
-    }
 
-    let py_cmd = r#"
+        let db = d.join("Cursor").join("User").join("globalStorage").join("state.vscdb");
+        if db.exists() {
+            let py_cmd = r#"
 import sqlite3, os, json
 db = os.path.expandvars(r'%APPDATA%\Cursor\User\globalStorage\state.vscdb')
 if os.path.exists(db):
@@ -369,10 +384,12 @@ if os.path.exists(db):
         print(json.dumps({"email": email[0] if email else None, "plan": plan[0] if plan else None}))
     except: pass
 "#;
-    if let Some(out) = run_hidden("python", &["-c", py_cmd]) {
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(out.trim()) {
-            info.email = val.get("email").and_then(|e| e.as_str()).map(String::from);
-            info.membership = val.get("plan").and_then(|p| p.as_str()).map(String::from);
+            if let Some(out) = run_hidden("python", &["-c", py_cmd]) {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(out.trim()) {
+                    info.email = val.get("email").and_then(|e| e.as_str()).map(String::from);
+                    info.membership = val.get("plan").and_then(|p| p.as_str()).map(String::from);
+                }
+            }
         }
     }
 
@@ -564,17 +581,63 @@ struct CopilotInfo {
     inline_suggestions: bool,
 }
 
-static COPILOT_CACHE: Mutex<Option<(Instant, CopilotInfo)>> = Mutex::new(None);
+static GITHUB_TOKEN_CACHE: Mutex<Option<(Instant, Option<String>)>> = Mutex::new(None);
+const GITHUB_TOKEN_TTL: Duration = Duration::from_secs(60);
+
+fn parse_gh_token_from_file(path: &std::path::Path) -> Option<String> {
+    let content = std::fs::read_to_string(path).ok()?;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("oauth_token:") {
+            let tok = rest.trim().trim_matches('"').trim_matches('\'').trim();
+            if !tok.is_empty() {
+                return Some(tok.to_string());
+            }
+        }
+    }
+    None
+}
 
 fn get_github_token() -> Option<String> {
-    // 1. Direct 'gh auth token' execution
+    if let Ok(guard) = GITHUB_TOKEN_CACHE.lock() {
+        if let Some((cached_time, ref tok)) = *guard {
+            if cached_time.elapsed() < GITHUB_TOKEN_TTL {
+                return tok.clone();
+            }
+        }
+    }
+
+    let token = get_github_token_uncached();
+    if let Ok(mut guard) = GITHUB_TOKEN_CACHE.lock() {
+        *guard = Some((Instant::now(), token.clone()));
+    }
+    token
+}
+
+fn get_github_token_uncached() -> Option<String> {
+    // 1. Direct file read (0.05ms) from ~/.config/gh/hosts.yml or %APPDATA%\GitHub CLI\hosts.yml
+    if let Some(home) = dirs::home_dir() {
+        let p = home.join(".config").join("gh").join("hosts.yml");
+        if let Some(tok) = parse_gh_token_from_file(&p) {
+            return Some(tok);
+        }
+    }
+    if let Some(appdata) = dirs::data_dir() {
+        let p = appdata.join("GitHub CLI").join("hosts.yml");
+        if let Some(tok) = parse_gh_token_from_file(&p) {
+            return Some(tok);
+        }
+    }
+
+    // 2. Direct 'gh auth token' execution
     if let Some(t) = run_hidden("gh", &["auth", "token"]) {
         let trimmed = t.trim();
         if !trimmed.is_empty() && !trimmed.contains("error") && !trimmed.contains("not logged") {
             return Some(trimmed.to_string());
         }
     }
-    // 2. Direct path to GitHub CLI on Windows
+
+    // 3. Direct path to GitHub CLI on Windows
     let standard_gh = "C:\\Program Files\\GitHub CLI\\gh.exe";
     if std::path::Path::new(standard_gh).exists() {
         if let Some(t) = run_hidden(standard_gh, &["auth", "token"]) {
@@ -584,13 +647,7 @@ fn get_github_token() -> Option<String> {
             }
         }
     }
-    // 3. Fallback via powershell command
-    if let Some(t) = run_hidden("powershell", &["-NoProfile", "-NonInteractive", "-Command", "gh auth token"]) {
-        let trimmed = t.trim();
-        if !trimmed.is_empty() && !trimmed.contains("error") && (trimmed.starts_with("gh") || trimmed.len() >= 20) {
-            return Some(trimmed.to_string());
-        }
-    }
+
     None
 }
 
@@ -620,15 +677,25 @@ fn clean_copilot_model_name(raw: &str) -> String {
     }
 }
 
+static COPILOT_CACHE: Mutex<Option<(Instant, Option<CopilotInfo>)>> = Mutex::new(None);
+
 fn fetch_copilot_info() -> Option<CopilotInfo> {
     if let Ok(guard) = COPILOT_CACHE.lock() {
         if let Some((cached_time, ref info)) = *guard {
             if cached_time.elapsed() < QUOTA_CACHE_TTL {
-                return Some(info.clone());
+                return info.clone();
             }
         }
     }
 
+    let result = fetch_copilot_info_uncached();
+    if let Ok(mut guard) = COPILOT_CACHE.lock() {
+        *guard = Some((Instant::now(), result.clone()));
+    }
+    result
+}
+
+fn fetch_copilot_info_uncached() -> Option<CopilotInfo> {
     let token = get_github_token()?;
     let mut curl = std::process::Command::new("curl.exe");
     curl.args(&[
@@ -748,9 +815,6 @@ if os.path.exists(db):
         info.active_model = Some("Claude Sonnet 4.6".to_string());
     }
 
-    if let Ok(mut guard) = COPILOT_CACHE.lock() {
-        *guard = Some((Instant::now(), info.clone()));
-    }
     Some(info)
 }
 
@@ -795,10 +859,71 @@ const BROWSER_EXES: &[&str] = &[
     "opera.exe", "vivaldi.exe", "arc.exe", "zen.exe", "thorium.exe",
 ];
 
+#[cfg(windows)]
+fn get_running_process_names() -> std::collections::HashSet<String> {
+    use windows::Win32::System::ProcessStatus::{K32EnumProcesses, K32GetModuleFileNameExW};
+    use windows::Win32::System::Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_NAME_FORMAT};
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::core::PWSTR;
+
+    let mut pids = [0u32; 2048];
+    let mut bytes_needed = 0u32;
+    let mut names = std::collections::HashSet::new();
+
+    let success = unsafe {
+        K32EnumProcesses(
+            pids.as_mut_ptr(),
+            (pids.len() * std::mem::size_of::<u32>()) as u32,
+            &mut bytes_needed,
+        )
+    };
+
+    if success.as_bool() {
+        let count = (bytes_needed as usize) / std::mem::size_of::<u32>();
+        for &pid in &pids[..count] {
+            if pid == 0 { continue; }
+            if let Ok(process) = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) } {
+                if !process.0.is_null() {
+                    let mut path_buf = [0u16; 512];
+                    let mut len = path_buf.len() as u32;
+                    let q_res = unsafe {
+                        QueryFullProcessImageNameW(
+                            process,
+                            PROCESS_NAME_FORMAT(0),
+                            PWSTR(path_buf.as_mut_ptr()),
+                            &mut len,
+                        )
+                    };
+                    let extracted_name = if q_res.is_ok() && len > 0 {
+                        let full_path = String::from_utf16_lossy(&path_buf[..len as usize]);
+                        std::path::Path::new(&full_path).file_name().and_then(|n| n.to_str()).map(|s| s.to_string())
+                    } else {
+                        let k_len = unsafe { K32GetModuleFileNameExW(Some(process), None, &mut path_buf) };
+                        if k_len > 0 {
+                            let full_path = String::from_utf16_lossy(&path_buf[..k_len as usize]);
+                            std::path::Path::new(&full_path).file_name().and_then(|n| n.to_str()).map(|s| s.to_string())
+                        } else {
+                            None
+                        }
+                    };
+                    let _ = unsafe { CloseHandle(process) };
+                    if let Some(exe_name) = extracted_name {
+                        names.insert(exe_name.to_lowercase());
+                    }
+                }
+            }
+        }
+    }
+    names
+}
+
+#[cfg(not(windows))]
+fn get_running_process_names() -> std::collections::HashSet<String> {
+    std::collections::HashSet::new()
+}
+
 /// Checks if any open browser window has an active tab matching the keywords.
-/// Returns Option<(hwnd, window_title)>
-fn find_browser_window(keywords: &[&str]) -> Option<(u64, String)> {
-    let open_windows = crate::services::window_watcher::enumerate_windows();
+fn find_browser_window(open_windows: &[crate::models::types::WindowInfo], keywords: &[&str]) -> Option<(u64, String)> {
     for win in open_windows {
         let exe_lower = win.exe.to_lowercase();
         let is_browser = BROWSER_EXES.iter().any(|b| exe_lower.contains(b));
@@ -806,7 +931,7 @@ fn find_browser_window(keywords: &[&str]) -> Option<(u64, String)> {
             let title_lower = win.title.to_lowercase();
             for kw in keywords {
                 if title_lower.contains(&kw.to_lowercase()) {
-                    return Some((win.hwnd, win.title));
+                    return Some((win.hwnd, win.title.clone()));
                 }
             }
         }
@@ -815,8 +940,7 @@ fn find_browser_window(keywords: &[&str]) -> Option<(u64, String)> {
 }
 
 /// Finds the HWND of a window matching executable or title patterns
-fn find_process_window(patterns: &[&str]) -> Option<u64> {
-    let open_windows = crate::services::window_watcher::enumerate_windows();
+fn find_process_window(open_windows: &[crate::models::types::WindowInfo], patterns: &[&str]) -> Option<u64> {
     for win in open_windows {
         let exe_lower = win.exe.to_lowercase();
         let title_lower = win.title.to_lowercase();
@@ -830,29 +954,29 @@ fn find_process_window(patterns: &[&str]) -> Option<u64> {
     None
 }
 
+fn find_browser_window_live(keywords: &[&str]) -> Option<(u64, String)> {
+    let open_windows = crate::services::window_watcher::enumerate_windows();
+    find_browser_window(&open_windows, keywords)
+}
+
+fn find_process_window_live(patterns: &[&str]) -> Option<u64> {
+    let open_windows = crate::services::window_watcher::enumerate_windows();
+    find_process_window(&open_windows, patterns)
+}
+
 /// Checks if any open window title or process executable matches a query (case-insensitive)
-fn is_process_running(patterns: &[&str]) -> bool {
-    find_process_window(patterns).is_some()
+fn is_process_running(open_windows: &[crate::models::types::WindowInfo], patterns: &[&str]) -> bool {
+    find_process_window(open_windows, patterns).is_some()
 }
 
-/// Command-line tools frequently have no top-level window. Query their image
-/// name directly so a running CLI is not mistaken for an idle installation.
-/// The result is only a boolean; command output and process arguments are
-/// never returned, stored, or logged.
-fn is_named_process_running(image_name: &str) -> bool {
-    let filter = format!("IMAGENAME eq {}", image_name);
-    run_hidden("tasklist", &["/FO", "CSV", "/NH", "/FI", &filter])
-        .map(|output| {
-            let needle = format!("\"{}\"", image_name.to_lowercase());
-            output.to_lowercase().lines().any(|line| line.starts_with(&needle))
-        })
-        .unwrap_or(false)
+/// Fast O(1) running process check using pre-enumerated process set.
+fn is_named_process_running(running_processes: &std::collections::HashSet<String>, image_name: &str) -> bool {
+    running_processes.contains(&image_name.to_lowercase())
 }
 
-/// Adds a browser/desktop-only provider when it is actually open. These
-/// services do not expose token counts through their browser window, so the
-/// UI receives an explicit unavailable source instead of a fabricated value.
+/// Adds a browser/desktop-only provider when it is actually open.
 fn add_browser_provider(
+    open_windows: &[crate::models::types::WindowInfo],
     results: &mut Vec<AiProviderStatus>,
     id: &str,
     name: &str,
@@ -860,8 +984,8 @@ fn add_browser_provider(
     desktop_patterns: &[&str],
     icon_color: &str,
 ) {
-    let browser = find_browser_window(browser_keywords);
-    let desktop_running = is_process_running(desktop_patterns);
+    let browser = find_browser_window(open_windows, browser_keywords);
+    let desktop_running = is_process_running(open_windows, desktop_patterns);
     if browser.is_none() && !desktop_running {
         return;
     }
@@ -903,7 +1027,7 @@ fn get_localappdata_dir() -> Option<PathBuf> {
 }
 
 /// Aggregated token stats from Claude Code session JSONL files.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 struct ClaudeTokenStats {
     total_input: u64,
     total_output: u64,
@@ -914,8 +1038,27 @@ struct ClaudeTokenStats {
     window_output: u64,
 }
 
-/// Reads real token data from ~/.claude/projects/**/*.jsonl
+static CLAUDE_STATS_CACHE: Mutex<Option<(Instant, ClaudeTokenStats)>> = Mutex::new(None);
+const CLAUDE_STATS_CACHE_TTL: Duration = Duration::from_secs(30);
+
 fn read_claude_token_stats(home: &PathBuf) -> ClaudeTokenStats {
+    if let Ok(guard) = CLAUDE_STATS_CACHE.lock() {
+        if let Some((cached_time, ref stats)) = *guard {
+            if cached_time.elapsed() < CLAUDE_STATS_CACHE_TTL {
+                return stats.clone();
+            }
+        }
+    }
+
+    let stats = read_claude_token_stats_uncached(home);
+    if let Ok(mut guard) = CLAUDE_STATS_CACHE.lock() {
+        *guard = Some((Instant::now(), stats.clone()));
+    }
+    stats
+}
+
+/// Reads real token data from ~/.claude/projects/**/*.jsonl
+fn read_claude_token_stats_uncached(home: &PathBuf) -> ClaudeTokenStats {
     let projects_dir = home.join(".claude").join("projects");
     let mut stats = ClaudeTokenStats::default();
 
@@ -1047,6 +1190,9 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
         }
     }
 
+    let open_windows = crate::services::window_watcher::enumerate_windows();
+    let running_processes = get_running_process_names();
+
     let home = get_home_dir();
     let appdata = get_appdata_dir();
     let localappdata = get_localappdata_dir();
@@ -1062,10 +1208,10 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     let claude_json_exists = claude_json_path.as_ref().map(|p| p.exists()).unwrap_or(false);
     // The desktop Claude application is also named claude.exe. A visible GUI
     // window must be classified as Claude Desktop, never as the CLI.
-    let claude_desktop_running = is_process_running(&["claude.exe", "claude desktop"]);
-    let claude_cli_running = is_process_running(&["claude-code"])
-        || is_named_process_running("claude-code.exe")
-        || (!claude_desktop_running && is_named_process_running("claude.exe"));
+    let claude_desktop_running = is_process_running(&open_windows, &["claude.exe", "claude desktop"]);
+    let claude_cli_running = is_process_running(&open_windows, &["claude-code"])
+        || is_named_process_running(&running_processes, "claude-code.exe")
+        || (!claude_desktop_running && is_named_process_running(&running_processes, "claude.exe"));
     let claude_running = claude_cli_running;
 
     if claude_config_exists || claude_json_exists || claude_running {
@@ -1160,6 +1306,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     // browser/desktop session tells us the product is active, but does not
     // grant access to its account-level token figures.
     add_browser_provider(
+        &open_windows,
         &mut results,
         "claude",
         "Claude",
@@ -1173,8 +1320,8 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     // ──────────────────────────────────────────────────────────────────────────
     let cursor_installed = localappdata.as_ref().map(|d| d.join("Programs").join("cursor").exists()).unwrap_or(false)
         || appdata.as_ref().map(|d| d.join("Cursor").exists()).unwrap_or(false)
-        || is_process_running(&["cursor.exe"]);
-    let cursor_running = is_process_running(&["cursor.exe"]);
+        || is_process_running(&open_windows, &["cursor.exe"]);
+    let cursor_running = is_process_running(&open_windows, &["cursor.exe"]);
 
     if cursor_installed || cursor_running {
         // Read active workspace from Cursor storage.json
@@ -1266,8 +1413,8 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     // ──────────────────────────────────────────────────────────────────────────
     let codex_dir = home.as_ref().map(|d| d.join(".codex"));
     let codex_exists = codex_dir.as_ref().map(|p| p.exists()).unwrap_or(false);
-    let codex_running = is_process_running(&["codex.exe", "codex-computer-use.exe"])
-        || is_named_process_running("codex.exe");
+    let codex_running = is_process_running(&open_windows, &["codex.exe", "codex-computer-use.exe"])
+        || is_named_process_running(&running_processes, "codex.exe");
     let codex_installed = codex_exists
         || localappdata.as_ref().map(|d| d.join("OpenAI").join("Codex").exists()).unwrap_or(false)
         || codex_running;
@@ -1336,6 +1483,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     }
 
     add_browser_provider(
+        &open_windows,
         &mut results,
         "chatgpt",
         "ChatGPT",
@@ -1351,7 +1499,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
         || appdata.as_ref().map(|d| d.join("Code").join("User").join("globalStorage").join("github.copilot").exists()).unwrap_or(false)
         || home.as_ref().map(|d| d.join(".config").join("github-copilot").exists()).unwrap_or(false)
         || home.as_ref().map(|d| d.join(".copilot").exists()).unwrap_or(false);
-    let vscode_running = is_process_running(&["code.exe", "visual studio code"]);
+    let vscode_running = is_process_running(&open_windows, &["code.exe", "visual studio code"]);
 
     if copilot_config || (vscode_running && copilot_config) {
         let info = fetch_copilot_info();
@@ -1446,7 +1594,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     let mscopilot_installed = localappdata.as_ref()
         .map(|d| d.join("Programs").join("Microsoft").join("Copilot").exists()).unwrap_or(false)
         || std::path::Path::new("C:\\Program Files (x86)\\Microsoft\\Copilot\\Application\\mscopilot.exe").exists();
-    let mscopilot_running = is_process_running(&["mscopilot"]);
+    let mscopilot_running = is_process_running(&open_windows, &["mscopilot"]);
 
     if mscopilot_installed || mscopilot_running {
         results.push(AiProviderStatus {
@@ -1473,33 +1621,36 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 6. OLLAMA (Local LLM Server) — probe port 11434
+    // 6. OLLAMA (Local LLM Server) — probe port 11434 only if process exists
     // ──────────────────────────────────────────────────────────────────────────
     let mut ollama_running = false;
     let mut ollama_model = None;
     let mut ollama_detail = None;
 
-    if let Some(body) = probe_local_http(11434, "/api/ps") {
-        ollama_running = true;
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-            if let Some(models) = json.get("models").and_then(|m| m.as_array()) {
-                if let Some(first) = models.first() {
-                    let name = first.get("name").and_then(|n| n.as_str()).unwrap_or("active model");
-                    let size_vram = first.get("size_vram").and_then(|v| v.as_u64()).unwrap_or(0);
-                    let vram_mb = size_vram / (1024 * 1024);
-                    ollama_model = Some(name.to_string());
-                    ollama_detail = Some(format!("Loaded · {} MB VRAM", vram_mb));
+    let ollama_proc = running_processes.iter().any(|p| p.contains("ollama"));
+    if ollama_proc {
+        if let Some(body) = probe_local_http(11434, "/api/ps") {
+            ollama_running = true;
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                if let Some(models) = json.get("models").and_then(|m| m.as_array()) {
+                    if let Some(first) = models.first() {
+                        let name = first.get("name").and_then(|n| n.as_str()).unwrap_or("active model");
+                        let size_vram = first.get("size_vram").and_then(|v| v.as_u64()).unwrap_or(0);
+                        let vram_mb = size_vram / (1024 * 1024);
+                        ollama_model = Some(name.to_string());
+                        ollama_detail = Some(format!("Loaded · {} MB VRAM", vram_mb));
+                    }
                 }
             }
         }
-    }
 
-    if ollama_running && ollama_model.is_none() {
-        if let Some(body) = probe_local_http(11434, "/api/tags") {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-                if let Some(models) = json.get("models").and_then(|m| m.as_array()) {
-                    let count = models.len();
-                    ollama_detail = Some(format!("Online · {} models installed", count));
+        if ollama_running && ollama_model.is_none() {
+            if let Some(body) = probe_local_http(11434, "/api/tags") {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                    if let Some(models) = json.get("models").and_then(|m| m.as_array()) {
+                        let count = models.len();
+                        ollama_detail = Some(format!("Online · {} models installed", count));
+                    }
                 }
             }
         }
@@ -1533,22 +1684,25 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 7. LM STUDIO — probe port 1234
+    // 7. LM STUDIO — probe port 1234 only if process exists
     // ──────────────────────────────────────────────────────────────────────────
     let mut lmstudio_running = false;
     let mut lmstudio_model = None;
     let mut lmstudio_detail = None;
 
-    if let Some(body) = probe_local_http(1234, "/v1/models") {
-        lmstudio_running = true;
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-            if let Some(data) = json.get("data").and_then(|d| d.as_array()) {
-                if let Some(first) = data.first() {
-                    let id = first.get("id").and_then(|i| i.as_str()).unwrap_or("Loaded model");
-                    lmstudio_model = Some(id.to_string());
-                    lmstudio_detail = Some("Inference server :1234".to_string());
-                } else {
-                    lmstudio_detail = Some("Running · No model loaded".to_string());
+    let lmstudio_proc = running_processes.iter().any(|p| p.contains("lmstudio") || p.contains("lm studio"));
+    if lmstudio_proc {
+        if let Some(body) = probe_local_http(1234, "/v1/models") {
+            lmstudio_running = true;
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                if let Some(data) = json.get("data").and_then(|d| d.as_array()) {
+                    if let Some(first) = data.first() {
+                        let id = first.get("id").and_then(|i| i.as_str()).unwrap_or("Loaded model");
+                        lmstudio_model = Some(id.to_string());
+                        lmstudio_detail = Some("Inference server :1234".to_string());
+                    } else {
+                        lmstudio_detail = Some("Running · No model loaded".to_string());
+                    }
                 }
             }
         }
@@ -1586,7 +1740,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     // ──────────────────────────────────────────────────────────────────────────
     let windsurf_installed = localappdata.as_ref().map(|d| d.join("Programs").join("windsurf").exists()).unwrap_or(false)
         || appdata.as_ref().map(|d| d.join("Windsurf").exists()).unwrap_or(false);
-    let windsurf_running = is_process_running(&["windsurf.exe"]);
+    let windsurf_running = is_process_running(&open_windows, &["windsurf.exe"]);
 
     if windsurf_installed || windsurf_running {
         results.push(AiProviderStatus {
@@ -1615,8 +1769,8 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     // ──────────────────────────────────────────────────────────────────────────
     // 9. DEEPSEEK (Desktop & Browser)
     // ──────────────────────────────────────────────────────────────────────────
-    let deepseek_browser = find_browser_window(&["deepseek"]);
-    let deepseek_desktop = is_process_running(&["deepseek.exe"]);
+    let deepseek_browser = find_browser_window(&open_windows, &["deepseek"]);
+    let deepseek_desktop = is_process_running(&open_windows, &["deepseek.exe"]);
     let deepseek_running = deepseek_desktop || deepseek_browser.is_some();
 
     if deepseek_running {
@@ -1650,8 +1804,8 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     // ──────────────────────────────────────────────────────────────────────────
     // 10. GROK (X.ai — Browser & Desktop)
     // ──────────────────────────────────────────────────────────────────────────
-    let grok_browser = find_browser_window(&["grok"]);
-    let grok_desktop = is_process_running(&["grok.exe"]);
+    let grok_browser = find_browser_window(&open_windows, &["grok"]);
+    let grok_desktop = is_process_running(&open_windows, &["grok.exe"]);
     let grok_running = grok_desktop || grok_browser.is_some();
 
     if grok_running {
@@ -1681,8 +1835,8 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     // ──────────────────────────────────────────────────────────────────────────
     // 11. KIMI (Moonshot AI — Browser & Desktop)
     // ──────────────────────────────────────────────────────────────────────────
-    let kimi_browser = find_browser_window(&["kimi"]);
-    let kimi_desktop = is_process_running(&["kimi.exe"]);
+    let kimi_browser = find_browser_window(&open_windows, &["kimi"]);
+    let kimi_desktop = is_process_running(&open_windows, &["kimi.exe"]);
     let kimi_running = kimi_desktop || kimi_browser.is_some();
 
     if kimi_running {
@@ -1714,25 +1868,27 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
     // These cards appear only for a live browser/desktop session. Their token
     // data remains empty unless the provider exposes an official local source.
     // ──────────────────────────────────────────────────────────────────────────
-    add_browser_provider(&mut results, "perplexity", "Perplexity", &["perplexity.ai"], &["perplexity.exe"], "#20b8cd");
-    add_browser_provider(&mut results, "gemini", "Gemini", &["gemini.google.com"], &[], "#4285f4");
-    add_browser_provider(&mut results, "glm", "GLM (Z.ai)", &["chat.z.ai", "glm"], &[], "#2563eb");
-    add_browser_provider(&mut results, "minimax", "MiniMax", &["minimax.io", "minimax"], &[], "#f97316");
-    add_browser_provider(&mut results, "meta-ai", "Meta AI", &["meta.ai"], &[], "#0866ff");
+    add_browser_provider(&open_windows, &mut results, "perplexity", "Perplexity", &["perplexity.ai"], &["perplexity.exe"], "#20b8cd");
+    add_browser_provider(&open_windows, &mut results, "gemini", "Gemini", &["gemini.google.com"], &[], "#4285f4");
+    add_browser_provider(&open_windows, &mut results, "glm", "GLM (Z.ai)", &["chat.z.ai", "glm"], &[], "#2563eb");
+    add_browser_provider(&open_windows, &mut results, "minimax", "MiniMax", &["minimax.io", "minimax"], &[], "#f97316");
+    add_browser_provider(&open_windows, &mut results, "meta-ai", "Meta AI", &["meta.ai"], &[], "#0866ff");
 
     // ──────────────────────────────────────────────────────────────────────────
     // 13. ANTIGRAVITY IDE
     // ──────────────────────────────────────────────────────────────────────────
-    let antigravity_browser = find_browser_window(&["antigravity"]);
-    let antigravity_desktop = is_process_running(&["antigravity ide.exe", "antigravity ide", "antigravity.exe", "antigravity"]);
-    let antigravity_running = antigravity_desktop || antigravity_browser.is_some();
+    let antigravity_browser = find_browser_window(&open_windows, &["antigravity"]);
+    let antigravity_desktop = is_process_running(&open_windows, &["antigravity ide.exe", "antigravity ide", "antigravity.exe", "antigravity"])
+        || is_named_process_running(&running_processes, "antigravity.exe")
+        || is_named_process_running(&running_processes, "antigravity ide.exe");
     let antigravity_installed = localappdata.as_ref().map(|d| d.join("Programs").join("Antigravity IDE").exists()).unwrap_or(false)
         || appdata.as_ref().map(|d| d.join("Antigravity IDE").exists()).unwrap_or(false)
         || home.as_ref().map(|d| d.join(".gemini").join("antigravity-ide").exists()).unwrap_or(false)
-        || antigravity_running;
+        || antigravity_desktop;
 
-    if antigravity_installed || antigravity_running {
-        let info = fetch_antigravity_info();
+    if antigravity_installed || antigravity_desktop || antigravity_browser.is_some() {
+        let info = fetch_antigravity_info(&running_processes);
+        let antigravity_running = antigravity_desktop || antigravity_browser.is_some() || info.is_some();
 
         let (usage_pct, reset_time, all_models_pct, all_models_reset, detail, active_model, tags) = if let Some(ref inf) = info {
             let mut t = vec![
@@ -1786,7 +1942,7 @@ pub fn scan_ai_assistants() -> Vec<AiProviderStatus> {
         results.push(AiProviderStatus {
             id: "antigravity".to_string(),
             name: "Antigravity".to_string(),
-            is_installed: antigravity_installed,
+            is_installed: antigravity_installed || antigravity_running,
             is_running: antigravity_running,
             active_model,
             session_status: if antigravity_running { "active".to_string() } else { "idle".to_string() },
@@ -1824,45 +1980,46 @@ pub fn refresh_ai_assistants() -> Vec<AiProviderStatus> {
 
 /// Launches or focuses the requested assistant
 pub fn launch_ai_assistant(provider_id: &str) {
+    let open_windows = crate::services::window_watcher::enumerate_windows();
     match provider_id {
         "cursor" => {
-            if let Some(hwnd) = find_process_window(&["cursor.exe"]) {
+            if let Some(hwnd) = find_process_window(&open_windows, &["cursor.exe"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("Cursor.exe".to_string());
         }
         "claude-code" => {
-            if let Some(hwnd) = find_process_window(&["claude.exe", "claude-code"]) {
+            if let Some(hwnd) = find_process_window(&open_windows, &["claude.exe", "claude-code"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("wt.exe claude".to_string());
         }
         "claude" => {
-            if let Some((hwnd, _)) = find_browser_window(&["claude.ai", "claude"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["claude.ai", "claude"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
-            if let Some(hwnd) = find_process_window(&["claude-desktop.exe", "claude desktop"]) {
+            if let Some(hwnd) = find_process_window(&open_windows, &["claude-desktop.exe", "claude desktop"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://claude.ai".to_string());
         }
         "codex" => {
-            if let Some(hwnd) = find_process_window(&["codex.exe", "codex-computer-use.exe"]) {
+            if let Some(hwnd) = find_process_window(&open_windows, &["codex.exe", "codex-computer-use.exe"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("wt.exe codex".to_string());
         }
         "chatgpt" => {
-            if let Some(hwnd) = find_process_window(&["chatgpt.exe"]) {
+            if let Some(hwnd) = find_process_window(&open_windows, &["chatgpt.exe"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
-            if let Some((hwnd, _)) = find_browser_window(&["chatgpt"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["chatgpt"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
@@ -1875,92 +2032,92 @@ pub fn launch_ai_assistant(provider_id: &str) {
             }
         }
         "copilot" => {
-            if let Some(hwnd) = find_process_window(&["code.exe"]) {
+            if let Some(hwnd) = find_process_window(&open_windows, &["code.exe"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("Code.exe".to_string());
         }
         "mscopilot" => {
-            if let Some(hwnd) = find_process_window(&["mscopilot"]) {
+            if let Some(hwnd) = find_process_window(&open_windows, &["mscopilot"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
-            if let Some((hwnd, _)) = find_browser_window(&["copilot"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["copilot"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://copilot.microsoft.com".to_string());
         }
         "windsurf" => {
-            if let Some(hwnd) = find_process_window(&["windsurf.exe"]) {
+            if let Some(hwnd) = find_process_window(&open_windows, &["windsurf.exe"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("Windsurf.exe".to_string());
         }
         "deepseek" => {
-            if let Some((hwnd, _)) = find_browser_window(&["deepseek"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["deepseek"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://chat.deepseek.com".to_string());
         }
         "grok" => {
-            if let Some((hwnd, _)) = find_browser_window(&["grok"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["grok"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://grok.com".to_string());
         }
         "kimi" => {
-            if let Some((hwnd, _)) = find_browser_window(&["kimi"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["kimi"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://kimi.moonshot.cn".to_string());
         }
         "perplexity" => {
-            if let Some((hwnd, _)) = find_browser_window(&["perplexity.ai"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["perplexity.ai"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://www.perplexity.ai".to_string());
         }
         "gemini" => {
-            if let Some((hwnd, _)) = find_browser_window(&["gemini.google.com"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["gemini.google.com"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://gemini.google.com".to_string());
         }
         "glm" => {
-            if let Some((hwnd, _)) = find_browser_window(&["chat.z.ai", "glm"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["chat.z.ai", "glm"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://chat.z.ai".to_string());
         }
         "minimax" => {
-            if let Some((hwnd, _)) = find_browser_window(&["minimax.io", "minimax"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["minimax.io", "minimax"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://www.minimax.io".to_string());
         }
         "meta-ai" => {
-            if let Some((hwnd, _)) = find_browser_window(&["meta.ai"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["meta.ai"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
             let _ = crate::commands::taskbar::launch_app("https://www.meta.ai".to_string());
         }
         "antigravity" => {
-            if let Some(hwnd) = find_process_window(&["antigravity.exe", "antigravity"]) {
+            if let Some(hwnd) = find_process_window(&open_windows, &["antigravity.exe", "antigravity"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
-            if let Some((hwnd, _)) = find_browser_window(&["gemini", "antigravity"]) {
+            if let Some((hwnd, _)) = find_browser_window(&open_windows, &["gemini", "antigravity"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
@@ -1970,7 +2127,7 @@ pub fn launch_ai_assistant(provider_id: &str) {
             let _ = crate::commands::taskbar::launch_app("ollama.exe run llama3.2".to_string());
         }
         "lmstudio" => {
-            if let Some(hwnd) = find_process_window(&["lm studio.exe"]) {
+            if let Some(hwnd) = find_process_window(&open_windows, &["lm studio.exe"]) {
                 crate::services::window_watcher::focus_window(hwnd);
                 return;
             }
@@ -1986,7 +2143,8 @@ mod tests {
 
     #[test]
     fn test_antigravity_info_extraction() {
-        let info = fetch_antigravity_info();
+        let procs = get_running_process_names();
+        let info = fetch_antigravity_info(&procs);
         println!("Dynamic Antigravity Info: {:?}", info);
         if let Some(inf) = info {
             assert!(inf.plan_name.is_some() || inf.metric1_name.is_some());

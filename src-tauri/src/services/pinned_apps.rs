@@ -193,6 +193,8 @@ pub fn resolve_shortcut_target(lnk_path: &str) -> Option<String> {
     None
 }
 
+static PINNED_ICON_CACHE: std::sync::Mutex<Option<std::collections::HashMap<String, String>>> = std::sync::Mutex::new(None);
+
 /// Extract high-res icon from any shell path, .lnk, .exe, or shell:AppsFolder AUMID
 pub fn extract_icon_from_shell_target(target: &str) -> String {
     let target_lower = target.to_lowercase();
@@ -200,6 +202,25 @@ pub fn extract_icon_from_shell_target(target: &str) -> String {
         return crate::services::window_watcher::get_crisp_edge_icon();
     }
 
+    if let Ok(guard) = PINNED_ICON_CACHE.lock() {
+        if let Some(ref cache) = *guard {
+            if let Some(hit) = cache.get(target) {
+                return hit.clone();
+            }
+        }
+    }
+
+    let icon = extract_icon_from_shell_target_uncached(target);
+    if !icon.is_empty() {
+        if let Ok(mut guard) = PINNED_ICON_CACHE.lock() {
+            let cache = guard.get_or_insert_with(std::collections::HashMap::new);
+            cache.insert(target.to_string(), icon.clone());
+        }
+    }
+    icon
+}
+
+fn extract_icon_from_shell_target_uncached(target: &str) -> String {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
 
@@ -606,9 +627,11 @@ pub fn get_pinned_apps() -> Vec<PinnedApp> {
         }
     }
 
-    // Persist the updated list
-    cfg.pinned_apps = scanned.clone();
-    settings::save(&cfg);
+    // Persist only if changed
+    if cfg.pinned_apps != scanned {
+        cfg.pinned_apps = scanned.clone();
+        settings::save(&cfg);
+    }
 
     scanned
 }
@@ -642,7 +665,7 @@ pub fn start_watcher(app: tauri::AppHandle) {
             };
 
             if open_res.is_err() {
-                thread::sleep(Duration::from_millis(1500));
+                thread::sleep(Duration::from_millis(3000));
                 let current_pins = get_pinned_apps();
                 if current_pins != last_pins {
                     let _ = app.emit("pinned-apps-updated", &current_pins);
@@ -656,7 +679,7 @@ pub fn start_watcher(app: tauri::AppHandle) {
                     Ok(e) => e,
                     Err(_) => {
                         let _ = RegCloseKey(hkey);
-                        thread::sleep(Duration::from_millis(1500));
+                        thread::sleep(Duration::from_millis(3000));
                         continue;
                     }
                 }
@@ -672,10 +695,11 @@ pub fn start_watcher(app: tauri::AppHandle) {
                 );
             }
 
-            // Wait for registry notification with 1500ms timeout fallback
-            let wait_res = unsafe { WaitForSingleObject(event, 1500) };
+            // Wait for registry notification with 5000ms timeout fallback
+            let wait_res = unsafe { WaitForSingleObject(event, 5000) };
+            let has_changed = wait_res == WAIT_OBJECT_0 || wait_res.0 == 0;
 
-            if wait_res == WAIT_OBJECT_0 || wait_res.0 == 0 {
+            if has_changed {
                 // Short debounce to allow Explorer to finish writing binary stream
                 thread::sleep(Duration::from_millis(150));
             }
@@ -685,10 +709,12 @@ pub fn start_watcher(app: tauri::AppHandle) {
                 let _ = RegCloseKey(hkey);
             }
 
-            let current_pins = get_pinned_apps();
-            if current_pins != last_pins {
-                let _ = app.emit("pinned-apps-updated", &current_pins);
-                last_pins = current_pins;
+            if has_changed {
+                let current_pins = get_pinned_apps();
+                if current_pins != last_pins {
+                    let _ = app.emit("pinned-apps-updated", &current_pins);
+                    last_pins = current_pins;
+                }
             }
         }
     });

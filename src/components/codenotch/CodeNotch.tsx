@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useSettings } from "../../stores/settingsStore";
 import { useAiAssistants } from "../../hooks/useAiAssistants";
 import { windowExpansion } from "../../services/windowExpansion";
@@ -158,13 +158,22 @@ export const CodeNotch: React.FC = () => {
     activeAssistantId !== null || hoveredAssistantId !== null
   );
 
-  // Only show active/running AIs (is_running or session_status === 'active'), max 4 in inactive notch
-  const displayAssistants: AiProviderStatus[] = assistants
-    .filter((a) => a.is_running || a.session_status === "active")
-    .slice(0, 4);
+  // Show active/running AIs (max 4). If none are currently active, fallback to installed AIs so notch never vanishes
+  const displayAssistants: AiProviderStatus[] = useMemo(() => {
+    const active = assistants
+      .filter((a) => a.is_running || a.session_status === "active")
+      .slice(0, 4);
+    if (active.length > 0) {
+      return active;
+    }
+    return assistants.filter((a) => a.is_installed).slice(0, 4);
+  }, [assistants]);
 
-  const selectedAssistant =
-    displayAssistants.find((a) => a.id === (hoveredAssistantId || activeAssistantId)) || null;
+  const selectedAssistant = useMemo(
+    () =>
+      displayAssistants.find((a) => a.id === (hoveredAssistantId || activeAssistantId)) || null,
+    [displayAssistants, hoveredAssistantId, activeAssistantId]
+  );
 
   // Track popover Y alignment relative to the hovered item
   const updatePopoverPosition = (id: string) => {
