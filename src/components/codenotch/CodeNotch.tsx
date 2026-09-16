@@ -7,7 +7,7 @@ import { AiProviderStatus } from "../../types";
 import "../../styles/codenotch.css";
 
 /* Provider Vector Logo Glyphs */
-const ProviderGlyph: React.FC<{ id: string; color: string; size?: number }> = ({ id, color, size = 16 }) => {
+const ProviderGlyph: React.FC<{ id: string; color: string; size?: number }> = ({ id, color, size }) => {
   const s = size;
   const [useCustomImg, setUseCustomImg] = useState<boolean>(true);
 
@@ -17,7 +17,7 @@ const ProviderGlyph: React.FC<{ id: string; color: string; size?: number }> = ({
         src={`/ai-icons/${id}.svg`}
         alt={id}
         className="codenotch-provider-glyph"
-        style={{ width: s, height: s, objectFit: "contain", display: "block" }}
+        style={s ? { width: s, height: s } : undefined}
         onError={() => setUseCustomImg(false)}
       />
     );
@@ -109,7 +109,13 @@ const ProviderGlyph: React.FC<{ id: string; color: string; size?: number }> = ({
       );
     default:
       return (
-        <span style={{ fontSize: "11px", fontWeight: 700, color }}>
+        <span
+          className="codenotch-provider-fallback"
+          style={{
+            color,
+            fontSize: s ? Math.round(s * 0.7) : undefined,
+          }}
+        >
           {id.slice(0, 2).toUpperCase()}
         </span>
       );
@@ -152,10 +158,10 @@ export const CodeNotch: React.FC = () => {
     activeAssistantId !== null || hoveredAssistantId !== null
   );
 
-  // Only show active/running AIs (is_running or session_status === 'active')
+  // Only show active/running AIs (is_running or session_status === 'active'), max 4 in inactive notch
   const displayAssistants: AiProviderStatus[] = assistants
     .filter((a) => a.is_running || a.session_status === "active")
-    .slice(0, 5);
+    .slice(0, 4);
 
   const selectedAssistant =
     displayAssistants.find((a) => a.id === (hoveredAssistantId || activeAssistantId)) || null;
@@ -341,7 +347,7 @@ export const CodeNotch: React.FC = () => {
             </span>
           </div>
         )}
-        {displayAssistants.map((assistant) => {
+        {displayAssistants.map((assistant, index) => {
           const isSelected = selectedAssistant?.id === assistant.id;
           const isRemainingMode = assistant.tags?.some((t) => t.toLowerCase().includes("remaining"));
           const percent = Math.round(assistant.usage_percent ?? 0);
@@ -362,7 +368,10 @@ export const CodeNotch: React.FC = () => {
                 else itemRefs.current.delete(assistant.id);
               }}
               className={`codenotch-ring-item ${isSelected ? "codenotch-ring-item--selected" : ""} ${!assistant.is_running ? "codenotch-ring-item--idle" : ""}`}
-              style={{ "--item-color": ringColor } as React.CSSProperties}
+              style={{
+                "--item-color": ringColor,
+                animationDelay: `${index * 45}ms`,
+              } as React.CSSProperties}
               onMouseEnter={() => handleMouseEnterItem(assistant.id)}
               onClick={(e) => handleClickItem(assistant.id, e)}
             >
@@ -375,24 +384,24 @@ export const CodeNotch: React.FC = () => {
                     cy="20"
                     r={r}
                     fill="none"
-                    stroke="#1a1a1a"
-                    strokeWidth="2.8"
+                    stroke="rgba(255, 255, 255, 0.14)"
+                    strokeWidth="3"
                   />
-                  {/* Active Colored Arc — only show if percent > 0 */}
-                  {percent > 0 && (
+                  {/* Active Colored Arc — show if percent > 0 or if assistant is running */}
+                  {(percent > 0 || assistant.is_running) && (
                     <circle
                       cx="20"
                       cy="20"
                       r={r}
                       fill="none"
                       stroke={ringColor}
-                      strokeWidth="2.8"
+                      strokeWidth="3"
                       strokeLinecap="round"
                       strokeDasharray={c}
-                      strokeDashoffset={offset}
+                      strokeDashoffset={percent > 0 ? offset : c * 0.75}
                       transform="rotate(-90 20 20)"
                       className={assistant.is_running ? "codenotch-ring-arc--active" : ""}
-                      opacity={assistant.is_running ? 1 : 0.4}
+                      opacity={assistant.is_running ? 1 : 0.45}
                     />
                   )}
                 </svg>
@@ -434,8 +443,10 @@ export const CodeNotch: React.FC = () => {
           {/* Triangular pointer pointing to the active circle */}
           <div className="codenotch-bubble-arrow" />
 
-          {/* Header with Icon, Status, Title, Model Chip, and Launch Action */}
-          <div className="codenotch-bubble-header">
+          {/* Animated content container keyed by assistant ID for smooth transitions */}
+          <div key={selectedAssistant.id} className="codenotch-bubble-content-animated">
+            {/* Header with Icon, Status, Title, Model Chip, and Launch Action */}
+            <div className="codenotch-bubble-header">
             <span className="codenotch-bubble-icon" style={{ color: selectedAssistant.icon_color }}>
               <ProviderGlyph id={selectedAssistant.id} color={selectedAssistant.icon_color} />
             </span>
@@ -570,15 +581,16 @@ export const CodeNotch: React.FC = () => {
             );
           })()}
 
-          {/* No usage data state (Desktop apps / Local tools) */}
-          {selectedAssistant.usage_percent == null && selectedAssistant.all_models_usage_percent == null && (
-            <div className="codenotch-metric-block" style={{ textAlign: "center", padding: "8px 0 2px" }}>
-              <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>
-                {selectedAssistant.session_reset_time
-                  || (selectedAssistant.is_running ? `${selectedAssistant.name} · Active` : `${selectedAssistant.name} · Idle`)}
+            {/* No usage data state (Desktop apps / Local tools) */}
+            {selectedAssistant.usage_percent == null && selectedAssistant.all_models_usage_percent == null && (
+              <div className="codenotch-metric-block" style={{ textAlign: "center", padding: "8px 0 2px" }}>
+                <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>
+                  {selectedAssistant.session_reset_time
+                    || (selectedAssistant.is_running ? `${selectedAssistant.name} · Active` : `${selectedAssistant.name} · Idle`)}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>

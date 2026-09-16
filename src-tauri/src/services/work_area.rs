@@ -449,8 +449,8 @@ pub fn update_window_region(
 
                 let rgn_notch = if is_only_codenotch {
                     // CodeNotch expanded: provide room for active 58px notch + 270px popover speech bubble + margin
-                    let notch_w_exp = (380.0 * scale).round() as i32;
-                    let notch_h_exp = (460.0 * scale).round() as i32;
+                    let notch_w_exp = (360.0 * scale).round() as i32;
+                    let notch_h_exp = (420.0 * scale).round() as i32;
                     let notch_top_exp = ((monitor_h - notch_h_exp) / 2).max(44);
                     let notch_bottom_exp = (notch_top_exp + notch_h_exp).min(monitor_h - bar_height);
 
@@ -460,11 +460,11 @@ pub fn update_window_region(
                         CreateRectRgn(monitor_w - notch_w_exp, notch_top_exp, monitor_w, notch_bottom_exp)
                     }
                 } else {
-                    // CodeNotch resting/hovered: minimal footprint matching exact notch size
-                    // (64px wide for 58px active notch + margin, exact height based on items)
-                    let count = effective_count.clamp(1, 5);
-                    let items_h = 56.0 + (count as f64 * 60.0) + ((count.saturating_sub(1) as f64) * 16.0);
-                    let notch_base_w = if settings.codenotch_position == "floating" { 80.0 } else { 64.0 };
+                    // CodeNotch resting: ultra-minimal footprint matching exact inactive notch size
+                    // (28px wide for 26px CSS notch, exact height based on active items, max 4)
+                    let count = effective_count.clamp(1, 4);
+                    let items_h = 16.0 + (count as f64 * 20.0) + ((count.saturating_sub(1) as f64) * 8.0) + 24.0;
+                    let notch_base_w = if settings.codenotch_position == "floating" { 44.0 } else { 28.0 };
                     let notch_w = (notch_base_w * scale).round() as i32;
                     let notch_h = (items_h * scale).round() as i32;
                     let notch_top = (monitor_h - notch_h) / 2;
