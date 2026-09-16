@@ -36,6 +36,7 @@ pub fn set_window_height(
     app: tauri::AppHandle,
     expanded: bool,
     height_px: Option<i32>,
+    source: Option<String>,
 ) -> Result<(), String> {
     use tauri::Manager;
 
@@ -49,7 +50,7 @@ pub fn set_window_height(
 
             if let Ok(hwnd) = window.hwnd() {
                 let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as *mut core::ffi::c_void);
-                crate::services::work_area::update_window_region(
+                crate::services::work_area::update_window_region_with_source(
                     win32_hwnd,
                     size.width as i32,
                     size.height as i32,
@@ -57,6 +58,37 @@ pub fn set_window_height(
                     expanded,
                     flyout_w_physical,
                     flyout_h_physical,
+                    source.as_deref(),
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn update_codenotch_state(
+    app: tauri::AppHandle,
+    visible: bool,
+    count: usize,
+) -> Result<(), String> {
+    use tauri::Manager;
+    crate::services::work_area::set_codenotch_state(visible, count);
+    if let Some(window) = app.get_webview_window("main") {
+        if let Ok(Some(monitor)) = window.primary_monitor() {
+            let size = monitor.size();
+            let scale_factor = monitor.scale_factor();
+            let bar_height_physical = (48.0 * scale_factor).round() as i32;
+            if let Ok(hwnd) = window.hwnd() {
+                let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as *mut core::ffi::c_void);
+                crate::services::work_area::update_window_region(
+                    win32_hwnd,
+                    size.width as i32,
+                    size.height as i32,
+                    bar_height_physical,
+                    crate::services::work_area::is_window_expanded(),
+                    0,
+                    0,
                 );
             }
         }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useSettings } from "../../stores/settingsStore";
 import { useAiAssistants } from "../../hooks/useAiAssistants";
 import { windowExpansion } from "../../services/windowExpansion";
+import { tauriBridge } from "../../services/tauriBridge";
 import { AiProviderStatus } from "../../types";
 import "../../styles/codenotch.css";
 
@@ -187,7 +188,7 @@ export const CodeNotch: React.FC = () => {
       if (collapseTimeoutRef.current) window.clearTimeout(collapseTimeoutRef.current);
       collapseTimeoutRef.current = window.setTimeout(() => {
         windowExpansion.release("codenotch");
-      }, 260);
+      }, 140);
     }
   };
 
@@ -248,6 +249,29 @@ export const CodeNotch: React.FC = () => {
     };
   }, []);
 
+  // Dismiss active popover & release codenotch expansion immediately if window loses focus (e.g. clicking VS Code)
+  useEffect(() => {
+    const handleBlur = () => {
+      if (document.hasFocus && document.hasFocus()) {
+        return;
+      }
+      setActiveAssistantId(null);
+      setHoveredAssistantId(null);
+      setIsHovered(false);
+      windowExpansion.release("codenotch");
+    };
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
+
+  // Synchronize exact CodeNotch visibility and assistant count with Rust Win32 GDI region
+  useEffect(() => {
+    const isVisible = isEnabled && displayAssistants.length > 0;
+    tauriBridge.updateCodeNotchState(isVisible, displayAssistants.length).catch(console.error);
+  }, [isEnabled, displayAssistants.length]);
+
   // Release window expansion & reset hover/active state when no active assistants remain
   useEffect(() => {
     if (displayAssistants.length === 0) {
@@ -260,9 +284,10 @@ export const CodeNotch: React.FC = () => {
     }
   }, [displayAssistants.length, activeAssistantId, hoveredAssistantId, isHovered]);
 
-  // Clean up on unmount
+  // Clean up on unmount: clear GDI region and release expansion
   useEffect(() => {
     return () => {
+      tauriBridge.updateCodeNotchState(false, 0).catch(console.error);
       windowExpansion.release("codenotch");
     };
   }, []);

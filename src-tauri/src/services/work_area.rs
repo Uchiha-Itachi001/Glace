@@ -1,4 +1,4 @@
-use std::sync::{atomic::{AtomicBool, Ordering}, Mutex, OnceLock};
+use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Mutex, OnceLock};
 use crate::models::types::Settings;
 use windows::{
     core::{BOOL, PCWSTR},
@@ -276,8 +276,56 @@ pub fn restore(_screen_height: i32, _screen_width: i32) {
     }
 }
 
-static NOTCH_PEEK_THROUGH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-static IS_WINDOW_EXPANDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static NOTCH_PEEK_THROUGH: AtomicBool = AtomicBool::new(false);
+static IS_WINDOW_EXPANDED: AtomicBool = AtomicBool::new(false);
+static CODENOTCH_IS_VISIBLE: AtomicBool = AtomicBool::new(false);
+static CODENOTCH_ITEM_COUNT: AtomicUsize = AtomicUsize::new(0);
+static EXPANSION_SOURCE: Mutex<Option<String>> = Mutex::new(None);
+
+pub fn set_codenotch_state(visible: bool, count: usize) {
+    let prev_vis = CODENOTCH_IS_VISIBLE.swap(visible, Ordering::Relaxed);
+    let prev_count = CODENOTCH_ITEM_COUNT.swap(count, Ordering::Relaxed);
+    if prev_vis != visible || prev_count != count {
+        if let Ok(guard) = GLACE_CONFIG.lock() {
+            if let Some(config) = guard.as_ref() {
+                let hwnd = HWND(config.hwnd as *mut _);
+                update_window_region(
+                    hwnd,
+                    config.monitor_w,
+                    config.monitor_h,
+                    config.bar_height_physical,
+                    is_window_expanded(),
+                    0,
+                    0,
+                );
+            }
+        }
+    }
+}
+
+pub fn update_window_region_with_source(
+    hwnd: HWND,
+    monitor_w: i32,
+    monitor_h: i32,
+    bar_height: i32,
+    flyout_expanded: bool,
+    flyout_w: i32,
+    flyout_h: i32,
+    source: Option<&str>,
+) {
+    if let Ok(mut guard) = EXPANSION_SOURCE.lock() {
+        *guard = source.map(|s| s.to_string());
+    }
+    update_window_region(
+        hwnd,
+        monitor_w,
+        monitor_h,
+        bar_height,
+        flyout_expanded,
+        flyout_w,
+        flyout_h,
+    );
+}
 
 /// Cached copy of Settings to avoid repeated disk I/O in hot paths (e.g. update_window_region called at 150ms intervals).
 static SETTINGS_CACHE: OnceLock<Mutex<Option<Settings>>> = OnceLock::new();
@@ -307,11 +355,11 @@ fn get_cached_settings() -> Settings {
 }
 
 pub fn is_window_expanded() -> bool {
-    IS_WINDOW_EXPANDED.load(std::sync::atomic::Ordering::Relaxed)
+    IS_WINDOW_EXPANDED.load(Ordering::Relaxed)
 }
 
 pub fn set_notch_peek_through(peek: bool) {
-    let prev = NOTCH_PEEK_THROUGH.swap(peek, std::sync::atomic::Ordering::Relaxed);
+    let prev = NOTCH_PEEK_THROUGH.swap(peek, Ordering::Relaxed);
     if prev != peek {
         if let Ok(guard) = GLACE_CONFIG.lock() {
             if let Some(config) = guard.as_ref() {
@@ -341,11 +389,14 @@ pub fn update_window_region(
 ) {
     use windows::Win32::Graphics::Gdi::{CombineRgn, CreateRectRgn, SetWindowRgn, RGN_OR};
 
-    IS_WINDOW_EXPANDED.store(flyout_expanded, std::sync::atomic::Ordering::Relaxed);
+    IS_WINDOW_EXPANDED.store(flyout_expanded, Ordering::Relaxed);
+
+    let current_source = EXPANSION_SOURCE.lock().ok().and_then(|g| g.clone());
+    let is_only_codenotch = flyout_expanded && current_source.as_deref() == Some("codenotch");
 
     unsafe {
-        if flyout_expanded {
-            // Expand region to full monitor so flyouts, context menus, expanded island, and backdrop clicks work
+        if flyout_expanded && !is_only_codenotch {
+            // Full flyouts (Settings, Calendar, etc.): full monitor region for backdrop clicks
             let rgn_full = CreateRectRgn(0, 0, monitor_w, monitor_h);
             let _ = SetWindowRgn(hwnd, Some(rgn_full), true);
         } else {
@@ -360,7 +411,7 @@ pub fn update_window_region(
 
             let settings = get_cached_settings();
             let is_macos_mode = settings.bar_position == "macos" || settings.bar_position == "top";
-            let is_peek = NOTCH_PEEK_THROUGH.load(std::sync::atomic::Ordering::Relaxed);
+            let is_peek = NOTCH_PEEK_THROUGH.load(Ordering::Relaxed);
 
             let rgn_top = if is_macos_mode {
                 CreateRectRgn(0, 0, monitor_w, 38)
@@ -377,19 +428,53 @@ pub fn update_window_region(
             CombineRgn(Some(rgn_combined), Some(rgn_bar), Some(rgn_top), RGN_OR);
 
             // 3. Side Edge CodeNotch Bar (vinzdg/codenotch):
-            // Generous bounds ensuring active notch (58px), concave ears, and all 4-5 icons never clip
-            if settings.enable_codenotch {
-                let scale = (bar_height as f64 / 48.0).max(1.0);
-                let notch_w = (76.0 * scale).round() as i32;
-                let notch_h = (460.0 * scale).round() as i32;
-                let notch_top = (monitor_h - notch_h) / 2;
-                let notch_bottom = notch_top + notch_h;
+            // Tight bounds: exactly matches resting notch size (24px wide, height based on items)
+            // or dedicated side card region when expanded, NEVER taking over full monitor.
+            let is_codenotch_visible = CODENOTCH_IS_VISIBLE.load(Ordering::Relaxed);
+            let codenotch_count = CODENOTCH_ITEM_COUNT.load(Ordering::Relaxed);
 
+            let effective_count = if codenotch_count > 0 {
+                codenotch_count
+            } else {
+                crate::services::ai_host::scan_ai_assistants()
+                    .iter()
+                    .filter(|a| a.is_running || a.session_status == "active")
+                    .count()
+            };
+            let has_items = effective_count > 0 || is_codenotch_visible;
+
+            if settings.enable_codenotch && (has_items || is_only_codenotch) {
+                let scale = (bar_height as f64 / 48.0).max(1.0);
                 let is_left = settings.codenotch_position == "left" || settings.codenotch_position == "top-left";
-                let rgn_notch = if is_left {
-                    CreateRectRgn(0, notch_top, notch_w, notch_bottom)
+
+                let rgn_notch = if is_only_codenotch {
+                    // CodeNotch expanded: provide room for active 58px notch + 270px popover speech bubble + margin
+                    let notch_w_exp = (380.0 * scale).round() as i32;
+                    let notch_h_exp = (460.0 * scale).round() as i32;
+                    let notch_top_exp = ((monitor_h - notch_h_exp) / 2).max(44);
+                    let notch_bottom_exp = (notch_top_exp + notch_h_exp).min(monitor_h - bar_height);
+
+                    if is_left {
+                        CreateRectRgn(0, notch_top_exp, notch_w_exp, notch_bottom_exp)
+                    } else {
+                        CreateRectRgn(monitor_w - notch_w_exp, notch_top_exp, monitor_w, notch_bottom_exp)
+                    }
                 } else {
-                    CreateRectRgn(monitor_w - notch_w, notch_top, monitor_w, notch_bottom)
+                    // CodeNotch resting/hovered: minimal footprint matching exact notch size
+                    // (64px wide for 58px active notch + margin, exact height based on items)
+                    let count = effective_count.clamp(1, 5);
+                    let items_h = 56.0 + (count as f64 * 60.0) + ((count.saturating_sub(1) as f64) * 16.0);
+                    let notch_base_w = if settings.codenotch_position == "floating" { 80.0 } else { 64.0 };
+                    let notch_w = (notch_base_w * scale).round() as i32;
+                    let notch_h = (items_h * scale).round() as i32;
+                    let notch_top = (monitor_h - notch_h) / 2;
+                    let notch_bottom = notch_top + notch_h;
+
+                    if is_left {
+                        CreateRectRgn(0, notch_top, notch_w, notch_bottom)
+                    } else {
+                        CreateRectRgn(monitor_w - notch_w, notch_top, monitor_w, notch_bottom)
+                    }
                 };
 
                 CombineRgn(Some(rgn_combined), Some(rgn_combined), Some(rgn_notch), RGN_OR);

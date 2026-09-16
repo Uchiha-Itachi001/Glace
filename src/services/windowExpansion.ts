@@ -60,7 +60,10 @@ export const windowExpansion = {
       for (const h of activeExpansions.values()) {
         if (h > maxHeight) maxHeight = h;
       }
-      tauriBridge.setWindowHeight(true, maxHeight).catch(console.error);
+      const isOnlyCodeNotch = activeExpansions.size === 1 && activeExpansions.has("codenotch");
+      tauriBridge
+        .setWindowHeight(true, maxHeight, isOnlyCodeNotch ? "codenotch" : "flyout")
+        .catch(console.error);
     }
   },
 };
@@ -68,8 +71,14 @@ export const windowExpansion = {
 // Global safety listeners to prevent hover/window expansion leaks
 if (typeof window !== "undefined") {
   window.addEventListener("blur", () => {
+    if (document.hasFocus && document.hasFocus()) {
+      return;
+    }
     if (activeExpansions.has("apps-hover")) {
       windowExpansion.release("apps-hover");
+    }
+    if (activeExpansions.has("codenotch")) {
+      windowExpansion.release("codenotch");
     }
   });
 

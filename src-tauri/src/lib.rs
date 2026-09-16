@@ -69,6 +69,7 @@ pub fn run() {
             commands::windows::terminate_window_process,
             commands::windows::snap_window,
             commands::windows::set_window_height,
+            commands::windows::update_codenotch_state,
             commands::windows::get_window_thumbnail,
             commands::tray::get_tray_icons,
             commands::tray::get_system_metrics,

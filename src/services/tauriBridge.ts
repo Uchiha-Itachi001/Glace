@@ -64,11 +64,19 @@ export const tauriBridge = {
     }
   },
 
-  setWindowHeight: async (expanded: boolean, heightPx?: number): Promise<void> => {
+  setWindowHeight: async (expanded: boolean, heightPx?: number, source?: string): Promise<void> => {
     try {
-      await invoke("set_window_height", { expanded, heightPx });
+      await invoke("set_window_height", { expanded, heightPx, source });
     } catch (e) {
       console.error("setWindowHeight error:", e);
+    }
+  },
+
+  updateCodeNotchState: async (visible: boolean, count: number): Promise<void> => {
+    try {
+      await invoke("update_codenotch_state", { visible, count });
+    } catch (e) {
+      console.error("updateCodeNotchState error:", e);
     }
   },
 
