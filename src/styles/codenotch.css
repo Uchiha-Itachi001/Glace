@@ -88,22 +88,22 @@
   z-index: 2;
   display: block;
   overflow: visible;
-  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              height 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              top 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              bottom 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Right Edge Ears - Inactive */
+/* Right Edge Ears - Anchored to Notch Top & Bottom Edges */
 .codenotch-pos--right .codenotch-ear--top,
 .codenotch-pos--top-right .codenotch-ear--top {
-  top: -11.5px;
+  bottom: calc(100% - 0.5px);
+  top: auto;
   right: 0;
 }
 
 .codenotch-pos--right .codenotch-ear--bottom,
 .codenotch-pos--top-right .codenotch-ear--bottom {
-  bottom: -11.5px;
+  top: calc(100% - 0.5px);
+  bottom: auto;
   right: 0;
 }
 
@@ -114,22 +114,11 @@
   height: 16px;
 }
 
-.codenotch-vertical-notch--active.codenotch-pos--right .codenotch-ear--top,
-.codenotch-vertical-notch--active.codenotch-pos--top-right .codenotch-ear--top {
-  top: -15.5px;
-  right: 0;
-}
-
-.codenotch-vertical-notch--active.codenotch-pos--right .codenotch-ear--bottom,
-.codenotch-vertical-notch--active.codenotch-pos--top-right .codenotch-ear--bottom {
-  bottom: -15.5px;
-  right: 0;
-}
-
-/* Left Edge Ears - Inactive */
+/* Left Edge Ears - Anchored to Notch Top & Bottom Edges */
 .codenotch-pos--left .codenotch-ear--top,
 .codenotch-pos--top-left .codenotch-ear--top {
-  top: -11.5px;
+  bottom: calc(100% - 0.5px);
+  top: auto;
   left: 0;
   right: auto;
   transform: scaleX(-1);
@@ -137,7 +126,8 @@
 
 .codenotch-pos--left .codenotch-ear--bottom,
 .codenotch-pos--top-left .codenotch-ear--bottom {
-  bottom: -11.5px;
+  top: calc(100% - 0.5px);
+  bottom: auto;
   left: 0;
   right: auto;
   transform: scaleX(-1);
@@ -148,22 +138,6 @@
 .codenotch-vertical-notch--active.codenotch-pos--top-left .codenotch-ear {
   width: 16px;
   height: 16px;
-}
-
-.codenotch-vertical-notch--active.codenotch-pos--left .codenotch-ear--top,
-.codenotch-vertical-notch--active.codenotch-pos--top-left .codenotch-ear--top {
-  top: -15.5px;
-  left: 0;
-  right: auto;
-  transform: scaleX(-1);
-}
-
-.codenotch-vertical-notch--active.codenotch-pos--left .codenotch-ear--bottom,
-.codenotch-vertical-notch--active.codenotch-pos--top-left .codenotch-ear--bottom {
-  bottom: -15.5px;
-  left: 0;
-  right: auto;
-  transform: scaleX(-1);
 }
 
 
@@ -376,7 +350,7 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 14px 16px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: none !important;
   z-index: 9999;
   transform-origin: right center;
   animation: codenotchBubbleIn 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;

@@ -203,7 +203,7 @@ export const CodeNotch: React.FC = () => {
       if (collapseTimeoutRef.current) window.clearTimeout(collapseTimeoutRef.current);
       collapseTimeoutRef.current = window.setTimeout(() => {
         windowExpansion.release("codenotch");
-      }, 140);
+      }, 300);
     }
   };
 
@@ -422,11 +422,9 @@ export const CodeNotch: React.FC = () => {
               </div>
 
               {/* Percentage or Status Label */}
-              {isActive && (
-                <span className="codenotch-ring-percent" style={{ color: isRemainingMode ? ringColor : undefined }}>
-                  {assistant.usage_percent != null ? `${percent}%` : "active"}
-                </span>
-              )}
+              <span className="codenotch-ring-percent" style={{ color: isRemainingMode ? ringColor : undefined }}>
+                {assistant.usage_percent != null ? `${percent}%` : "active"}
+              </span>
             </div>
           );
         })}

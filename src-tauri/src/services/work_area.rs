@@ -455,8 +455,8 @@ pub fn update_window_region(
                     // CodeNotch resting: ultra-minimal footprint matching exact inactive notch size
                     // (28px wide for 26px CSS notch, exact height based on active items, max 4)
                     let count = effective_count.clamp(1, 4);
-                    let items_h = 16.0 + (count as f64 * 20.0) + ((count.saturating_sub(1) as f64) * 8.0) + 24.0;
-                    let notch_base_w = if settings.codenotch_position == "floating" { 44.0 } else { 28.0 };
+                    let items_h = 16.0 + (count as f64 * 20.0) + ((count.saturating_sub(1) as f64) * 8.0) + 30.0;
+                    let notch_base_w = if settings.codenotch_position == "floating" { 44.0 } else { 30.0 };
                     let notch_w = (notch_base_w * scale).round() as i32;
                     let notch_h = (items_h * scale).round() as i32;
                     let notch_top = (monitor_h - notch_h) / 2;
