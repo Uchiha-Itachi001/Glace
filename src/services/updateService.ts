@@ -1,6 +1,6 @@
 import { UpdateInfo } from "../types";
 
-export const CURRENT_APP_VERSION = "0.3.4";
+export const CURRENT_APP_VERSION = "0.4.5";
 export const GITHUB_REPO = "Uchiha-Itachi001/Glace";
 
 const CACHE_KEY = "glace_update_cache";

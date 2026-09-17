@@ -13,7 +13,21 @@
   pointer-events: auto;
   user-select: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Roboto, sans-serif;
-  transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Flyout Open: Dynamic Island collapses and slides smoothly up into top bezel */
+.dynamic-notch-wrapper--flyout-open {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateX(-50%) translateY(-100%) !important;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dynamic-notch-wrapper--flyout-open .dynamic-notch {
+  pointer-events: none !important;
 }
 
 /* Shift-to-Peek Glass Transparency for Windows Overlap Mode */

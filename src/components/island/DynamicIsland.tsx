@@ -9,7 +9,8 @@ import { tauriBridge } from "../../services/tauriBridge";
 
 export const DynamicIsland: React.FC = () => {
   const { settings } = useSettings();
-  const { openFlyout } = useFlyout();
+  const { activeFlyout, openFlyout } = useFlyout();
+  const isFlyoutOpen = activeFlyout !== null;
   const barPosition = settings?.bar_position || "bottom";
   const isMacStyle = barPosition === "macos" || barPosition === "top";
   const isIslandEnabled = settings?.enable_dynamic_island ?? true;
@@ -173,6 +174,7 @@ export const DynamicIsland: React.FC = () => {
   };
 
   const handleExpandMedia = (e?: React.MouseEvent) => {
+    if (isFlyoutOpen) return;
     if (e) e.stopPropagation();
     try {
       setExpandedType("media");
@@ -183,6 +185,7 @@ export const DynamicIsland: React.FC = () => {
   };
 
   const handleExpandBluetooth = (e?: React.MouseEvent) => {
+    if (isFlyoutOpen) return;
     if (e) e.stopPropagation();
     try {
       setExpandedType("bluetooth");
@@ -193,6 +196,7 @@ export const DynamicIsland: React.FC = () => {
   };
 
   const handleExpandHardware = (e?: React.MouseEvent) => {
+    if (isFlyoutOpen) return;
     if (e) e.stopPropagation();
     try {
       setExpandedType("hardware");
@@ -208,6 +212,13 @@ export const DynamicIsland: React.FC = () => {
     setExpandedType(null);
     windowExpansion.release("island");
   };
+
+  // Collapse island immediately when flyout (settings, calendar, etc.) is open
+  useEffect(() => {
+    if (isFlyoutOpen && expandedType !== null) {
+      handleCollapse();
+    }
+  }, [isFlyoutOpen, expandedType]);
 
   // Sync expandedType when windowExpansion is released externally (e.g. backdrop or transparent space click)
   useEffect(() => {
@@ -520,8 +531,12 @@ export const DynamicIsland: React.FC = () => {
       )}
 
       <div
-        className={`dynamic-notch-wrapper ${isShiftPeek ? "dynamic-notch-wrapper--peek-through" : ""}`}
-        onMouseEnter={() => setIsNotchHovered(true)}
+        className={`dynamic-notch-wrapper ${isShiftPeek ? "dynamic-notch-wrapper--peek-through" : ""} ${
+          isFlyoutOpen ? "dynamic-notch-wrapper--flyout-open" : ""
+        }`}
+        onMouseEnter={() => {
+          if (!isFlyoutOpen) setIsNotchHovered(true);
+        }}
         onMouseLeave={() => {
           if (!isShiftDown) {
             setIsNotchHovered(false);
@@ -875,7 +890,7 @@ export const DynamicIsland: React.FC = () => {
                           <path d="M3 9h18M9 21V9" />
                         </svg>
                         <span className="bento-glance-stat-lbl">Glace Shell</span>
-                        <span className="bento-glance-chip">v0.3.3</span>
+                        <span className="bento-glance-chip">v0.4.5</span>
                       </div>
                       <div className="bento-glance-stat-row">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

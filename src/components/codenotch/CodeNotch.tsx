@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSettings } from "../../stores/settingsStore";
+import { useFlyout } from "../../stores/flyoutStore";
 import { useAiAssistants } from "../../hooks/useAiAssistants";
 import { windowExpansion } from "../../services/windowExpansion";
 import { tauriBridge } from "../../services/tauriBridge";
@@ -147,40 +148,161 @@ const StatusDot: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
+/* Dynamic remaining quota color mapping:
+   - 0% to 25%: Red (#ef4444)
+   - 26% to 75%: Amber / Yellow-Orange (#f59e0b)
+   - 76% to 100%: Green (#22c55e)
+*/
+const getRemainingColor = (percent: number): string => {
+  if (percent <= 25) return "#ef4444";
+  if (percent <= 75) return "#f59e0b";
+  return "#22c55e";
+};
+
 export const CodeNotch: React.FC = () => {
   const { settings } = useSettings();
-  const [activeAssistantId, setActiveAssistantId] = useState<string | null>(null);
+  const { activeFlyout } = useFlyout();
+  const isFlyoutOpen = activeFlyout !== null;
+
   const [hoveredAssistantId, setHoveredAssistantId] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [popoverTop, setPopoverTop] = useState<number>(100);
   const notchRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const collapseTimeoutRef = useRef<number | null>(null);
+  const [currentSection, setCurrentSection] = useState<number>(0);
+
+  // MRU (Most Recently Used / Active) ordering: Active/opened AI automatically jumps to position 0 (the top)
+  const [mruOrder, setMruOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("glace_codenotch_mru");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const promoteAssistant = useCallback((id: string) => {
+    if (!id) return;
+    setMruOrder((prev) => {
+      if (prev[0] === id) return prev;
+      const next = [id, ...prev.filter((item) => item !== id)];
+      try {
+        localStorage.setItem("glace_codenotch_mru", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const isEnabled = settings?.enable_codenotch ?? true;
   const position = settings?.codenotch_position ?? "right";
 
-  const isActive = isHovered || activeAssistantId !== null;
+  const isActive = isHovered && !isFlyoutOpen;
 
   const { assistants, launchAssistant } = useAiAssistants(
-    activeAssistantId !== null || hoveredAssistantId !== null
+    isHovered || hoveredAssistantId !== null
   );
 
-  // Show active/running AIs (max 4). If none are currently active, fallback to installed AIs so notch never vanishes
-  const displayAssistants: AiProviderStatus[] = useMemo(() => {
-    const active = assistants
-      .filter((a) => a.is_running || a.session_status === "active")
-      .slice(0, 4);
-    if (active.length > 0) {
-      return active;
+  // Detect newly launched/running assistants and promote them to the top of the notch
+  const prevRunningRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const runningIds = new Set(
+      assistants.filter((a) => a.is_running || a.session_status === "active").map((a) => a.id)
+    );
+    for (const id of runningIds) {
+      if (!prevRunningRef.current.has(id)) {
+        promoteAssistant(id);
+        break;
+      }
     }
-    return assistants.filter((a) => a.is_installed).slice(0, 4);
-  }, [assistants]);
+    prevRunningRef.current = runningIds;
+  }, [assistants, promoteAssistant]);
+
+  // Listen for window focus events across the OS: if an AI app is focused, promote it to the top
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    tauriBridge
+      .onWindowsUpdated((windows) => {
+        const focused = windows.find((w) => w.is_focused && !w.is_minimized);
+        if (!focused) return;
+
+        const title = (focused.title || "").toLowerCase();
+        const exe = (focused.exe || "").toLowerCase();
+
+        let matchedId: string | null = null;
+        if (exe.includes("antigravity") || title.includes("antigravity")) {
+          matchedId = "antigravity";
+        } else if (exe.includes("cursor") || title.includes("cursor")) {
+          matchedId = "cursor";
+        } else if (exe.includes("claude") || title.includes("claude")) {
+          if (exe.includes("cmd") || exe.includes("powershell") || exe.includes("windowsterminal")) {
+            matchedId = "claude-code";
+          } else {
+            matchedId = "claude";
+          }
+        } else if (exe.includes("chatgpt") || title.includes("chatgpt")) {
+          matchedId = "chatgpt";
+        } else if (title.includes("codex")) {
+          matchedId = "codex";
+        } else if (exe.includes("code") && title.includes("copilot")) {
+          matchedId = "copilot";
+        } else if (exe.includes("lmstudio") || exe.includes("lm studio")) {
+          matchedId = "lmstudio";
+        } else if (exe.includes("ollama")) {
+          matchedId = "ollama";
+        }
+
+        if (matchedId) {
+          promoteAssistant(matchedId);
+        }
+      })
+      .then((unsub) => {
+        unlisten = unsub;
+      })
+      .catch(console.error);
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [promoteAssistant]);
+
+  // Show active/running AIs ordered by MRU (top AI is the most recently opened/active).
+  // When minimized or idle, last active stays at the top. Full list is available and scrollable.
+  const displayAssistants: AiProviderStatus[] = useMemo(() => {
+    const active = assistants.filter((a) => a.is_running || a.session_status === "active");
+    const idle = assistants.filter((a) => !a.is_running && a.session_status !== "active" && a.is_installed);
+
+    const sortByMru = (list: AiProviderStatus[]) => {
+      return [...list].sort((a, b) => {
+        const idxA = mruOrder.indexOf(a.id);
+        const idxB = mruOrder.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
+    };
+
+    const sortedActive = sortByMru(active);
+    if (sortedActive.length > 0) {
+      return sortedActive;
+    }
+
+    // When no AIs are currently active, show installed or available assistants so notch is always visible
+    const installed = assistants.filter((a) => a.is_installed);
+    if (installed.length > 0) {
+      return sortByMru(installed);
+    }
+    return sortByMru(assistants);
+  }, [assistants, mruOrder]);
+
+  const totalSections = Math.max(1, Math.ceil(displayAssistants.length / 4));
 
   const selectedAssistant = useMemo(
     () =>
-      displayAssistants.find((a) => a.id === (hoveredAssistantId || activeAssistantId)) || null,
-    [displayAssistants, hoveredAssistantId, activeAssistantId]
+      displayAssistants.find((a) => a.id === hoveredAssistantId) || null,
+    [displayAssistants, hoveredAssistantId]
   );
 
   // Track popover Y alignment relative to the hovered item
@@ -193,6 +315,52 @@ export const CodeNotch: React.FC = () => {
       const clampedTop = Math.max(30, Math.min(relativeTop, Math.max(60, notchRect.height - 30)));
       setPopoverTop(clampedTop);
     }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (totalSections <= 1) return;
+    e.stopPropagation();
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({
+        top: e.deltaY,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const maxScroll = scrollHeight - clientHeight;
+    if (maxScroll <= 0) {
+      setCurrentSection(0);
+    } else {
+      const fraction = scrollTop / maxScroll;
+      const section = Math.min(
+        totalSections - 1,
+        Math.max(0, Math.round(fraction * (totalSections - 1)))
+      );
+      setCurrentSection(section);
+    }
+
+    const currentId = hoveredAssistantId || activeAssistantId;
+    if (currentId) {
+      updatePopoverPosition(currentId);
+    }
+  };
+
+  const scrollToSection = (sectionIndex: number) => {
+    if (!scrollContainerRef.current) return;
+    const { scrollHeight, clientHeight } = scrollContainerRef.current;
+    const maxScroll = scrollHeight - clientHeight;
+    if (totalSections > 1 && maxScroll > 0) {
+      const targetTop = (sectionIndex / (totalSections - 1)) * maxScroll;
+      scrollContainerRef.current.scrollTo({
+        top: targetTop,
+        behavior: "smooth",
+      });
+    }
+    setCurrentSection(sectionIndex);
   };
 
   const [isShiftDown, setIsShiftDown] = useState<boolean>(false);
@@ -268,6 +436,7 @@ export const CodeNotch: React.FC = () => {
   }, [peekKey]);
 
   const handleMouseEnterNotch = () => {
+    if (isFlyoutOpen) return;
     if (collapseTimeoutRef.current) {
       window.clearTimeout(collapseTimeoutRef.current);
       collapseTimeoutRef.current = null;
@@ -284,48 +453,77 @@ export const CodeNotch: React.FC = () => {
     if (!isShiftDown) {
       setIsPeekHovered(false);
     }
-    setHoveredAssistantId(null);
-    if (!activeAssistantId) {
-      if (collapseTimeoutRef.current) window.clearTimeout(collapseTimeoutRef.current);
-      collapseTimeoutRef.current = window.setTimeout(() => {
-        windowExpansion.release("codenotch");
-      }, 300);
-    }
+    if (collapseTimeoutRef.current) window.clearTimeout(collapseTimeoutRef.current);
+    collapseTimeoutRef.current = window.setTimeout(() => {
+      setHoveredAssistantId(null);
+      windowExpansion.release("codenotch");
+    }, 220);
   };
 
   const handleMouseEnterItem = (id: string) => {
+    if (isFlyoutOpen) return;
     if (collapseTimeoutRef.current) {
       window.clearTimeout(collapseTimeoutRef.current);
       collapseTimeoutRef.current = null;
     }
+    setIsHovered(true);
     setHoveredAssistantId(id);
     updatePopoverPosition(id);
     windowExpansion.request("codenotch", 480);
   };
 
-  const handleClickItem = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (collapseTimeoutRef.current) {
-      window.clearTimeout(collapseTimeoutRef.current);
-      collapseTimeoutRef.current = null;
-    }
-    if (activeAssistantId === id) {
-      setActiveAssistantId(null);
-      if (!isHovered) {
-        windowExpansion.release("codenotch");
-      }
-    } else {
-      setActiveAssistantId(id);
-      updatePopoverPosition(id);
+  const lastTapRef = useRef<{ id: string; time: number }>({ id: "", time: 0 });
+  const lastLaunchRef = useRef<number>(0);
+
+  const triggerLaunch = useCallback(
+    async (id: string) => {
+      const now = Date.now();
+      if (now - lastLaunchRef.current < 400) return;
+      lastLaunchRef.current = now;
+      lastTapRef.current = { id: "", time: 0 };
+
+      // Simultaneously promote icon to 1st position and open/focus app window
+      promoteAssistant(id);
+      setIsHovered(true);
       windowExpansion.request("codenotch", 480);
+      await launchAssistant(id);
+    },
+    [promoteAssistant, launchAssistant]
+  );
+
+  const handleClickItem = (id: string, e: React.MouseEvent) => {
+    if (isFlyoutOpen) return;
+    e.stopPropagation();
+
+    const now = Date.now();
+    const isDouble =
+      e.detail === 2 || (lastTapRef.current.id === id && now - lastTapRef.current.time < 380);
+    lastTapRef.current = { id, time: now };
+
+    if (isDouble) {
+      triggerLaunch(id);
     }
   };
+
+  const handleDoubleClickItem = (id: string, e: React.MouseEvent) => {
+    if (isFlyoutOpen) return;
+    e.stopPropagation();
+    triggerLaunch(id);
+  };
+
+  // Dismiss popover and notch hover when flyout (settings, calendar, etc.) is open
+  useEffect(() => {
+    if (isFlyoutOpen) {
+      setHoveredAssistantId(null);
+      setIsHovered(false);
+      windowExpansion.release("codenotch");
+    }
+  }, [isFlyoutOpen]);
 
   // Synchronize React state with windowExpansion so transparent space clicks never desync
   useEffect(() => {
     const unsubscribe = windowExpansion.subscribe((expanded) => {
       if (!expanded) {
-        setActiveAssistantId(null);
         setHoveredAssistantId(null);
         setIsHovered(false);
       }
@@ -337,7 +535,6 @@ export const CodeNotch: React.FC = () => {
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent | PointerEvent) => {
       if (notchRef.current && !notchRef.current.contains(e.target as Node)) {
-        setActiveAssistantId(null);
         setHoveredAssistantId(null);
         setIsHovered(false);
         windowExpansion.release("codenotch");
@@ -350,13 +547,16 @@ export const CodeNotch: React.FC = () => {
     };
   }, []);
 
-  // Dismiss active popover & release codenotch expansion immediately if window loses focus (e.g. clicking VS Code)
+  // Dismiss popover & release codenotch expansion immediately if window loses focus (e.g. clicking VS Code)
   useEffect(() => {
     const handleBlur = () => {
       if (document.hasFocus && document.hasFocus()) {
         return;
       }
-      setActiveAssistantId(null);
+      // If user is currently hovering the notch, or an app was just launched within 2s, keep notch in active state!
+      if (notchRef.current?.matches(":hover") || Date.now() - lastLaunchRef.current < 2000) {
+        return;
+      }
       setHoveredAssistantId(null);
       setIsHovered(false);
       windowExpansion.release("codenotch");
@@ -376,14 +576,13 @@ export const CodeNotch: React.FC = () => {
   // Release window expansion & reset hover/active state when no active assistants remain
   useEffect(() => {
     if (displayAssistants.length === 0) {
-      if (activeAssistantId || hoveredAssistantId || isHovered) {
-        setActiveAssistantId(null);
+      if (hoveredAssistantId || isHovered) {
         setHoveredAssistantId(null);
         setIsHovered(false);
       }
       windowExpansion.release("codenotch");
     }
-  }, [displayAssistants.length, activeAssistantId, hoveredAssistantId, isHovered]);
+  }, [displayAssistants.length, hoveredAssistantId, isHovered]);
 
   // Clean up on unmount: clear GDI region and release expansion
   useEffect(() => {
@@ -393,15 +592,12 @@ export const CodeNotch: React.FC = () => {
     };
   }, []);
 
-  // Clear active/hovered ID if that assistant is no longer active
+  // Clear hovered ID if that assistant is no longer active
   useEffect(() => {
-    if (activeAssistantId && !displayAssistants.some((a) => a.id === activeAssistantId)) {
-      setActiveAssistantId(null);
-    }
     if (hoveredAssistantId && !displayAssistants.some((a) => a.id === hoveredAssistantId)) {
       setHoveredAssistantId(null);
     }
-  }, [displayAssistants, activeAssistantId, hoveredAssistantId]);
+  }, [displayAssistants, hoveredAssistantId]);
 
   // If disabled or no active AIs, do not show the notch at all
   if (!isEnabled || displayAssistants.length === 0) {
@@ -413,9 +609,12 @@ export const CodeNotch: React.FC = () => {
       ref={notchRef}
       className={`codenotch-vertical-notch codenotch-pos--${position} ${
         isActive ? "codenotch-vertical-notch--active" : ""
-      } ${isCodeNotchPeek ? "codenotch-peek-through" : ""}`}
+      } ${isCodeNotchPeek ? "codenotch-peek-through" : ""} ${
+        isFlyoutOpen ? "codenotch-vertical-notch--flyout-open" : ""
+      }`}
       onMouseEnter={handleMouseEnterNotch}
       onMouseLeave={handleMouseLeaveNotch}
+      onWheel={handleWheel}
     >
       {/* Concave Corner Ears merging smoothly with screen bezel */}
       <svg
@@ -433,8 +632,13 @@ export const CodeNotch: React.FC = () => {
         <path d="M0,0 A100,100 0 0,1 100,100 L100,0 Z" fill="#000000" />
       </svg>
 
-      {/* Vertical Stack of Circular Ring Items */}
-      <div className="codenotch-items-column">
+      {/* Scrollable Viewport wrapping items column */}
+      <div
+        className="codenotch-items-viewport"
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+      >
+        <div className="codenotch-items-column">
         {displayAssistants.length === 0 && isActive && (
           <div className="codenotch-empty-hint">
             <span style={{ fontSize: 10, color: "#666", textAlign: "center", padding: "4px 6px", lineHeight: 1.3 }}>
@@ -447,7 +651,7 @@ export const CodeNotch: React.FC = () => {
           const isRemainingMode = assistant.tags?.some((t) => t.toLowerCase().includes("remaining"));
           const percent = Math.round(assistant.usage_percent ?? 0);
           const ringColor = isRemainingMode
-            ? (percent > 20 ? "#22c55e" : "#ef4444")
+            ? getRemainingColor(percent)
             : assistant.icon_color;
 
           // SVG Ring calculation: Radius r=16.5, C = 2 * PI * 16.5 = 103.67
@@ -467,8 +671,10 @@ export const CodeNotch: React.FC = () => {
                 "--item-color": ringColor,
                 animationDelay: `${index * 45}ms`,
               } as React.CSSProperties}
+              title={`${assistant.name}${assistant.is_running ? " (Active)" : ""} — Double-click to ${assistant.is_running ? "focus" : "open"}`}
               onMouseEnter={() => handleMouseEnterItem(assistant.id)}
               onClick={(e) => handleClickItem(assistant.id, e)}
+              onDoubleClick={(e) => handleDoubleClickItem(assistant.id, e)}
             >
               {/* Outer Circular Ring Gauge */}
               <div className="codenotch-ring-gauge">
@@ -515,10 +721,26 @@ export const CodeNotch: React.FC = () => {
           );
         })}
 
+        </div>
       </div>
 
+      {/* Pagination dots indicating multiple sections/pages to scroll to (active notch only) */}
+      {isActive && totalSections > 1 && (
+        <div className="codenotch-pagination-dots" onClick={(e) => e.stopPropagation()}>
+          {Array.from({ length: totalSections }).map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              className={`codenotch-page-dot ${currentSection === idx ? "codenotch-page-dot--active" : ""}`}
+              onClick={() => scrollToSection(idx)}
+              title={`Section ${idx + 1} of ${totalSections}`}
+            />
+          ))}
+        </div>
+      )}
+
       {/* ─── SPEECH BUBBLE POPOVER CARD (Flies out to the left) ─── */}
-      {selectedAssistant && !isCodeNotchPeek && (
+      {selectedAssistant && !isCodeNotchPeek && !isFlyoutOpen && (
         <div
           className="codenotch-speech-bubble"
           style={{ top: `${popoverTop}px` }}
@@ -557,27 +779,6 @@ export const CodeNotch: React.FC = () => {
                 <div className="codenotch-bubble-detail">{selectedAssistant.detail}</div>
               )}
             </div>
-            <button
-              className="codenotch-icon-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                launchAssistant(selectedAssistant.id);
-              }}
-              title={selectedAssistant.is_running ? `Focus ${selectedAssistant.name}` : `Open ${selectedAssistant.name}`}
-              aria-label={selectedAssistant.is_running ? `Focus ${selectedAssistant.name}` : `Open ${selectedAssistant.name}`}
-            >
-              {selectedAssistant.is_running ? (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                </svg>
-              ) : (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
-              )}
-            </button>
           </div>
 
           {/* Metric 1: Primary Rate / Quota Limit */}
@@ -587,7 +788,7 @@ export const CodeNotch: React.FC = () => {
             const metricName = selectedAssistant.tags?.find((t) => t.startsWith("metric1:"))?.slice(8)
               || (isRemainingMode ? "Rate Limit" : selectedAssistant.category === "cli" ? "Current session" : "Usage Quota");
             const barColor = isRemainingMode
-              ? (percent > 20 ? "#22c55e" : "#ef4444")
+              ? getRemainingColor(percent)
               : (percent > 85 ? "#ef4444" : selectedAssistant.icon_color);
 
             return (
@@ -637,7 +838,7 @@ export const CodeNotch: React.FC = () => {
             const metric2Name = selectedAssistant.tags?.find((t) => t.startsWith("metric2:"))?.slice(8)
               || (isRemainingMode ? "Weekly Limit" : "All models");
             const barColor = isRemainingMode
-              ? (weeklyPercent > 20 ? "#22c55e" : "#ef4444")
+              ? getRemainingColor(weeklyPercent)
               : (weeklyPercent > 85 ? "#ef4444" : "#22c55e");
 
             return (
