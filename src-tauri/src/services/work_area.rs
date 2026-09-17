@@ -277,6 +277,7 @@ pub fn restore(_screen_height: i32, _screen_width: i32) {
 }
 
 static NOTCH_PEEK_THROUGH: AtomicBool = AtomicBool::new(false);
+static CODENOTCH_PEEK_THROUGH: AtomicBool = AtomicBool::new(false);
 static IS_WINDOW_EXPANDED: AtomicBool = AtomicBool::new(false);
 static CODENOTCH_IS_VISIBLE: AtomicBool = AtomicBool::new(true);
 static CODENOTCH_ITEM_COUNT: AtomicUsize = AtomicUsize::new(2);
@@ -378,6 +379,26 @@ pub fn set_notch_peek_through(peek: bool) {
     }
 }
 
+pub fn set_codenotch_peek_through(peek: bool) {
+    let prev = CODENOTCH_PEEK_THROUGH.swap(peek, Ordering::Relaxed);
+    if prev != peek {
+        if let Ok(guard) = GLACE_CONFIG.lock() {
+            if let Some(config) = guard.as_ref() {
+                let hwnd = HWND(config.hwnd as *mut _);
+                update_window_region(
+                    hwnd,
+                    config.monitor_w,
+                    config.monitor_h,
+                    config.bar_height_physical,
+                    is_window_expanded(),
+                    0,
+                    0,
+                );
+            }
+        }
+    }
+}
+
 pub fn update_window_region(
     hwnd: HWND,
     monitor_w: i32,
@@ -435,16 +456,18 @@ pub fn update_window_region(
             let effective_count = if codenotch_count > 0 { codenotch_count } else { 2 };
             let has_items = is_codenotch_visible || codenotch_count > 0;
 
-            if settings.enable_codenotch && (has_items || is_only_codenotch) {
+            let is_codenotch_peek = CODENOTCH_PEEK_THROUGH.load(Ordering::Relaxed);
+
+            if settings.enable_codenotch && (has_items || is_only_codenotch) && !is_codenotch_peek {
                 let scale = (bar_height as f64 / 48.0).max(1.0);
                 let is_left = settings.codenotch_position == "left" || settings.codenotch_position == "top-left";
 
                 let rgn_notch = if is_only_codenotch {
-                    // CodeNotch expanded: provide room for active 58px notch + 270px popover speech bubble + margin
-                    let notch_w_exp = (360.0 * scale).round() as i32;
-                    let notch_h_exp = (420.0 * scale).round() as i32;
-                    let notch_top_exp = ((monitor_h - notch_h_exp) / 2).max(44);
-                    let notch_bottom_exp = (notch_top_exp + notch_h_exp).min(monitor_h - bar_height);
+                    // CodeNotch expanded: provide generous room for active 58px notch + 270px popover speech bubble + margins
+                    // Spans vertically between top bar (40px) and bottom taskbar (monitor_h - bar_height) so speech bubble is never cut off
+                    let notch_w_exp = (400.0 * scale).round() as i32;
+                    let notch_top_exp = 40;
+                    let notch_bottom_exp = (monitor_h - bar_height).max(notch_top_exp + 100);
 
                     if is_left {
                         CreateRectRgn(0, notch_top_exp, notch_w_exp, notch_bottom_exp)

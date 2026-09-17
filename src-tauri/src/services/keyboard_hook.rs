@@ -16,6 +16,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 pub struct ShiftStatePayload {
     pub is_down: bool,
     pub in_notch: bool,
+    pub in_codenotch: bool,
 }
 
 static APP_HANDLE: Mutex<Option<AppHandle>> = Mutex::new(None);
@@ -48,35 +49,74 @@ unsafe extern "system" fn ll_keyboard_proc(ncode: i32, wparam: WPARAM, lparam: L
                 let prev = LAST_SHIFT_DOWN.swap(is_down, Ordering::Relaxed);
                 if prev != is_down {
                     if is_down {
-                        if !is_macos_mode && settings.enable_dynamic_island {
-                            let mut pt = POINT::default();
-                            let _ = GetCursorPos(&mut pt);
+                        let mut pt = POINT::default();
+                        let _ = GetCursorPos(&mut pt);
 
-                            let in_notch = if let Some(config) = crate::services::work_area::get_glace_config() {
+                        let in_top_notch = if !is_macos_mode && settings.enable_dynamic_island {
+                            if let Some(config) = crate::services::work_area::get_glace_config() {
                                 let notch_w = 240;
                                 let notch_left = config.monitor_x + ((config.monitor_w - notch_w) / 2);
                                 let notch_right = notch_left + notch_w;
                                 pt.x >= notch_left && pt.x <= notch_right && pt.y >= config.monitor_y && pt.y <= config.monitor_y + 42
                             } else {
                                 pt.y >= 0 && pt.y <= 42
-                            };
-
-                            if in_notch {
-                                crate::services::work_area::set_notch_peek_through(true);
                             }
+                        } else {
+                            false
+                        };
 
-                            if let Ok(guard) = APP_HANDLE.lock() {
-                                if let Some(app) = guard.as_ref() {
-                                    let _ = app.emit("notch-shift-state", ShiftStatePayload { is_down: true, in_notch });
-                                }
+                        let in_codenotch = if settings.enable_codenotch {
+                            if let Some(config) = crate::services::work_area::get_glace_config() {
+                                let scale = (config.bar_height_physical as f64 / 48.0).max(1.0);
+                                let is_left = settings.codenotch_position == "left" || settings.codenotch_position == "top-left";
+                                let is_expanded = crate::services::work_area::is_window_expanded();
+                                let notch_w = if is_expanded {
+                                    (400.0 * scale).round() as i32
+                                } else {
+                                    (64.0 * scale).round() as i32
+                                };
+                                let (x_min, x_max) = if is_left {
+                                    (config.monitor_x, config.monitor_x + notch_w)
+                                } else {
+                                    (config.monitor_x + config.monitor_w - notch_w, config.monitor_x + config.monitor_w)
+                                };
+                                let y_min = config.monitor_y + 40;
+                                let y_max = config.monitor_y + config.monitor_h - config.bar_height_physical;
+                                pt.x >= x_min && pt.x <= x_max && pt.y >= y_min && pt.y <= y_max
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        };
+
+                        if in_top_notch {
+                            crate::services::work_area::set_notch_peek_through(true);
+                        }
+                        if in_codenotch {
+                            crate::services::work_area::set_codenotch_peek_through(true);
+                        }
+
+                        if let Ok(guard) = APP_HANDLE.lock() {
+                            if let Some(app) = guard.as_ref() {
+                                let _ = app.emit("notch-shift-state", ShiftStatePayload {
+                                    is_down: true,
+                                    in_notch: in_top_notch,
+                                    in_codenotch,
+                                });
                             }
                         }
                     } else {
                         // Key released: ALWAYS immediately restore Win32 hardware window region and inform UI
                         crate::services::work_area::set_notch_peek_through(false);
+                        crate::services::work_area::set_codenotch_peek_through(false);
                         if let Ok(guard) = APP_HANDLE.lock() {
                             if let Some(app) = guard.as_ref() {
-                                let _ = app.emit("notch-shift-state", ShiftStatePayload { is_down: false, in_notch: false });
+                                let _ = app.emit("notch-shift-state", ShiftStatePayload {
+                                    is_down: false,
+                                    in_notch: false,
+                                    in_codenotch: false,
+                                });
                             }
                         }
                     }

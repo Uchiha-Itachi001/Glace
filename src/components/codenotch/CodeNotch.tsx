@@ -41,11 +41,19 @@ const ProviderGlyph: React.FC<{ id: string; color: string; size?: number }> = ({
         </svg>
       );
     case "chatgpt":
-    case "codex":
-      // OpenAI Rosette Swirl
+      // OpenAI Rosette Swirl (ChatGPT Desktop / Web)
       return (
         <svg className="codenotch-provider-glyph" viewBox="0 0 24 24" fill="currentColor" width={s} height={s}>
           <path d="M22.28 9.82a5.98 5.98 0 0 0-.51-4.91 6.05 6.05 0 0 0-6.51-2.9A6.06 6.06 0 0 0 4.98 4.18a5.98 5.98 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.51 2.9A5.98 5.98 0 0 0 13.26 24a6.05 6.05 0 0 0 5.77-4.21 5.99 5.99 0 0 0 4-2.9 6.05 6.05 0 0 0-.75-7.07zm-9.02 12.61a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76c.24-.14.39-.4.39-.68v-6.74l2.02 1.17c.02.01.04.03.04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zm-9.66-4.13a4.47 4.47 0 0 1-.53-3.01l.14.08 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06L9.74 19.95a4.5 4.5 0 0 1-6.14-1.65zM2.34 7.9a4.48 4.48 0 0 1 2.37-1.98V11.6c0 .28.15.53.39.68l5.81 3.35-2.02 1.17a.08.08 0 0 1-.07 0l-4.83-2.79A4.5 4.5 0 0 1 2.34 7.9zm16.1 3.85-6.84-3.37 2.02-1.16a.08.08 0 0 1 .07 0l4.83 2.79a4.5 4.5 0 0 1-.68 8.1v-5.68c0-.28-.15-.53-.4-.68zm2.01-3.02l-.14-.09-4.77-2.78a.78.78 0 0 0-.79 0L9.41 9.23V6.9a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66zM8.31 12.86l-2.02-1.16a.08.08 0 0 1-.04-.06V6.07a4.5 4.5 0 0 1 7.38-3.45l-.14.08-4.79 2.76a.79.79 0 0 0-.39.68zm1.1-2.36 2.6-1.5 2.61 1.5v3l-2.61 1.5-2.6-1.5z"/>
+        </svg>
+      );
+    case "codex":
+      // OpenAI Codex CLI (Rosette Swirl with CLI terminal prompt indicator)
+      return (
+        <svg className="codenotch-provider-glyph" viewBox="0 0 24 24" fill="currentColor" width={s} height={s}>
+          <path d="M22.28 9.82a5.98 5.98 0 0 0-.51-4.91 6.05 6.05 0 0 0-6.51-2.9A6.06 6.06 0 0 0 4.98 4.18a5.98 5.98 0 0 0-4 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.51 2.9A5.98 5.98 0 0 0 13.26 24a6.05 6.05 0 0 0 5.77-4.21 5.99 5.99 0 0 0 4-2.9 6.05 6.05 0 0 0-.75-7.07zm-9.02 12.61a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76c.24-.14.39-.4.39-.68v-6.74l2.02 1.17c.02.01.04.03.04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zm-9.66-4.13a4.47 4.47 0 0 1-.53-3.01l.14.08 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06L9.74 19.95a4.5 4.5 0 0 1-6.14-1.65zM2.34 7.9a4.48 4.48 0 0 1 2.37-1.98V11.6c0 .28.15.53.39.68l5.81 3.35-2.02 1.17a.08.08 0 0 1-.07 0l-4.83-2.79A4.5 4.5 0 0 1 2.34 7.9zm16.1 3.85-6.84-3.37 2.02-1.16a.08.08 0 0 1 .07 0l4.83 2.79a4.5 4.5 0 0 1-.68 8.1v-5.68c0-.28-.15-.53-.4-.68zm2.01-3.02l-.14-.09-4.77-2.78a.78.78 0 0 0-.79 0L9.41 9.23V6.9a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66zM8.31 12.86l-2.02-1.16a.08.08 0 0 1-.04-.06V6.07a4.5 4.5 0 0 1 7.38-3.45l-.14.08-4.79 2.76a.79.79 0 0 0-.39.68zm1.1-2.36 2.6-1.5 2.61 1.5v3l-2.61 1.5-2.6-1.5z" opacity="0.6"/>
+          <path d="M4 17.5l3 2.2L4 22" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="8.5" y1="22" x2="12.5" y2="22" stroke="#ffffff" strokeWidth="2" strokeLinecap="round"/>
         </svg>
       );
     case "cursor":
@@ -154,7 +162,7 @@ export const CodeNotch: React.FC = () => {
 
   const isActive = isHovered || activeAssistantId !== null;
 
-  const { assistants } = useAiAssistants(
+  const { assistants, launchAssistant } = useAiAssistants(
     activeAssistantId !== null || hoveredAssistantId !== null
   );
 
@@ -182,10 +190,82 @@ export const CodeNotch: React.FC = () => {
       const notchRect = notchRef.current.getBoundingClientRect();
       const elRect = el.getBoundingClientRect();
       const relativeTop = elRect.top - notchRect.top + elRect.height / 2;
-      const clampedTop = Math.max(50, Math.min(relativeTop, Math.max(90, notchRect.height - 50)));
+      const clampedTop = Math.max(30, Math.min(relativeTop, Math.max(60, notchRect.height - 30)));
       setPopoverTop(clampedTop);
     }
   };
+
+  const [isShiftDown, setIsShiftDown] = useState<boolean>(false);
+  const [isPeekHovered, setIsPeekHovered] = useState<boolean>(false);
+
+  const peekKey = settings?.notch_peek_key || "shift";
+
+  const isMatchingKey = (e: KeyboardEvent, target: string) => {
+    switch (target) {
+      case "ctrl":
+        return e.key === "Control";
+      case "space":
+        return e.key === " " || e.code === "Space";
+      case "tab":
+        return e.key === "Tab";
+      case "shift":
+      default:
+        return e.key === "Shift";
+    }
+  };
+
+  // CodeNotch peek is active ONLY when hovering CodeNotch + peek key is pressed
+  const isCodeNotchPeek = isShiftDown && (isHovered || isPeekHovered);
+
+  useEffect(() => {
+    tauriBridge.setCodeNotchPeek(isCodeNotchPeek);
+  }, [isCodeNotchPeek]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    tauriBridge
+      .onNotchShiftState((payload) => {
+        setIsShiftDown(payload.is_down);
+        if (payload.is_down) {
+          setIsPeekHovered(!!payload.in_codenotch);
+        } else {
+          setIsPeekHovered(false);
+        }
+      })
+      .then((unsub) => {
+        unlisten = unsub;
+      })
+      .catch(console.error);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isMatchingKey(e, peekKey)) {
+        setIsShiftDown(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (isMatchingKey(e, peekKey)) {
+        setIsShiftDown(false);
+        setIsPeekHovered(false);
+      }
+    };
+
+    const handleBlur = () => {
+      setIsShiftDown(false);
+      setIsPeekHovered(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      if (unlisten) unlisten();
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [peekKey]);
 
   const handleMouseEnterNotch = () => {
     if (collapseTimeoutRef.current) {
@@ -193,11 +273,17 @@ export const CodeNotch: React.FC = () => {
       collapseTimeoutRef.current = null;
     }
     setIsHovered(true);
+    if (isShiftDown) {
+      setIsPeekHovered(true);
+    }
     windowExpansion.request("codenotch", 480);
   };
 
   const handleMouseLeaveNotch = () => {
     setIsHovered(false);
+    if (!isShiftDown) {
+      setIsPeekHovered(false);
+    }
     setHoveredAssistantId(null);
     if (!activeAssistantId) {
       if (collapseTimeoutRef.current) window.clearTimeout(collapseTimeoutRef.current);
@@ -327,7 +413,7 @@ export const CodeNotch: React.FC = () => {
       ref={notchRef}
       className={`codenotch-vertical-notch codenotch-pos--${position} ${
         isActive ? "codenotch-vertical-notch--active" : ""
-      }`}
+      } ${isCodeNotchPeek ? "codenotch-peek-through" : ""}`}
       onMouseEnter={handleMouseEnterNotch}
       onMouseLeave={handleMouseLeaveNotch}
     >
@@ -407,10 +493,10 @@ export const CodeNotch: React.FC = () => {
                       strokeWidth="3"
                       strokeLinecap="round"
                       strokeDasharray={c}
-                      strokeDashoffset={percent > 0 ? offset : c * 0.75}
+                      strokeDashoffset={assistant.usage_percent != null ? offset : 0}
                       transform="rotate(-90 20 20)"
                       className={assistant.is_running ? "codenotch-ring-arc--active" : ""}
-                      opacity={assistant.is_running ? 1 : 0.45}
+                      opacity={assistant.usage_percent != null ? (assistant.is_running ? 1 : 0.45) : (assistant.is_running ? 0.95 : 0)}
                     />
                   )}
                 </svg>
@@ -423,7 +509,7 @@ export const CodeNotch: React.FC = () => {
 
               {/* Percentage or Status Label */}
               <span className="codenotch-ring-percent" style={{ color: isRemainingMode ? ringColor : undefined }}>
-                {assistant.usage_percent != null ? `${percent}%` : "active"}
+                {assistant.usage_percent != null ? `${percent}%` : (assistant.is_running ? "active" : "idle")}
               </span>
             </div>
           );
@@ -432,7 +518,7 @@ export const CodeNotch: React.FC = () => {
       </div>
 
       {/* ─── SPEECH BUBBLE POPOVER CARD (Flies out to the left) ─── */}
-      {selectedAssistant && (
+      {selectedAssistant && !isCodeNotchPeek && (
         <div
           className="codenotch-speech-bubble"
           style={{ top: `${popoverTop}px` }}
@@ -471,6 +557,27 @@ export const CodeNotch: React.FC = () => {
                 <div className="codenotch-bubble-detail">{selectedAssistant.detail}</div>
               )}
             </div>
+            <button
+              className="codenotch-icon-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                launchAssistant(selectedAssistant.id);
+              }}
+              title={selectedAssistant.is_running ? `Focus ${selectedAssistant.name}` : `Open ${selectedAssistant.name}`}
+              aria-label={selectedAssistant.is_running ? `Focus ${selectedAssistant.name}` : `Open ${selectedAssistant.name}`}
+            >
+              {selectedAssistant.is_running ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              )}
+            </button>
           </div>
 
           {/* Metric 1: Primary Rate / Quota Limit */}
@@ -588,12 +695,28 @@ export const CodeNotch: React.FC = () => {
             );
           })()}
 
-            {/* No usage data state (Desktop apps / Local tools) */}
+            {/* Unmetered / Live Active Session Panel */}
             {selectedAssistant.usage_percent == null && selectedAssistant.all_models_usage_percent == null && (
-              <div className="codenotch-metric-block" style={{ textAlign: "center", padding: "8px 0 2px" }}>
-                <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>
-                  {selectedAssistant.session_reset_time
-                    || (selectedAssistant.is_running ? `${selectedAssistant.name} · Active` : `${selectedAssistant.name} · Idle`)}
+              <div className="codenotch-unmetered-panel">
+                <div className="codenotch-unmetered-badge-row">
+                  <div className="codenotch-live-indicator-pill">
+                    <span className={`codenotch-pulse-radar ${selectedAssistant.is_running ? "codenotch-pulse-radar--active" : ""}`} />
+                    <span className="codenotch-live-indicator-text">
+                      {selectedAssistant.is_running
+                        ? (selectedAssistant.category === "desktop" ? "Desktop App Active" : "Browser Session")
+                        : "Application Standby"}
+                    </span>
+                  </div>
+                  {selectedAssistant.category && (
+                    <span className="codenotch-surface-chip">
+                      {selectedAssistant.category.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="codenotch-unmetered-footnote">
+                  {selectedAssistant.is_running
+                    ? "Live unmetered workspace · Ready to prompt"
+                    : "Installed on this system · Ready to launch"}
                 </div>
               </div>
             )}

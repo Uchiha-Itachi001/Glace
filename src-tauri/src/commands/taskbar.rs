@@ -465,3 +465,11 @@ pub fn set_notch_peek(peek: bool) {
         crate::services::work_area::set_notch_peek_through(peek);
     }
 }
+
+#[tauri::command]
+pub fn set_codenotch_peek(peek: bool) {
+    let settings = crate::config::settings::load();
+    if settings.enable_codenotch {
+        crate::services::work_area::set_codenotch_peek_through(peek);
+    }
+}

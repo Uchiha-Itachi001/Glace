@@ -117,9 +117,9 @@ export const DynamicIsland: React.FC = () => {
     tauriBridge
       .onNotchShiftState((payload) => {
         setIsShiftDown(payload.is_down);
-        if (payload.is_down && payload.in_notch) {
-          setIsNotchHovered(true);
-        } else if (!payload.is_down) {
+        if (payload.is_down) {
+          setIsNotchHovered(payload.in_notch);
+        } else {
           setIsNotchHovered(false);
         }
       })

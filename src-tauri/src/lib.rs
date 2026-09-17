@@ -62,6 +62,7 @@ pub fn run() {
             commands::taskbar::power_action,
             commands::taskbar::update_work_area,
             commands::taskbar::set_notch_peek,
+            commands::taskbar::set_codenotch_peek,
             commands::windows::get_open_windows,
             commands::windows::focus_window,
             commands::windows::minimize_window,

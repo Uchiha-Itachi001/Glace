@@ -15,6 +15,24 @@
   overflow: visible !important;
 }
 
+/* Hover Peek-Through Glass Transparency */
+.codenotch-peek-through {
+  opacity: 0.15 !important;
+  pointer-events: none !important;
+  filter: blur(0.3px) !important;
+  transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease !important;
+}
+
+.codenotch-peek-through .codenotch-speech-bubble {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.12s ease !important;
+}
+
+.codenotch-peek-through .codenotch-ear {
+  opacity: 0.15 !important;
+}
+
 /* Default: Right Screen Edge Bezel Hugging (Inactive Compact Mode) */
 .codenotch-pos--right,
 .codenotch-pos--top-right {
@@ -353,10 +371,17 @@
   box-shadow: none !important;
   z-index: 9999;
   transform-origin: right center;
-  animation: codenotchBubbleIn 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   transition: top 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
               transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  box-sizing: border-box;
   pointer-events: auto;
+}
+
+.codenotch-speech-bubble::-webkit-scrollbar {
+  display: none;
 }
 
 /* Invisible hover bridge spanning the 12px gap between notch and speech bubble */
@@ -613,3 +638,94 @@
   justify-content: center;
   padding: 8px 4px;
 }
+
+/* Icon Button in Popover Header */
+.codenotch-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #d4d4d8;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  outline: none;
+  padding: 0;
+}
+
+.codenotch-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  transform: translateY(-1px) scale(1.05);
+}
+
+.codenotch-icon-btn:active {
+  transform: translateY(0.5px) scale(0.96);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Unmetered / Live Active Session Panel */
+.codenotch-unmetered-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-top: 2px;
+}
+
+.codenotch-unmetered-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.codenotch-live-indicator-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.codenotch-pulse-radar {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #71717a;
+  position: relative;
+}
+
+.codenotch-pulse-radar--active {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+}
+
+.codenotch-live-indicator-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: #e4e4e7;
+}
+
+.codenotch-surface-chip {
+  font-size: 9px;
+  font-weight: 600;
+  color: #a1a1aa;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+.codenotch-unmetered-footnote {
+  font-size: 10.5px;
+  color: #71717a;
+  line-height: 1.35;
+}
+

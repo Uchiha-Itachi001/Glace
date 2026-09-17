@@ -426,8 +426,8 @@ export const tauriBridge = {
     });
   },
 
-  onNotchShiftState: (callback: (payload: { is_down: boolean; in_notch: boolean }) => void): Promise<UnlistenFn> => {
-    return listen<{ is_down: boolean; in_notch: boolean }>("notch-shift-state", (event) => {
+  onNotchShiftState: (callback: (payload: { is_down: boolean; in_notch: boolean; in_codenotch?: boolean }) => void): Promise<UnlistenFn> => {
+    return listen<{ is_down: boolean; in_notch: boolean; in_codenotch?: boolean }>("notch-shift-state", (event) => {
       callback(event.payload);
     });
   },
@@ -437,6 +437,14 @@ export const tauriBridge = {
       await invoke("set_notch_peek", { peek });
     } catch (e) {
       console.error("setNotchPeek error:", e);
+    }
+  },
+
+  setCodeNotchPeek: async (peek: boolean): Promise<void> => {
+    try {
+      await invoke("set_codenotch_peek", { peek });
+    } catch (e) {
+      console.error("setCodeNotchPeek error:", e);
     }
   },
 
