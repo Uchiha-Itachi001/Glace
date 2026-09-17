@@ -437,10 +437,10 @@ pub fn update_window_region(
             let rgn_top = if is_macos_mode {
                 CreateRectRgn(0, 0, monitor_w, 38)
             } else if settings.enable_dynamic_island && !is_peek {
-                let notch_w = 240;
+                let notch_w = 250;
                 let notch_left = ((monitor_w - notch_w) / 2).max(0);
                 let notch_right = (notch_left + notch_w).min(monitor_w);
-                CreateRectRgn(notch_left, 0, notch_right, 42)
+                CreateRectRgn(notch_left, 0, notch_right, 48)
             } else {
                 CreateRectRgn(0, 0, 0, 0)
             };

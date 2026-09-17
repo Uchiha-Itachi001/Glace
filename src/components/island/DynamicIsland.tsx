@@ -236,9 +236,17 @@ export const DynamicIsland: React.FC = () => {
 
     const handleOutsideClick = (e: MouseEvent | PointerEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && !target.closest(".dynamic-notch")) {
-        handleCollapse();
+      if (
+        target &&
+        target.closest &&
+        (target.closest(".dynamic-notch") ||
+          target.closest(".dynamic-notch-wrapper") ||
+          target.closest(".notch-hardware-card") ||
+          target.closest(".notch-telemetry-tabs"))
+      ) {
+        return;
       }
+      handleCollapse();
     };
 
     window.addEventListener("pointerdown", handleOutsideClick, true);
@@ -343,6 +351,125 @@ export const DynamicIsland: React.FC = () => {
     const end = polarToCartesian(cx, cy, r, endAngle);
     const largeArcFlag = actualSweep > 180 ? 1 : 0;
     return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${r} ${r} 0 ${largeArcFlag} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+  };
+
+  const getBatteryColor = (pct: number, charging: boolean) => {
+    if (charging) return "#22c55e"; // Emerald green on AC charging
+    if (pct <= 25) return "#ef4444"; // Red (0% - 25%)
+    if (pct <= 75) return "#f59e0b"; // Amber / Orange (26% - 75%)
+    return "#22c55e"; // Green (76% - 100%)
+  };
+
+  const renderCompactClock = () => {
+    // Separate digits and AM/PM for modern tabular typography
+    const match = currentTime.match(/^(.*?)\s*([A-Za-z]{2,})$/);
+    const timeDigits = match ? match[1] : currentTime;
+    const timePeriod = match ? match[2] : "";
+
+    return (
+      <div className="notch-compact-clock-widget">
+        <div className="notch-compact-digits-wrapper">
+          <span className="notch-compact-digits">{timeDigits}</span>
+          {timePeriod && <span className="notch-compact-period">{timePeriod}</span>}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCompactBattery = () => {
+    const safePct = Math.min(100, Math.max(0, Math.round(batteryPercent)));
+    const color = getBatteryColor(safePct, isCharging);
+    // Gauge ring: r = 7.4, circumference = 2 * PI * 7.4 = 46.4955
+    const radius = 7.4;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (safePct / 100) * circumference;
+    // Inner fill width inside the 7.8px battery body: max 6.2px
+    const fillWidth = Math.max(0.6, (safePct / 100) * 6.2);
+
+    return (
+      <div
+        className={`notch-compact-battery-widget ${isCharging ? "notch-compact-battery-widget--charging" : ""}`}
+        title={`Battery: ${safePct}%${isCharging ? " (Charging)" : ""}`}
+      >
+        <div className="notch-battery-gauge-wrapper">
+          <svg width="18" height="18" viewBox="0 0 18 18" className="notch-battery-ring-svg">
+            {/* Background track circle */}
+            <circle
+              cx="9"
+              cy="9"
+              r={radius}
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.16)"
+              strokeWidth="1.6"
+            />
+            {/* Circular progress arc */}
+            <circle
+              cx="9"
+              cy="9"
+              r={radius}
+              fill="none"
+              stroke={color}
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              transform="rotate(-90 9 9)"
+              style={{
+                transition: "stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.3s ease",
+              }}
+            />
+
+            {/* Battery glyph inside circular gauge */}
+            {isCharging ? (
+              /* Charging state: Sharp iconic lightning bolt */
+              <polygon
+                points="9.8 4.2 6.8 9.2 8.8 9.2 8.2 13.8 11.4 8.8 9.4 8.8"
+                fill={color}
+                className="notch-battery-bolt"
+                style={{ filter: `drop-shadow(0 0 3px ${color}88)` }}
+              />
+            ) : (
+              /* Discharging / normal battery: Authentic horizontal cell with right positive terminal cap */
+              <g>
+                {/* Battery outer body casing */}
+                <rect
+                  x="4.6"
+                  y="6.6"
+                  width="7.8"
+                  height="4.8"
+                  rx="1.0"
+                  fill="rgba(0, 0, 0, 0.55)"
+                  stroke={color}
+                  strokeWidth="1.0"
+                  style={{ transition: "stroke 0.3s ease" }}
+                />
+                {/* Positive terminal cap on right */}
+                <path
+                  d="M 12.8 7.8 C 13.3 7.8 13.6 8.1 13.6 8.5 L 13.6 9.5 C 13.6 9.9 13.3 10.2 12.8 10.2 Z"
+                  fill={color}
+                  style={{ transition: "fill 0.3s ease" }}
+                />
+                {/* Charge fill level */}
+                <rect
+                  x="5.3"
+                  y="7.3"
+                  width={fillWidth}
+                  height="3.4"
+                  rx="0.5"
+                  fill={color}
+                  style={{
+                    transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1), fill 0.3s ease",
+                  }}
+                />
+              </g>
+            )}
+          </svg>
+        </div>
+        <span className="notch-compact-battery-text" style={{ color }}>
+          {safePct}%
+        </span>
+      </div>
+    );
   };
 
   const renderTelemetryGauge = (
@@ -548,6 +675,7 @@ export const DynamicIsland: React.FC = () => {
           <div
             className="dynamic-notch dynamic-notch--bluetooth-expanded"
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
           >
             {/* Left Concave Wing Ear */}
             <div className="notch-ear notch-ear--left" />
@@ -622,6 +750,7 @@ export const DynamicIsland: React.FC = () => {
           <div
             className="dynamic-notch dynamic-notch--expanded"
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             onWheel={handleWheel}
             style={{
               ["--wave-color" as any]: trackTheme.waveColor,
@@ -762,6 +891,7 @@ export const DynamicIsland: React.FC = () => {
           <div
             className="dynamic-notch dynamic-notch--hardware-expanded"
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             style={{
               ["--wave-color" as any]: "#c2410c",
               ["--wave-glow" as any]: "rgba(194, 65, 12, 0.45)",
@@ -776,13 +906,26 @@ export const DynamicIsland: React.FC = () => {
             {/* Ambient Background Cover with Top 0% Opacity Mask */}
             {renderNotchBgCover(false)}
 
-            <div className="notch-hardware-card">
+            <div
+              className="notch-hardware-card"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
               {/* Header Tabs: Dashboard | Media | Performance | Controls */}
-              <div className="notch-telemetry-tabs">
+              <div
+                className="notch-telemetry-tabs"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button
                   type="button"
                   className={`notch-telemetry-tab ${islandTab === "dashboard" ? "notch-telemetry-tab--active" : ""}`}
-                  onClick={() => setIslandTab("dashboard")}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIslandTab("dashboard");
+                    windowExpansion.request("island", 260);
+                  }}
                   title="System Dashboard"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -797,7 +940,11 @@ export const DynamicIsland: React.FC = () => {
                 <button
                   type="button"
                   className={`notch-telemetry-tab ${islandTab === "media" ? "notch-telemetry-tab--active" : ""}`}
-                  onClick={(e) => handleExpandMedia(e)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleExpandMedia(e);
+                  }}
                   title="Now Playing Media"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -811,7 +958,12 @@ export const DynamicIsland: React.FC = () => {
                 <button
                   type="button"
                   className={`notch-telemetry-tab ${islandTab === "performance" ? "notch-telemetry-tab--active" : ""}`}
-                  onClick={() => setIslandTab("performance")}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIslandTab("performance");
+                    windowExpansion.request("island", 260);
+                  }}
                   title="Hardware Performance"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -824,7 +976,12 @@ export const DynamicIsland: React.FC = () => {
                 <button
                   type="button"
                   className={`notch-telemetry-tab ${islandTab === "controls" ? "notch-telemetry-tab--active" : ""}`}
-                  onClick={() => setIslandTab("controls")}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIslandTab("controls");
+                    windowExpansion.request("island", 260);
+                  }}
                   title="Quick Controls & Utilities"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1384,16 +1541,13 @@ export const DynamicIsland: React.FC = () => {
               {/* Ambient Background Cover with Top 0% Opacity Mask */}
               {renderNotchBgCover(false)}
 
-              <div className="notch-compact-layout" style={{ gap: "8px", padding: "0 8px", width: "auto" }}>
-                <span className="notch-compact-time">{currentTime}</span>
+              <div className="notch-compact-layout" style={{ gap: "8px", padding: "0 4px", width: "100%" }}>
+                <div className="notch-compact-left">
+                  {renderCompactClock()}
+                </div>
                 {showBattery && (
-                  <div className="notch-compact-right" style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                    {isCharging && (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#22c55e" stroke="#22c55e" strokeWidth="1.5">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                      </svg>
-                    )}
-                    <span>{batteryPercent}%</span>
+                  <div className="notch-compact-right">
+                    {renderCompactBattery()}
                   </div>
                 )}
               </div>
@@ -1404,14 +1558,9 @@ export const DynamicIsland: React.FC = () => {
               className="dynamic-notch notch-split-secondary"
               onClick={handleExpandBluetooth}
               style={{
+                ["--wave-color" as any]: "#22c55e",
+                ["--wave-glow" as any]: "rgba(34, 197, 94, 0.45)",
                 cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-                width: "26px",
-                height: "26px",
-                minWidth: "26px",
               }}
             >
               {/* Left Concave Wing Ear */}
@@ -1473,16 +1622,11 @@ export const DynamicIsland: React.FC = () => {
 
             <div className="notch-compact-layout">
               <div className="notch-compact-left">
-                <span className="notch-compact-time">{currentTime}</span>
+                {renderCompactClock()}
               </div>
               {showBattery && (
-                <div className="notch-compact-right" style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                  {isCharging && (
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#22c55e" stroke="#22c55e" strokeWidth="1.5">
-                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                    </svg>
-                  )}
-                  <span>{batteryPercent}%</span>
+                <div className="notch-compact-right">
+                  {renderCompactBattery()}
                 </div>
               )}
             </div>

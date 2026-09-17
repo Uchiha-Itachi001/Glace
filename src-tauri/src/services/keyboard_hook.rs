@@ -54,12 +54,12 @@ unsafe extern "system" fn ll_keyboard_proc(ncode: i32, wparam: WPARAM, lparam: L
 
                         let in_top_notch = if !is_macos_mode && settings.enable_dynamic_island {
                             if let Some(config) = crate::services::work_area::get_glace_config() {
-                                let notch_w = 240;
+                                let notch_w = 176;
                                 let notch_left = config.monitor_x + ((config.monitor_w - notch_w) / 2);
                                 let notch_right = notch_left + notch_w;
-                                pt.x >= notch_left && pt.x <= notch_right && pt.y >= config.monitor_y && pt.y <= config.monitor_y + 42
+                                pt.x >= notch_left && pt.x <= notch_right && pt.y >= config.monitor_y && pt.y <= config.monitor_y + 28
                             } else {
-                                pt.y >= 0 && pt.y <= 42
+                                pt.y >= 0 && pt.y <= 28
                             }
                         } else {
                             false

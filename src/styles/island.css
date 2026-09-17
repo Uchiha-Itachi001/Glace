@@ -133,6 +133,7 @@
   box-sizing: border-box;
   overflow: visible !important;
   cursor: pointer;
+  pointer-events: auto;
 
   transition: width var(--glace-duration-base) var(--glace-ease-spring),
               height var(--glace-duration-base) var(--glace-ease-spring),
@@ -338,8 +339,8 @@
 .dynamic-notch--bluetooth-compact:hover,
 .notch-split-main:hover,
 .notch-split-secondary:hover {
-  height: 31px;
-  padding-bottom: 2px;
+  height: 31px !important;
+  padding-bottom: 2px !important;
 }
 
 .dynamic-notch:hover .notch-stream-comet {
@@ -359,8 +360,8 @@
 
 .dynamic-notch--compact {
   width: auto;
-  min-width: 145px;
-  max-width: 175px;
+  min-width: 160px;
+  max-width: 200px;
   height: 26px;
   padding: 0 10px;
   border-bottom-left-radius: 14px;
@@ -384,28 +385,89 @@
   align-items: center;
 }
 
-.notch-compact-time {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #ffffff;
-  letter-spacing: 0.2px;
-  font-variant-numeric: tabular-nums;
-}
-
 .notch-compact-right {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #cbd5e1;
-  font-variant-numeric: tabular-nums;
 }
 
-.notch-battery-icon {
+/* ─── Compact Notch: Redesigned Living Clock Widget ─── */
+.notch-compact-clock-widget {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.notch-compact-digits-wrapper {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2.5px;
+}
+
+.notch-compact-digits {
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.notch-compact-period {
+  font-size: 8px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* ─── Compact Notch: Redesigned Circular Battery Complication ─── */
+.notch-compact-battery-widget {
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.notch-battery-gauge-wrapper {
   display: flex;
   align-items: center;
-  color: #38bdf8;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.notch-battery-ring-svg {
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.notch-compact-battery-text {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: -0.15px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition: color 0.3s ease;
+}
+
+/* Subtle breathing glow when charging */
+@keyframes batteryChargeGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgba(34, 197, 94, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.8));
+  }
+}
+
+.notch-compact-battery-widget--charging .notch-battery-ring-svg {
+  animation: batteryChargeGlow 2s ease-in-out infinite;
 }
 
 /* ─── State 2: Single Live Activity Notch (When only Media is active) ────── */
@@ -566,7 +628,8 @@
 
 /* Left Section when Default Time + Battery is active on main */
 .notch-split-main--default {
-  min-width: auto;
+  min-width: 136px;
+  max-width: 156px;
   padding: 0 10px;
   display: flex;
   align-items: center;

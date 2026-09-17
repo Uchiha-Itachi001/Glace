@@ -12,6 +12,7 @@ export type ExpansionSource =
 
 const activeExpansions = new Map<ExpansionSource, number>();
 const listeners = new Set<(isExpanded: boolean) => void>();
+let collapseTimer: number | null = null;
 
 function notify() {
   const expanded = activeExpansions.size > 0;
@@ -20,6 +21,10 @@ function notify() {
 
 export const windowExpansion = {
   request(source: ExpansionSource, heightPx = 520) {
+    if (collapseTimer) {
+      window.clearTimeout(collapseTimer);
+      collapseTimer = null;
+    }
     activeExpansions.set(source, heightPx);
     this.sync();
     notify();
@@ -54,8 +59,21 @@ export const windowExpansion = {
 
   sync() {
     if (activeExpansions.size === 0) {
-      tauriBridge.setWindowHeight(false).catch(console.error);
+      // Delay Win32 hardware window clipping to allow CSS collapse animations (~240ms) to complete smoothly
+      if (collapseTimer) {
+        window.clearTimeout(collapseTimer);
+      }
+      collapseTimer = window.setTimeout(() => {
+        collapseTimer = null;
+        if (activeExpansions.size === 0) {
+          tauriBridge.setWindowHeight(false).catch(console.error);
+        }
+      }, 300);
     } else {
+      if (collapseTimer) {
+        window.clearTimeout(collapseTimer);
+        collapseTimer = null;
+      }
       let maxHeight = 220;
       for (const h of activeExpansions.values()) {
         if (h > maxHeight) maxHeight = h;
