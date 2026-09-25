@@ -121,7 +121,7 @@ fn default_notch_peek_key() -> String {
 }
 
 fn default_codenotch_position() -> String {
-    "top-right".into()
+    "right".into()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -215,7 +215,7 @@ impl Default for Settings {
             taskbar_media_style: "cover_pill".into(),
             notch_peek_key: "shift".into(),
             enable_codenotch: true,
-            codenotch_position: "top-right".into(),
+            codenotch_position: "right".into(),
             margin_top: 0,
             margin_bottom: 48,
             margin_left: 0,

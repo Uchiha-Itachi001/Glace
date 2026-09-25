@@ -8,12 +8,22 @@ export function useNetworkStatus(): {
   setNetworkState: (state: NetworkState) => void;
   checkConnection: () => Promise<void>;
 } {
-  const [networkState, setNetworkState] = useState<NetworkState>("connected");
+  const [networkState, setNetworkState] = useState<NetworkState>(() => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return "disconnected";
+    }
+    return "connected";
+  });
 
   const checkConnection = async () => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setNetworkState("disconnected");
+      return;
+    }
+
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
 
       // Lightweight probe against public captive portal endpoint
       await fetch("https://www.msftconnecttest.com/connecttest.txt", {

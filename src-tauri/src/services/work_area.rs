@@ -279,8 +279,8 @@ pub fn restore(_screen_height: i32, _screen_width: i32) {
 static NOTCH_PEEK_THROUGH: AtomicBool = AtomicBool::new(false);
 static CODENOTCH_PEEK_THROUGH: AtomicBool = AtomicBool::new(false);
 static IS_WINDOW_EXPANDED: AtomicBool = AtomicBool::new(false);
-static CODENOTCH_IS_VISIBLE: AtomicBool = AtomicBool::new(true);
-static CODENOTCH_ITEM_COUNT: AtomicUsize = AtomicUsize::new(2);
+static CODENOTCH_IS_VISIBLE: AtomicBool = AtomicBool::new(false);
+static CODENOTCH_ITEM_COUNT: AtomicUsize = AtomicUsize::new(0);
 static EXPANSION_SOURCE: Mutex<Option<String>> = Mutex::new(None);
 
 pub fn set_codenotch_state(visible: bool, count: usize) {
@@ -302,6 +302,10 @@ pub fn set_codenotch_state(visible: bool, count: usize) {
             }
         }
     }
+}
+
+pub fn is_codenotch_active() -> bool {
+    CODENOTCH_IS_VISIBLE.load(Ordering::Relaxed) && CODENOTCH_ITEM_COUNT.load(Ordering::Relaxed) > 0
 }
 
 pub fn update_window_region_with_source(
@@ -453,14 +457,13 @@ pub fn update_window_region(
             // or dedicated side card region when expanded, NEVER taking over full monitor.
             let is_codenotch_visible = CODENOTCH_IS_VISIBLE.load(Ordering::Relaxed);
             let codenotch_count = CODENOTCH_ITEM_COUNT.load(Ordering::Relaxed);
-            let effective_count = if codenotch_count > 0 { codenotch_count } else { 2 };
-            let has_items = is_codenotch_visible || codenotch_count > 0;
+            let has_items = is_codenotch_visible && codenotch_count > 0;
 
             let is_codenotch_peek = CODENOTCH_PEEK_THROUGH.load(Ordering::Relaxed);
 
             if settings.enable_codenotch && (has_items || is_only_codenotch) && !is_codenotch_peek {
                 let scale = (bar_height as f64 / 48.0).max(1.0);
-                let is_left = settings.codenotch_position == "left" || settings.codenotch_position == "top-left";
+                let is_left = settings.codenotch_position == "left";
 
                 let rgn_notch = if is_only_codenotch {
                     // CodeNotch expanded: provide generous room for active 58px notch + 270px popover speech bubble + margins
@@ -477,9 +480,9 @@ pub fn update_window_region(
                 } else {
                     // CodeNotch resting: ultra-minimal footprint matching exact inactive notch size
                     // (28px wide for 26px CSS notch, exact height based on active items, max 4)
-                    let count = effective_count.clamp(1, 4);
+                    let count = codenotch_count.clamp(1, 4);
                     let items_h = 16.0 + (count as f64 * 20.0) + ((count.saturating_sub(1) as f64) * 8.0) + 30.0;
-                    let notch_base_w = if settings.codenotch_position == "floating" { 44.0 } else { 30.0 };
+                    let notch_base_w = 30.0;
                     let notch_w = (notch_base_w * scale).round() as i32;
                     let notch_h = (items_h * scale).round() as i32;
                     let notch_top = (monitor_h - notch_h) / 2;

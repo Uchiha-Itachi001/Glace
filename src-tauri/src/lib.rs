@@ -32,6 +32,23 @@ unsafe extern "system" fn taskbar_subclass_proc(
 #[cfg(not(test))]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 1. Single-instance enforcement: prevent multiple Glace instances conflicting over AppBars
+    let mutex_name: Vec<u16> = "Global\\Glace_SingleInstance_Mutex\0".encode_utf16().collect();
+    let _mutex = unsafe {
+        windows::Win32::System::Threading::CreateMutexW(
+            None,
+            false,
+            windows::core::PCWSTR(mutex_name.as_ptr()),
+        )
+    };
+    if unsafe { windows::Win32::Foundation::GetLastError() } == windows::Win32::Foundation::ERROR_ALREADY_EXISTS {
+        eprintln!("[glace] Another instance of Glace is already running. Exiting.");
+        return;
+    }
+
+    // 2. Ensure WebView2 compositor initializes with 100% transparent surface
+    std::env::set_var("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "0");
+
     // Install console Ctrl+C / break / exit handler
     work_area::install_fail_safe();
 
@@ -97,111 +114,127 @@ pub fn run() {
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
 
-            if let Ok(Some(monitor)) = window.primary_monitor() {
+            let mon_res = window.primary_monitor();
+            let cur_res = window.current_monitor();
+            let app_mon_res = app.primary_monitor();
+
+            let monitor_opt = mon_res.ok().flatten()
+                .or_else(|| cur_res.ok().flatten())
+                .or_else(|| app_mon_res.ok().flatten());
+
+            let (pos_x, pos_y, width, height, scale_factor) = if let Some(monitor) = monitor_opt {
                 let size = monitor.size();
                 let pos = monitor.position();
-                let scale_factor = monitor.scale_factor();
+                (pos.x, pos.y, size.width as i32, size.height as i32, monitor.scale_factor())
+            } else {
+                unsafe {
+                    use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
+                    let w = GetSystemMetrics(SM_CXSCREEN);
+                    let h = GetSystemMetrics(SM_CYSCREEN);
+                    let sf = window.scale_factor().unwrap_or(1.0);
+                    (0, 0, w, h, sf)
+                }
+            };
 
-                if let Ok(hwnd) = window.hwnd() {
-                    let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as _);
+            if let Ok(hwnd) = window.hwnd() {
+                let win32_hwnd = windows::Win32::Foundation::HWND(hwnd.0 as _);
 
-                    // Strip all title-bar / caption / border styles and set WS_POPUP
-                    unsafe {
-                        use windows::Win32::UI::WindowsAndMessaging::{
-                            GetWindowLongW, SetWindowLongW, SetWindowPos, SetWindowTextW, GWL_STYLE, GWL_EXSTYLE,
-                            WS_CAPTION, WS_SYSMENU, WS_BORDER, WS_THICKFRAME, WS_MINIMIZEBOX,
-                            WS_MAXIMIZEBOX, WS_POPUP, WS_VISIBLE, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
-                            SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE,
-                        };
-                        use windows::Win32::Graphics::Dwm::{
-                            DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DWMWA_NCRENDERING_POLICY, DWMNCRP_DISABLED,
-                            DWMWA_TRANSITIONS_FORCEDISABLED,
-                        };
-                        use windows::Win32::UI::Controls::MARGINS;
-                        use windows::Win32::UI::Shell::SetWindowSubclass;
-
-                        let style = GetWindowLongW(win32_hwnd, GWL_STYLE) as u32;
-                        let clean = (style & !(WS_CAPTION.0 | WS_SYSMENU.0 | WS_BORDER.0 | WS_THICKFRAME.0 | WS_MINIMIZEBOX.0 | WS_MAXIMIZEBOX.0)) | WS_POPUP.0 | WS_VISIBLE.0;
-                        SetWindowLongW(win32_hwnd, GWL_STYLE, clean as i32);
-
-                        let ex_style = GetWindowLongW(win32_hwnd, GWL_EXSTYLE) as u32;
-                        let clean_ex = (ex_style & !WS_EX_APPWINDOW.0) | WS_EX_TOOLWINDOW.0;
-                        SetWindowLongW(win32_hwnd, GWL_EXSTYLE, clean_ex as i32);
-
-                        // Disable DWM non-client caption bar rendering
-                        let policy = DWMNCRP_DISABLED.0 as u32;
-                        let _ = DwmSetWindowAttribute(
-                            win32_hwnd,
-                            DWMWA_NCRENDERING_POLICY,
-                            &policy as *const _ as *const _,
-                            std::mem::size_of::<u32>() as u32,
-                        );
-
-                        let disable_trans: u32 = 1;
-                        let _ = DwmSetWindowAttribute(
-                            win32_hwnd,
-                            DWMWA_TRANSITIONS_FORCEDISABLED,
-                            &disable_trans as *const _ as *const _,
-                            std::mem::size_of::<u32>() as u32,
-                        );
-
-                        // Extend glass frame across entire window (-1 margins = 100% transparent glass)
-                        let margins = MARGINS {
-                            cxLeftWidth: -1,
-                            cxRightWidth: -1,
-                            cyTopHeight: -1,
-                            cyBottomHeight: -1,
-                        };
-                        let _ = DwmExtendFrameIntoClientArea(win32_hwnd, &margins);
-
-                        // Set empty window title in Win32
-                        let empty_title: Vec<u16> = vec![0];
-                        let _ = SetWindowTextW(win32_hwnd, windows::core::PCWSTR(empty_title.as_ptr()));
-
-                        // Subclass window to intercept and permanently drop WM_NCACTIVATE and WM_NCPAINT
-                        let _ = SetWindowSubclass(
-                            win32_hwnd,
-                            Some(taskbar_subclass_proc),
-                            101,
-                            0,
-                        );
-
-                        let _ = SetWindowPos(
-                            win32_hwnd,
-                            None,
-                            0,
-                            0,
-                            0,
-                            0,
-                            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
-                        );
-                    }
-
-                    let initial_settings = config::settings::load();
-                    let is_macos_mode = initial_settings.bar_position == "macos" || initial_settings.bar_position == "top";
-                    let top_notch_physical = if is_macos_mode {
-                        (32.0 * scale_factor).round() as i32
-                    } else if initial_settings.enable_dynamic_island {
-                        (initial_settings.margin_top as f64 * scale_factor).round() as i32
-                    } else {
-                        0
+                // Strip all title-bar / caption / border styles and set WS_POPUP
+                unsafe {
+                    use windows::Win32::UI::WindowsAndMessaging::{
+                        GetWindowLongW, SetWindowLongW, SetWindowPos, SetWindowTextW, GWL_STYLE, GWL_EXSTYLE,
+                        WS_CAPTION, WS_SYSMENU, WS_BORDER, WS_THICKFRAME, WS_MINIMIZEBOX,
+                        WS_MAXIMIZEBOX, WS_POPUP, WS_VISIBLE, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+                        SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE,
                     };
-                    let bar_bottom_physical = (initial_settings.margin_bottom as f64 * scale_factor).round() as i32;
-                    let left_margin_physical = (initial_settings.margin_left as f64 * scale_factor).round() as i32;
-                    let right_margin_physical = (initial_settings.margin_right as f64 * scale_factor).round() as i32;
+                    use windows::Win32::Graphics::Dwm::{
+                        DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DWMWA_NCRENDERING_POLICY, DWMNCRP_DISABLED,
+                        DWMWA_TRANSITIONS_FORCEDISABLED,
+                    };
+                    use windows::Win32::UI::Controls::MARGINS;
+                    use windows::Win32::UI::Shell::SetWindowSubclass;
 
-                    work_area::pin_window_to_bottom(
+                    let style = GetWindowLongW(win32_hwnd, GWL_STYLE) as u32;
+                    let clean = (style & !(WS_CAPTION.0 | WS_SYSMENU.0 | WS_BORDER.0 | WS_THICKFRAME.0 | WS_MINIMIZEBOX.0 | WS_MAXIMIZEBOX.0)) | WS_POPUP.0 | WS_VISIBLE.0;
+                    SetWindowLongW(win32_hwnd, GWL_STYLE, clean as i32);
+
+                    let ex_style = GetWindowLongW(win32_hwnd, GWL_EXSTYLE) as u32;
+                    let clean_ex = (ex_style & !WS_EX_APPWINDOW.0) | WS_EX_TOOLWINDOW.0;
+                    SetWindowLongW(win32_hwnd, GWL_EXSTYLE, clean_ex as i32);
+
+                    // Disable DWM non-client caption bar rendering
+                    let policy = DWMNCRP_DISABLED.0 as u32;
+                    let _ = DwmSetWindowAttribute(
                         win32_hwnd,
-                        pos.x,
-                        pos.y,
-                        size.width as i32,
-                        size.height as i32,
-                        bar_bottom_physical,
-                        top_notch_physical,
-                        left_margin_physical,
-                        right_margin_physical,
+                        DWMWA_NCRENDERING_POLICY,
+                        &policy as *const _ as *const _,
+                        std::mem::size_of::<u32>() as u32,
+                    );
+
+                    let disable_trans: u32 = 1;
+                    let _ = DwmSetWindowAttribute(
+                        win32_hwnd,
+                        DWMWA_TRANSITIONS_FORCEDISABLED,
+                        &disable_trans as *const _ as *const _,
+                        std::mem::size_of::<u32>() as u32,
+                    );
+
+                    // Extend glass frame across entire window (-1 margins = 100% transparent glass)
+                    let margins = MARGINS {
+                        cxLeftWidth: -1,
+                        cxRightWidth: -1,
+                        cyTopHeight: -1,
+                        cyBottomHeight: -1,
+                    };
+                    let _ = DwmExtendFrameIntoClientArea(win32_hwnd, &margins);
+
+                    // Set empty window title in Win32
+                    let empty_title: Vec<u16> = vec![0];
+                    let _ = SetWindowTextW(win32_hwnd, windows::core::PCWSTR(empty_title.as_ptr()));
+
+                    // Subclass window to intercept and permanently drop WM_NCACTIVATE and WM_NCPAINT
+                    let _ = SetWindowSubclass(
+                        win32_hwnd,
+                        Some(taskbar_subclass_proc),
+                        101,
+                        0,
+                    );
+
+                    let _ = SetWindowPos(
+                        win32_hwnd,
+                        None,
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
                     );
                 }
+
+                let initial_settings = config::settings::load();
+                let is_macos_mode = initial_settings.bar_position == "macos" || initial_settings.bar_position == "top";
+                let top_notch_physical = if is_macos_mode {
+                    (32.0 * scale_factor).round() as i32
+                } else if initial_settings.enable_dynamic_island {
+                    (initial_settings.margin_top as f64 * scale_factor).round() as i32
+                } else {
+                    0
+                };
+                let bar_bottom_physical = (initial_settings.margin_bottom as f64 * scale_factor).round() as i32;
+                let left_margin_physical = (initial_settings.margin_left as f64 * scale_factor).round() as i32;
+                let right_margin_physical = (initial_settings.margin_right as f64 * scale_factor).round() as i32;
+
+                work_area::pin_window_to_bottom(
+                    win32_hwnd,
+                    pos_x,
+                    pos_y,
+                    width,
+                    height,
+                    bar_bottom_physical,
+                    top_notch_physical,
+                    left_margin_physical,
+                    right_margin_physical,
+                );
             }
 
             let initial_settings = config::settings::load();

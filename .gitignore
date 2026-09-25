@@ -84,3 +84,5 @@ ARCHITECTURE.md
 skills/
 DynamicWin_Update/
 phase.md
+.cargo/
+src-tauri/.cargo/

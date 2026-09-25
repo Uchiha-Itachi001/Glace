@@ -35,8 +35,8 @@ async function runCheck(force = false) {
   notify();
 }
 
-// Auto-check once on app startup immediately
-if (!state.updateInfo && !state.isChecking) {
+// Auto-check once on app startup immediately if online
+if (!state.updateInfo && !state.isChecking && (typeof navigator === "undefined" || navigator.onLine)) {
   runCheck(false);
 }
 
@@ -46,11 +46,20 @@ export function useUpdate() {
   useEffect(() => {
     const handler = (next: UpdateState) => setCurrent(next);
     listeners.add(handler);
-    if (!state.updateInfo && !state.isChecking) {
+    if (!state.updateInfo && !state.isChecking && (typeof navigator === "undefined" || navigator.onLine)) {
       runCheck(false);
     }
+
+    const handleOnline = () => {
+      if (!state.updateInfo && !state.isChecking) {
+        runCheck(false);
+      }
+    };
+    window.addEventListener("online", handleOnline);
+
     return () => {
       listeners.delete(handler);
+      window.removeEventListener("online", handleOnline);
     };
   }, []);
 

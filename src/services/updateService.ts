@@ -1,6 +1,6 @@
 import { UpdateInfo } from "../types";
 
-export const CURRENT_APP_VERSION = "0.4.5";
+export const CURRENT_APP_VERSION = "0.4.6";
 export const GITHUB_REPO = "Uchiha-Itachi001/Glace";
 
 const CACHE_KEY = "glace_update_cache";
@@ -68,6 +68,11 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo> {
     latestVersion: CURRENT_APP_VERSION,
     releaseUrl: `https://github.com/${GITHUB_REPO}/releases`,
   };
+
+  // If offline, skip network fetch immediately to avoid timeouts on startup
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return defaultResult;
+  }
 
   try {
     const controller = new AbortController();

@@ -103,28 +103,37 @@ pub fn clean_copilot_model_name(raw: &str) -> String {
 }
 
 static COPILOT_CACHE: Mutex<Option<(Instant, Option<CopilotInfo>)>> = Mutex::new(None);
+static IS_FETCHING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub fn fetch_copilot_info() -> Option<CopilotInfo> {
-    if let Ok(guard) = COPILOT_CACHE.lock() {
+    let (cached_info, is_stale) = if let Ok(guard) = COPILOT_CACHE.lock() {
         if let Some((cached_time, ref info)) = *guard {
-            if cached_time.elapsed() < QUOTA_CACHE_TTL {
-                return info.clone();
-            }
+            (info.clone(), cached_time.elapsed() >= QUOTA_CACHE_TTL)
+        } else {
+            (None, true)
         }
+    } else {
+        (None, true)
+    };
+
+    if is_stale && !IS_FETCHING.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        std::thread::spawn(|| {
+            let fresh = fetch_copilot_info_uncached();
+            if let Ok(mut guard) = COPILOT_CACHE.lock() {
+                *guard = Some((Instant::now(), fresh));
+            }
+            IS_FETCHING.store(false, std::sync::atomic::Ordering::SeqCst);
+        });
     }
 
-    let result = fetch_copilot_info_uncached();
-    if let Ok(mut guard) = COPILOT_CACHE.lock() {
-        *guard = Some((Instant::now(), result.clone()));
-    }
-    result
+    cached_info
 }
 
 fn fetch_copilot_info_uncached() -> Option<CopilotInfo> {
     let token = get_github_token()?;
     let mut curl = std::process::Command::new("curl.exe");
     curl.args(&[
-        "-s", "--max-time", "3",
+        "-s", "--connect-timeout", "1", "--max-time", "2",
         "https://api.github.com/copilot_internal/user",
         "-H", &format!("Authorization: Bearer {}", token.trim()),
         "-H", "User-Agent: GithubCopilot/1.0",

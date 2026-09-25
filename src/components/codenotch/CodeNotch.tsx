@@ -196,7 +196,7 @@ export const CodeNotch: React.FC = () => {
   }, []);
 
   const isEnabled = settings?.enable_codenotch ?? true;
-  const position = settings?.codenotch_position ?? "right";
+  const position = settings?.codenotch_position === "left" ? "left" : "right";
 
   const isActive = isHovered && !isFlyoutOpen;
 
@@ -268,10 +268,14 @@ export const CodeNotch: React.FC = () => {
   }, [promoteAssistant]);
 
   // Show active/running AIs ordered by MRU (top AI is the most recently opened/active).
-  // When minimized or idle, last active stays at the top. Full list is available and scrollable.
+  // When no AI is running, returns an empty array so CodeNotch hides completely.
+  // CodeNotch only displays when one or more AI assistants are actively open/running.
   const displayAssistants: AiProviderStatus[] = useMemo(() => {
     const active = assistants.filter((a) => a.is_running || a.session_status === "active");
-    const idle = assistants.filter((a) => !a.is_running && a.session_status !== "active" && a.is_installed);
+
+    if (active.length === 0) {
+      return [];
+    }
 
     const sortByMru = (list: AiProviderStatus[]) => {
       return [...list].sort((a, b) => {
@@ -284,17 +288,7 @@ export const CodeNotch: React.FC = () => {
       });
     };
 
-    const sortedActive = sortByMru(active);
-    if (sortedActive.length > 0) {
-      return sortedActive;
-    }
-
-    // When no AIs are currently active, show installed or available assistants so notch is always visible
-    const installed = assistants.filter((a) => a.is_installed);
-    if (installed.length > 0) {
-      return sortByMru(installed);
-    }
-    return sortByMru(assistants);
+    return sortByMru(active);
   }, [assistants, mruOrder]);
 
   const totalSections = Math.max(1, Math.ceil(displayAssistants.length / 4));
@@ -343,7 +337,7 @@ export const CodeNotch: React.FC = () => {
       setCurrentSection(section);
     }
 
-    const currentId = hoveredAssistantId || activeAssistantId;
+    const currentId = hoveredAssistantId;
     if (currentId) {
       updatePopoverPosition(currentId);
     }
@@ -739,21 +733,11 @@ export const CodeNotch: React.FC = () => {
         </div>
       )}
 
-      {/* ─── SPEECH BUBBLE POPOVER CARD (Flies out to the left) ─── */}
+      {/* ─── SPEECH BUBBLE POPOVER CARD (Flies out to show details only; does not trap hover) ─── */}
       {selectedAssistant && !isCodeNotchPeek && !isFlyoutOpen && (
         <div
           className="codenotch-speech-bubble"
           style={{ top: `${popoverTop}px` }}
-          onClick={(e) => e.stopPropagation()}
-          onMouseEnter={() => {
-            if (collapseTimeoutRef.current) {
-              window.clearTimeout(collapseTimeoutRef.current);
-              collapseTimeoutRef.current = null;
-            }
-            setIsHovered(true);
-            windowExpansion.request("codenotch", 480);
-          }}
-          onMouseLeave={handleMouseLeaveNotch}
         >
           {/* Triangular pointer pointing to the active circle */}
           <div className="codenotch-bubble-arrow" />

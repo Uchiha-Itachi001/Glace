@@ -167,13 +167,23 @@ export async function fetchAlbumArt(title: string, artist?: string): Promise<str
     return pendingRequests.get(cacheKey)!;
   }
 
+  // Offline check: return local fallback immediately without hitting network
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    const fallback = detectFallbackBadge(t, a);
+    if (fallback) setBoundedCache(artCache, cacheKey, fallback);
+    return fallback;
+  }
+
   const fetchPromise = (async () => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
       const searchTerm = cleanQueryString(t, a);
       if (searchTerm && searchTerm.length >= 2) {
         const url = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=song&limit=1`;
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: controller.signal });
         if (response.ok) {
+          clearTimeout(timeoutId);
           const data = await response.json();
           if (data.resultCount > 0 && data.results?.[0]?.artworkUrl100) {
             const highResUrl = data.results[0].artworkUrl100.replace("100x100bb.jpg", "300x300bb.jpg");
@@ -187,8 +197,9 @@ export async function fetchAlbumArt(title: string, artist?: string): Promise<str
       if (searchTerm && searchTerm.length >= 3) {
         const deezerUrl = `https://api.deezer.com/search?q=${encodeURIComponent(searchTerm)}&limit=1`;
         try {
-          const deezerRes = await fetch(deezerUrl);
+          const deezerRes = await fetch(deezerUrl, { signal: controller.signal });
           if (deezerRes.ok) {
+            clearTimeout(timeoutId);
             const deezerData = await deezerRes.json();
             if (deezerData.data?.[0]?.album?.cover_medium) {
               const deezerArt = deezerData.data[0].album.cover_medium;
@@ -197,9 +208,10 @@ export async function fetchAlbumArt(title: string, artist?: string): Promise<str
             }
           }
         } catch {
-          // Ignore Deezer CORS
+          // Ignore Deezer CORS / timeout
         }
       }
+      clearTimeout(timeoutId);
 
       // If online music search found no match, use platform or browser fallback badge
       const fallbackBadge = detectFallbackBadge(t, a);

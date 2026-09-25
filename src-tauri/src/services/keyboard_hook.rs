@@ -65,10 +65,10 @@ unsafe extern "system" fn ll_keyboard_proc(ncode: i32, wparam: WPARAM, lparam: L
                             false
                         };
 
-                        let in_codenotch = if settings.enable_codenotch {
+                        let in_codenotch = if settings.enable_codenotch && crate::services::work_area::is_codenotch_active() {
                             if let Some(config) = crate::services::work_area::get_glace_config() {
                                 let scale = (config.bar_height_physical as f64 / 48.0).max(1.0);
-                                let is_left = settings.codenotch_position == "left" || settings.codenotch_position == "top-left";
+                                let is_left = settings.codenotch_position == "left";
                                 let is_expanded = crate::services::work_area::is_window_expanded();
                                 let notch_w = if is_expanded {
                                     (400.0 * scale).round() as i32

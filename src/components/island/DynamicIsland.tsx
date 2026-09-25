@@ -1047,7 +1047,7 @@ export const DynamicIsland: React.FC = () => {
                           <path d="M3 9h18M9 21V9" />
                         </svg>
                         <span className="bento-glance-stat-lbl">Glace Shell</span>
-                        <span className="bento-glance-chip">v0.4.5</span>
+                        <span className="bento-glance-chip">v0.4.6</span>
                       </div>
                       <div className="bento-glance-stat-row">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -3,6 +3,7 @@ import { useSettings, THEME_PRESETS } from "../../stores/settingsStore";
 import { useUpdate } from "../../stores/updateStore";
 import { ThemeId, BarAlignment, AppResourceUsage } from "../../types";
 import { tauriBridge } from "../../services/tauriBridge";
+import { useAiAssistants } from "../../hooks/useAiAssistants";
 
 interface SettingsFlyoutProps {
   onClose: () => void;
@@ -189,7 +190,7 @@ const TASKBAR_MEDIA_STYLES: Array<{
 ];
 
 const CODENOTCH_POSITIONS: Array<{
-  id: "right" | "left" | "top-right" | "floating";
+  id: "right" | "left";
   name: string;
   badge: string;
   desc: string;
@@ -198,32 +199,21 @@ const CODENOTCH_POSITIONS: Array<{
     id: "right",
     name: "Right Screen Edge",
     badge: "Default",
-    desc: "Vertical notch tab hugging the right screen bezel with speech-bubble popover",
+    desc: "Vertical notch hugging the right screen bezel with concave curvature",
   },
   {
     id: "left",
     name: "Left Screen Edge",
     badge: "Left",
-    desc: "Vertical notch tab hugging the left screen bezel",
-  },
-  {
-    id: "top-right",
-    name: "Top-Right Edge",
-    badge: "Top",
-    desc: "Hugs top-right screen bezel with inverted curve ears",
-  },
-  {
-    id: "floating",
-    name: "Floating Island",
-    badge: "Pill",
-    desc: "Detached pill capsule with 999px rounded border",
+    desc: "Vertical notch hugging the left screen bezel with concave curvature",
   },
 ];
 
 export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
   const { settings, updateSettings, setTheme, toggleWidget, toggleTrayItem, setSysMonMode, setMediaLocation } = useSettings();
   const { updateInfo, isChecking, hasUpdate, check: checkUpdate, currentVersion } = useUpdate();
-  const [activeTab, setActiveTab] = useState<"appearance" | "taskbar" | "island" | "tray" | "performance" | "about">("appearance");
+  const [activeTab, setActiveTab] = useState<"appearance" | "taskbar" | "island" | "codenotch" | "tray" | "performance" | "about">("appearance");
+  const { assistants: aiAssistants, activeAssistants, launchAssistant } = useAiAssistants(activeTab === "codenotch");
 
   const currentTheme = settings?.theme_id || "obsidian";
   const currentAccent = settings?.accent_color || "#10b981";
@@ -455,6 +445,18 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             <span>Dynamic Island</span>
           </button>
 
+          {/* Tab 4: CodeNotch */}
+          <button
+            className={`settings-nav-item ${activeTab === "codenotch" ? "settings-nav-item--active" : ""}`}
+            onClick={() => setActiveTab("codenotch")}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+            <span>CodeNotch</span>
+          </button>
+
           {/* Tab 4: Status & Tray */}
           <button
             className={`settings-nav-item ${activeTab === "tray" ? "settings-nav-item--active" : ""}`}
@@ -535,6 +537,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
             {activeTab === "appearance" && "Appearance & Themes"}
             {activeTab === "taskbar" && "Taskbar & Dock Configuration"}
             {activeTab === "island" && "Dynamic Island (Top Notch Hub)"}
+            {activeTab === "codenotch" && "CodeNotch (AI Assistant Side Bar)"}
             {activeTab === "tray" && "Status Bar & System Tray"}
             {activeTab === "performance" && "Performance & Resource Monitor"}
             {activeTab === "about" && "About & Developer Credits"}
@@ -1358,7 +1361,7 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                       <span className="widget-row-name" style={{ fontWeight: 600 }}>Enable Standalone CodeNotch</span>
                       <span className="widget-row-desc">
                         {currentEnableCodeNotch
-                          ? "Active: Dedicated bezel notch showing live status rings for Cursor, Claude Code, Copilot, Ollama, LM Studio, etc."
+                          ? "Active: Appears on screen when 1 or more AI assistants (Cursor, Claude, Copilot, Ollama, etc.) are running"
                           : "Disabled: Standalone CodeNotch bar is completely hidden"}
                       </span>
                     </div>
@@ -1368,49 +1371,298 @@ export const SettingsFlyout: React.FC<SettingsFlyoutProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                {currentEnableCodeNotch && (
-                  <div style={{ marginTop: "12px" }}>
-                    <span className="settings-block-label" style={{ fontSize: "11px", marginBottom: "6px" }}>
-                      Notch Screen Position
-                    </span>
-                    <div className="sysmon-mode-options-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
-                      {CODENOTCH_POSITIONS.map((pos) => {
-                        const isSelected = currentCodeNotchPosition === pos.id;
-                        return (
-                          <div
-                            key={pos.id}
-                            className={`sysmon-mode-card ${
-                              isSelected ? "sysmon-mode-card--active" : ""
-                            }`}
-                            onClick={() => updateSettings({ codenotch_position: pos.id })}
-                          >
-                            <div className="sysmon-mode-header">
-                              <span className="sysmon-mode-name">{pos.name}</span>
-                              <span className="sysmon-mode-badge">{pos.badge}</span>
-                            </div>
-                            <span className="sysmon-mode-desc">{pos.desc}</span>
-                            {isSelected && (
-                              <div className="sysmon-mode-check">
-                                <svg
-                                  width="12"
-                                  height="12"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="3"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                <div style={{ marginTop: "10px", display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "6px 14px",
+                      background: "rgba(255, 255, 255, 0.06)",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                      borderRadius: "8px",
+                      color: "var(--glace-text-primary)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.15s ease",
+                    }}
+                    onClick={() => setActiveTab("codenotch")}
+                  >
+                    Configure CodeNotch Position & AI Launchers →
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Tab: CodeNotch AI Assistant Desktop Bar */}
+          {activeTab === "codenotch" && (
+            <>
+              {/* 1. Master Enable / Disable CodeNotch Switch */}
+              <div className="settings-section-block">
+                <span className="settings-block-label">CodeNotch Activation & Behavior</span>
+                <div className="widget-items-stack">
+                  <div
+                    className="widget-row-card"
+                    style={{
+                      border: currentEnableCodeNotch ? "1px solid var(--glace-accent)" : "1px solid rgba(255, 255, 255, 0.08)",
+                      background: currentEnableCodeNotch ? "rgba(var(--glace-accent-rgb, 16, 185, 129), 0.08)" : undefined,
+                    }}
+                    onClick={() => updateSettings({ enable_codenotch: !currentEnableCodeNotch })}
+                  >
+                    <div className="widget-row-meta">
+                      <span className="widget-row-name" style={{ fontWeight: 600 }}>Enable CodeNotch</span>
+                      <span className="widget-row-desc">
+                        {currentEnableCodeNotch
+                          ? "Active: CodeNotch will appear on your screen bezel whenever 1 or more AI coding assistants are running"
+                          : "Disabled: CodeNotch is completely turned off and will never appear"}
+                      </span>
+                    </div>
+                    <div className={`switch-pill ${currentEnableCodeNotch ? "switch-pill--on" : ""}`}>
+                      <div className="switch-thumb" />
                     </div>
                   </div>
-                )}
+                </div>
+              </div>
+
+              {/* 2. Smart Visibility Live Status */}
+              <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                <span className="settings-block-label">Live Screen Status</span>
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: "12px",
+                    background: "rgba(255, 255, 255, 0.03)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: !currentEnableCodeNotch
+                        ? "#64748b"
+                        : activeAssistants.length > 0
+                        ? "#10b981"
+                        : "#f59e0b",
+                      boxShadow: currentEnableCodeNotch && activeAssistants.length > 0
+                        ? "0 0 8px #10b981"
+                        : undefined,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ display: "flex", flexDirection: "column", gap: "2px", flex: 1 }}>
+                    <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--glace-text-primary)" }}>
+                      {!currentEnableCodeNotch
+                        ? "CodeNotch is Disabled"
+                        : activeAssistants.length > 0
+                        ? `Visible on Screen (${activeAssistants.length} AI ${activeAssistants.length === 1 ? "app" : "apps"} running)`
+                        : "Hidden (No AI Currently Running)"}
+                    </span>
+                    <span style={{ fontSize: "10.5px", color: "var(--glace-text-muted)", lineHeight: 1.4 }}>
+                      {!currentEnableCodeNotch
+                        ? "Turn on the switch above to activate CodeNotch."
+                        : activeAssistants.length > 0
+                        ? `Currently displaying: ${activeAssistants.map((a) => a.name).join(", ")}.`
+                        : "CodeNotch only shows when at least one AI assistant is active. When all AIs are closed, it automatically hides to leave your screen clean."}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Screen Position */}
+              {currentEnableCodeNotch && (
+                <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                  <span className="settings-block-label">Notch Screen Position</span>
+                  <div className="sysmon-mode-options-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+                    {CODENOTCH_POSITIONS.map((pos) => {
+                      const isSelected = currentCodeNotchPosition === pos.id;
+                      return (
+                        <div
+                          key={pos.id}
+                          className={`sysmon-mode-card ${
+                            isSelected ? "sysmon-mode-card--active" : ""
+                          }`}
+                          onClick={() => updateSettings({ codenotch_position: pos.id })}
+                        >
+                          <div className="sysmon-mode-header">
+                            <span className="sysmon-mode-name">{pos.name}</span>
+                            <span className="sysmon-mode-badge">{pos.badge}</span>
+                          </div>
+                          <span className="sysmon-mode-desc">{pos.desc}</span>
+                          {isSelected && (
+                            <div className="sysmon-mode-check">
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Peek-Through Key */}
+              {currentEnableCodeNotch && (
+                <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                  <span className="settings-block-label">Hover Peek-Through Key</span>
+                  <div className="sysmon-mode-options-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+                    {PEEK_KEYS.map((pk) => {
+                      const isSelected = (settings?.notch_peek_key || "shift") === pk.id;
+                      return (
+                        <div
+                          key={pk.id}
+                          className={`sysmon-mode-card ${
+                            isSelected ? "sysmon-mode-card--active" : ""
+                          }`}
+                          onClick={() => updateSettings({ notch_peek_key: pk.id })}
+                        >
+                          <div className="sysmon-mode-header">
+                            <span className="sysmon-mode-name">{pk.name}</span>
+                            <span className="sysmon-mode-badge">{pk.badge}</span>
+                          </div>
+                          <span className="sysmon-mode-desc">{pk.desc}</span>
+                          {isSelected && (
+                            <div className="sysmon-mode-check">
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 5. Detected AI Assistants & Launcher */}
+              <div className="settings-section-block" style={{ marginTop: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <span className="settings-block-label" style={{ margin: 0 }}>Supported AI Assistants</span>
+                  <span style={{ fontSize: "10px", color: "var(--glace-text-muted)" }}>
+                    {aiAssistants.filter((a) => a.is_running || a.session_status === "active").length} Running · {aiAssistants.length} Total
+                  </span>
+                </div>
+
+                <div className="widget-items-stack" style={{ gap: "6px" }}>
+                  {aiAssistants.map((assistant) => {
+                    const isRunning = assistant.is_running || assistant.session_status === "active";
+                    return (
+                      <div
+                        key={assistant.id}
+                        className="widget-row-card"
+                        style={{
+                          padding: "8px 12px",
+                          border: isRunning ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)",
+                          background: isRunning ? "rgba(16, 185, 129, 0.05)" : "rgba(255, 255, 255, 0.02)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: "8px",
+                              background: "rgba(255, 255, 255, 0.06)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              overflow: "hidden",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <img
+                              src={`/ai-icons/${assistant.id}.svg`}
+                              alt={assistant.name}
+                              style={{ width: 18, height: 18, objectFit: "contain" }}
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          </div>
+
+                          <div className="widget-row-meta">
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <span className="widget-row-name" style={{ fontSize: "12px", fontWeight: 600 }}>
+                                {assistant.name}
+                              </span>
+                              {isRunning && (
+                                <span
+                                  style={{
+                                    fontSize: "8.5px",
+                                    fontWeight: 700,
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
+                                    padding: "1px 6px",
+                                    borderRadius: "4px",
+                                    background: "rgba(16, 185, 129, 0.2)",
+                                    color: "#10b981",
+                                    border: "1px solid rgba(16, 185, 129, 0.35)",
+                                  }}
+                                >
+                                  Running
+                                </span>
+                              )}
+                            </div>
+                            <span className="widget-row-desc" style={{ fontSize: "10px" }}>
+                              {assistant.detail || (assistant.is_installed ? "Installed" : "Available")}
+                              {assistant.active_model ? ` · ${assistant.active_model}` : ""}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="settings-action-btn"
+                          style={{
+                            fontSize: "10.5px",
+                            fontWeight: 600,
+                            padding: "4px 10px",
+                            borderRadius: "6px",
+                            border: isRunning ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(255, 255, 255, 0.12)",
+                            background: isRunning ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                            color: isRunning ? "#10b981" : "var(--glace-text-primary)",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            launchAssistant(assistant.id);
+                          }}
+                        >
+                          {isRunning ? "Focus Window" : "Launch"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </>
           )}

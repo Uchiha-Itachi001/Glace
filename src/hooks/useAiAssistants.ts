@@ -31,6 +31,18 @@ export function useAiAssistants(pollActive: boolean = false) {
     isMountedRef.current = true;
     fetchStatus();
 
+    let unlisten: (() => void) | undefined;
+    tauriBridge
+      .onWindowsUpdated(() => {
+        if (isMountedRef.current) {
+          fetchStatus(false);
+        }
+      })
+      .then((unsub) => {
+        unlisten = unsub;
+      })
+      .catch(() => {});
+
     // Poll every 2s if pollActive (notch expanded), every 4s if idle
     const intervalMs = pollActive ? 2000 : 4000;
     const timer = setInterval(() => {
@@ -40,6 +52,7 @@ export function useAiAssistants(pollActive: boolean = false) {
     return () => {
       isMountedRef.current = false;
       clearInterval(timer);
+      if (unlisten) unlisten();
     };
   }, [pollActive, fetchStatus]);
 

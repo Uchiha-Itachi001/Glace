@@ -119,7 +119,7 @@ export interface Settings {
   media_location?: MediaLocation;
   notch_peek_key?: NotchPeekKey;
   enable_codenotch?: boolean;
-  codenotch_position?: "right" | "left" | "top-right" | "top-left" | "top-center" | "floating";
+  codenotch_position?: "right" | "left";
   margin_top?: number;
   margin_bottom?: number;
   margin_left?: number;

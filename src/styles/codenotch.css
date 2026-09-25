@@ -25,13 +25,11 @@
               transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-.codenotch-vertical-notch--flyout-open.codenotch-pos--right,
-.codenotch-vertical-notch--flyout-open.codenotch-pos--top-right {
+.codenotch-vertical-notch--flyout-open.codenotch-pos--right {
   transform: translateY(-50%) translateX(110%) !important;
 }
 
-.codenotch-vertical-notch--flyout-open.codenotch-pos--left,
-.codenotch-vertical-notch--flyout-open.codenotch-pos--top-left {
+.codenotch-vertical-notch--flyout-open.codenotch-pos--left {
   transform: translateY(-50%) translateX(-110%) !important;
 }
 
@@ -60,8 +58,7 @@
 }
 
 /* Default: Right Screen Edge Bezel Hugging (Inactive Compact Mode) */
-.codenotch-pos--right,
-.codenotch-pos--top-right {
+.codenotch-pos--right {
   right: 0;
   top: 50%;
   transform: translateY(-50%);
@@ -74,16 +71,14 @@
 }
 
 /* Expanded/Active: Full Current Notch */
-.codenotch-vertical-notch--active.codenotch-pos--right,
-.codenotch-vertical-notch--active.codenotch-pos--top-right {
+.codenotch-vertical-notch--active.codenotch-pos--right {
   width: 58px;
   border-radius: 20px 0 0 20px;
   padding: 16px 0;
 }
 
 /* Alternative: Left Screen Edge (Inactive Compact Mode) */
-.codenotch-pos--left,
-.codenotch-pos--top-left {
+.codenotch-pos--left {
   left: 0;
   top: 50%;
   transform: translateY(-50%);
@@ -96,29 +91,9 @@
 }
 
 /* Expanded/Active: Full Current Left Notch */
-.codenotch-vertical-notch--active.codenotch-pos--left,
-.codenotch-vertical-notch--active.codenotch-pos--top-left {
+.codenotch-vertical-notch--active.codenotch-pos--left {
   width: 58px;
   border-radius: 0 20px 20px 0;
-  padding: 16px 0;
-}
-
-/* Alternative: Floating Island Capsule */
-.codenotch-pos--floating {
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 26px;
-  background: #000000;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 13px;
-  padding: 8px 0;
-  box-shadow: none !important;
-}
-
-.codenotch-vertical-notch--active.codenotch-pos--floating {
-  width: 58px;
-  border-radius: 28px;
   padding: 16px 0;
 }
 
@@ -137,30 +112,26 @@
 }
 
 /* Right Edge Ears - Anchored to Notch Top & Bottom Edges */
-.codenotch-pos--right .codenotch-ear--top,
-.codenotch-pos--top-right .codenotch-ear--top {
+.codenotch-pos--right .codenotch-ear--top {
   bottom: calc(100% - 0.5px);
   top: auto;
   right: 0;
 }
 
-.codenotch-pos--right .codenotch-ear--bottom,
-.codenotch-pos--top-right .codenotch-ear--bottom {
+.codenotch-pos--right .codenotch-ear--bottom {
   top: calc(100% - 0.5px);
   bottom: auto;
   right: 0;
 }
 
 /* Right Edge Ears - Active */
-.codenotch-vertical-notch--active.codenotch-pos--right .codenotch-ear,
-.codenotch-vertical-notch--active.codenotch-pos--top-right .codenotch-ear {
+.codenotch-vertical-notch--active.codenotch-pos--right .codenotch-ear {
   width: 16px;
   height: 16px;
 }
 
 /* Left Edge Ears - Anchored to Notch Top & Bottom Edges */
-.codenotch-pos--left .codenotch-ear--top,
-.codenotch-pos--top-left .codenotch-ear--top {
+.codenotch-pos--left .codenotch-ear--top {
   bottom: calc(100% - 0.5px);
   top: auto;
   left: 0;
@@ -168,8 +139,7 @@
   transform: scaleX(-1);
 }
 
-.codenotch-pos--left .codenotch-ear--bottom,
-.codenotch-pos--top-left .codenotch-ear--bottom {
+.codenotch-pos--left .codenotch-ear--bottom {
   top: calc(100% - 0.5px);
   bottom: auto;
   left: 0;
@@ -178,16 +148,9 @@
 }
 
 /* Left Edge Ears - Active */
-.codenotch-vertical-notch--active.codenotch-pos--left .codenotch-ear,
-.codenotch-vertical-notch--active.codenotch-pos--top-left .codenotch-ear {
+.codenotch-vertical-notch--active.codenotch-pos--left .codenotch-ear {
   width: 16px;
   height: 16px;
-}
-
-
-/* Floating mode disables ears */
-.codenotch-pos--floating .codenotch-ear {
-  display: none;
 }
 
 /* ─── Scrollable Items Viewport & Pagination Dots ───────────────────────── */
@@ -236,20 +199,13 @@
 }
 
 /* Position on right side center for right edge notches */
-.codenotch-pos--right .codenotch-pagination-dots,
-.codenotch-pos--top-right .codenotch-pagination-dots {
+.codenotch-pos--right .codenotch-pagination-dots {
   right: 4px;
 }
 
 /* Position on left side center for left edge notches */
-.codenotch-pos--left .codenotch-pagination-dots,
-.codenotch-pos--top-left .codenotch-pagination-dots {
+.codenotch-pos--left .codenotch-pagination-dots {
   left: 4px;
-}
-
-/* Position on right side center for floating notch */
-.codenotch-pos--floating .codenotch-pagination-dots {
-  right: 4px;
 }
 
 .codenotch-page-dot {
@@ -491,33 +447,14 @@
   overflow-y: auto;
   scrollbar-width: none;
   box-sizing: border-box;
-  pointer-events: auto;
+  pointer-events: none !important;
 }
 
 .codenotch-speech-bubble::-webkit-scrollbar {
   display: none;
 }
 
-/* Invisible hover bridge spanning the 12px gap between notch and speech bubble */
-.codenotch-speech-bubble::before {
-  content: "";
-  position: absolute;
-  top: -10px;
-  bottom: -10px;
-  right: -24px;
-  width: 28px;
-  background: transparent;
-  pointer-events: auto;
-}
-
-.codenotch-pos--left .codenotch-speech-bubble::before,
-.codenotch-pos--top-left .codenotch-speech-bubble::before {
-  right: auto;
-  left: -24px;
-}
-
-.codenotch-pos--left .codenotch-speech-bubble,
-.codenotch-pos--top-left .codenotch-speech-bubble {
+.codenotch-pos--left .codenotch-speech-bubble {
   right: auto;
   left: 72px;
   transform-origin: left center;

@@ -125,7 +125,8 @@ function initSettingsStore(): Promise<Settings> {
   initPromise = tauriBridge.getSettings()
     .then((loaded) => {
       if (!hasLocalUpdates && loaded && loaded.theme_id) {
-        notify({ ...DEFAULT_SETTINGS, ...loaded });
+        const sanitizedPos = loaded.codenotch_position === "left" ? "left" : "right";
+        notify({ ...DEFAULT_SETTINGS, ...loaded, codenotch_position: sanitizedPos });
       }
       return globalSettings;
     })
